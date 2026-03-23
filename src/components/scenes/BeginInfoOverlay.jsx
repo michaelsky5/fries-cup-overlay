@@ -139,6 +139,9 @@ export default function BeginInfoOverlay({
     if (triggerAt === undefined || triggerAt === null) return;
     if (forceVisible) return;
 
+    // 🛑 核心修复：如果控制台的 AUTO BEGIN 是关闭状态，直接拦截！
+    if (matchData?.beginInfoEnabled === false) return;
+
     // 🌟 核心修复：简化生命周期，不再需要极短的 'enter' 状态引起 transition 跳动
     setVisible(true);
     setPhase('show'); // 直接设为 show，触发进场 CSS Animation
@@ -155,7 +158,7 @@ export default function BeginInfoOverlay({
       clearTimeout(exitTimer);
       clearTimeout(doneTimer);
     };
-  }, [triggerAt, duration, forceVisible]);
+  }, [triggerAt, duration, forceVisible, matchData?.beginInfoEnabled]); // 👈 别忘了把开关加进依赖数组里
 
   const mapLabel = useMemo(() => getMapLabel(matchData), [matchData]);
 

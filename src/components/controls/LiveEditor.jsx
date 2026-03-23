@@ -185,10 +185,15 @@ export default function LiveEditor({
                 </button>
               )}
 
+              {/* 🎯 修改点：非 Ultra 模式下的 TEAM WIN 按钮 */}
               {!isUltra && (
                 <button style={{ ...ui.actionBtn, padding: compactBtnPad || ui.actionBtn.padding, height: controlRowHeight, minHeight: controlRowHeight, fontSize: is1080Compact ? '11px' : undefined, fontWeight: '900', width: '100%', whiteSpace: 'nowrap' }} onClick={() => {
-                  updateWithHistory(`Set Team ${side} as winner`, { ...matchData, winnerScene: { ...(matchData.winnerScene || {}), winner: side, title: 'WINNER' } });
-                  setPreviewScene?.('WINNER');
+                  updateWithHistory(`Set Team ${side} as winner and TAKE`, { 
+                    ...matchData, 
+                    globalScene: 'WINNER', // 强制主画面切过去
+                    winnerScene: { ...(matchData.winnerScene || {}), winner: side, title: 'WINNER' } 
+                  });
+                  setPreviewScene?.('WINNER'); // 让 Preview 保持同步
                 }}>
                   {isA ? 'TEAM A WIN' : 'TEAM B WIN'}
                 </button>
@@ -202,9 +207,14 @@ export default function LiveEditor({
                     {sideLabel}
                   </button>
                 )}
+                {/* 🎯 修改点：Ultra 模式下的 TEAM WIN 按钮 */}
                 <button style={{ ...ui.actionBtn, padding: compactBtnPad || ui.actionBtn.padding, height: controlRowHeight, minHeight: controlRowHeight, fontSize: is1080Compact ? '11px' : undefined, fontWeight: '900', width: '100%', whiteSpace: 'nowrap' }} onClick={() => {
-                  updateWithHistory(`Set Team ${side} as winner`, { ...matchData, winnerScene: { ...(matchData.winnerScene || {}), winner: side, title: 'WINNER' } });
-                  setPreviewScene?.('WINNER');
+                  updateWithHistory(`Set Team ${side} as winner and TAKE`, { 
+                    ...matchData, 
+                    globalScene: 'WINNER', // 强制主画面切过去
+                    winnerScene: { ...(matchData.winnerScene || {}), winner: side, title: 'WINNER' } 
+                  });
+                  setPreviewScene?.('WINNER'); // 让 Preview 保持同步
                 }}>
                   {isA ? 'TEAM A WIN' : 'TEAM B WIN'}
                 </button>
