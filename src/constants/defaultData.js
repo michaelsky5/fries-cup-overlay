@@ -80,11 +80,25 @@ export const defaultData = {
     { teamA: 'TEAM A', teamB: 'TEAM B', logoA: LOGO_LIST[0].path, logoB: LOGO_LIST[0].path, logoBgA: COLORS.mainDark, logoBgB: COLORS.mainDark, time: '', stage: '', scoreA: '', scoreB: '' }
   ],
   videoLibrary: [
-    { name: 'OFFICIAL WARMUP', path: '/assets/bg/warmup.mp4' },
-    { name: 'SPONSOR AD A', path: '/assets/videos/ad1.mp4' }
+    { 
+      name: '朱诺英雄预览', 
+      path: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/juno-preview.mp4' 
+    },
+    { 
+      name: '芙蕾雅英雄预览', 
+      path: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/freja-preview.mp4' 
+    },
+    { 
+      name: '斩仇英雄预览', 
+      path: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/vendetta-preview.mp4' 
+    },
+    { 
+      name: '无漾英雄预览', 
+      path: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/wuyang-preview.mp4' 
+    }
   ],
-  videoPlaylist: ['/assets/bg/warmup.mp4'],
-  activeVideoPath: '/assets/bg/warmup.mp4',
+  videoPlaylist: [],
+  activeVideoPath: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/juno-preview.mp4',
   videoMuted: false,
   highlightLibrary: [{ name: 'DEFAULT HIGHLIGHT', path: '/assets/highlights/hl1.mp4' }],
   highlightPlaylist: ['/assets/highlights/hl1.mp4'],
