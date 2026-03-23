@@ -132,14 +132,19 @@ export default function CountdownEditor({
     updateWithHistory(`Remove Upcoming Match ${index + 1}`, { ...matchData, upcomingMatches: newList });
   };
 
+  // 🌟 终极修复：下发绝对时间戳
   const applyCountdownTime = () => {
     const mins = Math.max(0, parseInt(localMins, 10) || 0);
     const secs = Math.max(0, Math.min(59, parseInt(localSecs, 10) || 0));
     const totalSeconds = mins * 60 + secs;
     
+    // 计算出具体的结束时间（当前时间 + 倒计时秒数）
+    const absoluteTargetTime = Date.now() + totalSeconds * 1000;
+    
     updateWithHistory(`Set Countdown to ${mins}m ${secs}s`, { 
       ...matchData, 
-      countdownSeconds: totalSeconds 
+      countdownSeconds: totalSeconds, // 保留用于输入框状态回显
+      targetTimestamp: absoluteTargetTime // 真正发给推流画面的“军令”
     });
   };
 

@@ -153,27 +153,25 @@ export default function CountdownScene({ matchData, updateData }) {
   const currentVideo = matchData.activeVideoPath || '';
   const playlist = matchData.videoPlaylist || [];
 
-  // 🌟 性能优化：绝对时间戳机制
   const [timeLeft, setTimeLeft] = useState(0);
-  const targetTimeRef = useRef(0);
 
-  useEffect(() => {
-    // 当后台设置了新的倒计时长，记录下绝对的目标结束时间
-    const totalSeconds = matchData.countdownSeconds || 600;
-    targetTimeRef.current = Date.now() + totalSeconds * 1000;
-    setTimeLeft(totalSeconds);
-  }, [matchData.countdownSeconds]);
-
+  // 🌟 核心修复：完全依赖控制台下发的绝对时间戳进行倒计时
   useEffect(() => {
     const timerId = setInterval(() => {
-      if (targetTimeRef.current > 0) {
-        // 每次计算：目标时间 - 当前真实时间
-        const remaining = Math.max(0, Math.floor((targetTimeRef.current - Date.now()) / 1000));
+      // 获取控制台传来的目标时间戳，如果没有则默认为 0
+      const target = matchData.targetTimestamp || 0;
+      
+      if (target > 0) {
+        // 计算目标时间与当前本地时间的差值
+        const remaining = Math.max(0, Math.floor((target - Date.now()) / 1000));
         setTimeLeft(remaining);
+      } else {
+        setTimeLeft(0);
       }
-    }, 1000); // 就算这里因为后台休眠变成了 5000ms 触发一次，算出来的时间也是绝对准确的
+    }, 100); // 100ms 刷新一次，保证数字跳动时视觉上的极致精准
+    
     return () => clearInterval(timerId);
-  }, []);
+  }, [matchData.targetTimestamp]); // 只在 targetTimestamp 改变时重置定时器逻辑
 
   useEffect(() => { 
     if (videoRef.current) videoRef.current.muted = matchData.videoMuted !== undefined ? matchData.videoMuted : false; 
