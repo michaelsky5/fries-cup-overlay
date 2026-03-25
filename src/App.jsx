@@ -12,6 +12,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import FriesModal from './components/common/FriesModal';
 
 // Auth / Layout
+import IntroSplashScreen from './components/auth/IntroSplashScreen';
 import NoticeScreen from './components/auth/NoticeScreen';
 import LoginModeScreen from './components/auth/LoginModeScreen';
 import ConsoleWorkspace from './components/layout/ConsoleWorkspace';
@@ -27,16 +28,17 @@ import StatsScene from './components/scenes/StatsScene';
 import RosterScene from './components/scenes/RosterScene';
 import StingerTransition from './components/scenes/StingerTransition';
 import WinnerScene from './components/scenes/WinnerScene';
+import BroadcastCoverScene from './components/scenes/BroadcastCoverScene';
 
 // Config / Styles
 import { COLORS, BASE_SCENE_W, BASE_SCENE_H, getDensityTokens } from './constants/styles';
 import { LOGO_LIST } from './constants/logos';
 
-const APP_SCREENS = { NOTICE: 'notice', LOGIN: 'login', WORKSPACE: 'workspace' };
+const APP_SCREENS = { INTRO: 'intro', NOTICE: 'notice', LOGIN: 'login', WORKSPACE: 'workspace' };
 
 // 🌟 彻底重命名为 EASY_TABS
-const EASY_TABS = ['LIVE', 'MAP_POOL', 'COUNTDOWN', 'STATS']; 
-const PRO_TABS = ['LIVE', 'MAP_POOL', 'ROSTER', 'STATS', 'CASTERS', 'COUNTDOWN', 'HIGHLIGHT', 'VIDEO', 'TEAM_DB'];
+const EASY_TABS = ['LIVE', 'MAP_POOL', 'COUNTDOWN', 'STATS'];
+const PRO_TABS = ['LIVE', 'MAP_POOL', 'ROSTER', 'STATS', 'CASTERS', 'COUNTDOWN', 'HIGHLIGHT', 'VIDEO', 'TEAM_DB', 'COVER'];
 
 const getConsolePresetMeta = (value, viewportW = 0) => {
   if (value === '1920x1080') return { label: '1080P', width: 1920, desc: 'Optimized for compact console layouts.', densityHint: 'compact' };
@@ -57,6 +59,7 @@ const renderSceneByKey = (sceneKey, matchData, isActive = false) => {
   if (sceneKey === 'STATS') return <StatsScene matchData={matchData} />;
   if (sceneKey === 'ROSTER') return <RosterScene matchData={matchData} />;
   if (sceneKey === 'WINNER') return <WinnerScene matchData={matchData} />;
+  if (sceneKey === 'COVER') return <BroadcastCoverScene matchData={matchData} />;
   return <MatchLiveHUD matchData={matchData} isActive={isActive} />;
 };
 
@@ -72,10 +75,10 @@ function App() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isLogOpen, setIsLogOpen] = useState(true);
 
-  const [appScreen, setAppScreen] = useState(APP_SCREENS.NOTICE);
+  const [appScreen, setAppScreen] = useState(APP_SCREENS.INTRO);
   const [consoleMode, setConsoleMode] = useState('easy'); // 🌟 初始化为 easy
   const [consoleResolution, setConsoleResolution] = useState('auto');
-  
+
   // 这个状态只在控制台 UI 切换时有用
   const [outputResolution, setOutputResolution] = useState(matchData.outputMode === '4K' ? '3840x2160' : '1920x1080');
   const [proAccessCode, setProAccessCode] = useState('');
@@ -132,7 +135,8 @@ function App() {
     HIGHLIGHT: 'HIGHLIGHTS',
     STATS: 'MATCH STATS',
     ROSTER: 'TEAM ROSTERS',
-    WINNER: 'WINNER SCREEN'
+    WINNER: 'WINNER SCREEN',
+    COVER: 'BROADCAST COVER',
   };
 
   const silentMatchData = {
@@ -294,14 +298,14 @@ function App() {
     const outW = is4K ? 3840 : 1920;
     const outH = is4K ? 2160 : 1080;
     const scale = is4K ? 2 : 1;
-    
+
     return (
       <div style={{ width: `${outW}px`, height: `${outH}px`, position: 'relative', overflow: 'hidden', background: 'transparent' }}>
         <div style={{ width: '1920px', height: '1080px', position: 'absolute', left: 0, top: 0, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
           {renderSceneByKey(renderScene, matchData, renderScene === 'LIVE')}
-          <StingerTransition 
-            isActive={isTransitioning} 
-            logoPath={matchData.stingerLogo || '/assets/logos/fc_logo.png'} 
+          <StingerTransition
+            isActive={isTransitioning}
+            logoPath={matchData.stingerLogo || '/assets/logos/fc_logo.png'}
             divisionLabel={matchData.infoSubtitle || 'OVERWATCH'}
           />
         </div>
@@ -324,6 +328,11 @@ function App() {
     <MatchContext.Provider value={contextValue}>
       {isOverlay ? (
         renderOverlayPage()
+      ) : appScreen === APP_SCREENS.INTRO ? (
+        <IntroSplashScreen
+          duration={2200}
+          onFinish={() => setAppScreen(APP_SCREENS.NOTICE)}
+        />
       ) : appScreen === APP_SCREENS.NOTICE ? (
         <NoticeScreen
           density={uiDensity}
@@ -339,7 +348,6 @@ function App() {
           onEnterSystem={() => setAppScreen(APP_SCREENS.LOGIN)}
           onSetDefault1080={() => syncOutputResolution('1920x1080')}
         />
-        
       ) : appScreen === APP_SCREENS.LOGIN ? (
         <LoginModeScreen
           density={uiDensity}
@@ -356,11 +364,10 @@ function App() {
           h={h}
           proAccessCode={proAccessCode}
           setProAccessCode={setProAccessCode}
-          onEnterBasicMode={enterEasyMode} // 🌟 使用新方法名
+          onEnterBasicMode={enterEasyMode}
           onEnterProMode={enterProMode}
           onBackNotice={() => setAppScreen(APP_SCREENS.NOTICE)}
         />
-      
       ) : (
         <ConsoleWorkspace
           density={uiDensity}

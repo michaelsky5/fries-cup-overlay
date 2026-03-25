@@ -25,26 +25,29 @@ export function useKeyboardShortcuts({
       if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
         takeScene(previewSceneRef.current, '[快捷键] TAKE');
+        return;
       }
-      
-      // 4. 🌟 核心优化：按人体工程学使用频率重排，支持 1-9 键
-      if (e.key >= '1' && e.key <= '9' && isUnlocked) {
+
+      // 4. 支持 1-9 和 0
+      if (isUnlocked && ((e.key >= '1' && e.key <= '9') || e.key === '0')) {
         const tabs = [
-          'LIVE',       // 1. 赛中极高频
-          'MAP_POOL',   // 2. 局间高频切换地图与比分
-          'ROSTER',     // 3. 上场名单与替补轮换
-          'STATS',      // 4. 赛后高阶数据结算
-          'CASTERS',    // 5. 解说更新
-          'COUNTDOWN',  // 6. 局间休息/暖场
-          'HIGHLIGHT',  // 7. 高光回放
-          'VIDEO',      // 8. 宣传片播放
-          'TEAM_DB'     // 9. 全局战队库 (极低频，赛前配置)
+          'LIVE',       // 1
+          'MAP_POOL',   // 2
+          'ROSTER',     // 3
+          'STATS',      // 4
+          'CASTERS',    // 5
+          'COUNTDOWN',  // 6
+          'HIGHLIGHT',  // 7
+          'VIDEO',      // 8
+          'TEAM_DB',    // 9
+          'COVER'       // 0
         ];
-        // 彻底移除了 WINNER，它不再是一个 Tab
-        const targetTab = tabs[parseInt(e.key, 10) - 1];
+
+        const targetTab = e.key === '0' ? tabs[9] : tabs[parseInt(e.key, 10) - 1];
         if (targetTab) setActiveTab(targetTab);
+        return;
       }
-      
+
       // 5. Ctrl+Z / Cmd+Z 触发撤销
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();

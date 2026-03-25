@@ -136,5 +136,37 @@ export const defaultData = {
   winnerScene: {
     winner: 'A',
     title: 'WINNER'
-  }
+  },
+    // COVER
+  coverMode: 'GENERIC',
+
+  titleMain: 'FRIES CUP',
+  titleSubEn: 'ACADEMY',
+  titleSubCn: '薯条杯学院赛',
+
+  topLeftLabel: 'FCUP_BROADCAST_INTERFACE',
+  topRightLabelGeneric: 'BROADCAST // STANDBY',
+  topRightLabelMatch: 'MATCH // READY',
+  seasonLabel: 'SEASON 2026',
+
+  footerLeft: 'FRIES CUP LIVE ROOM',
+  footerCenter: 'FRIES-CUP.COM',
+  footerRight: 'LIVE COVER SYSTEM',
+
+  genericWatermark: 'BROADCAST',
+  phaseMainEn: 'OPEN QUALIFIER',
+  phaseMainCn: '公开预选赛',
+  phaseSubEn: 'SWISS STAGE',
+  phaseSubCn: '瑞士轮',
+
+  coverCasterLabelEn: 'CASTERS',
+  coverCasterLabelCn: '解说',
+  coverAdminLabelEn: 'ADMIN',
+  coverAdminLabelCn: '赛管',
+  coverCasters: 'AAA / BBB',
+  coverAdmins: 'CCC / DDD',
+
+  matchWatermark: 'MATCHDAY',
+  showLogos: true,
+  showFooterCenter: true,
 };

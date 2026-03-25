@@ -23,6 +23,7 @@ import StatsEditor from '../controls/StatsEditor';
 import CountdownEditor from '../controls/CountdownEditor';
 import VideoEditor from '../controls/VideoEditor';
 import HighlightEditor from '../controls/HighlightEditor';
+import CoverEditor from '../controls/CoverEditor';
 
 import RightSidebar from './RightSidebar';
 import StingerTransition from '../scenes/StingerTransition';
@@ -89,7 +90,14 @@ function ConsoleWorkspace({
 
   const isTakeDisabled = isTransitioning || previewScene === matchData.globalScene;
 
-  // 🌟 神级优化：定义绝对最优的人体工程学 Tab 排序
+  const is1080Output = outputResolution === '1920x1080';
+  const isSelectorTight = is1080Output || isShort || isDense || isUltra;
+  const selectorBodyPadding = isSelectorTight ? '8px' : t.panelPadding;
+  const selectorGap = isSelectorTight ? '5px' : '8px';
+  const quickSummaryPadding = isSelectorTight ? '8px' : isDense || isUltra ? '10px' : headerPanelBodyStyle.padding;
+  const quickSummaryGap = isSelectorTight ? '5px' : isDense || isUltra ? '6px' : '8px';
+  const quickSummaryCols = isUltra ? '1fr' : isSelectorTight ? '1fr' : '1fr 1fr';
+
   const OPTIMAL_TAB_ORDER = [
     'LIVE',
     'MAP_POOL',
@@ -99,10 +107,10 @@ function ConsoleWorkspace({
     'COUNTDOWN',
     'HIGHLIGHT',
     'VIDEO',
-    'TEAM_DB'
+    'TEAM_DB',
+    'COVER',
   ];
-  
-  // 仅渲染在这个最优数组内，且确实可用的 Tab
+
   const displayTabs = OPTIMAL_TAB_ORDER.filter(tab => availableTabs.includes(tab));
 
   return (
@@ -163,16 +171,17 @@ function ConsoleWorkspace({
             <span style={{ fontSize: '12px', fontWeight: '900', letterSpacing: '2px', color: COLORS.softWhite }}>
               FCUP_CONTROL_INTERFACE
             </span>
-            {/* 🌟 模式指示 Badge */}
-            <span style={{ 
-              fontSize: '10px', 
-              fontWeight: '900', 
-              letterSpacing: '1px', 
-              padding: '2px 6px', 
-              backgroundColor: isUnlocked ? 'rgba(244,195,32,0.15)' : 'rgba(255,255,255,0.1)', 
-              color: isUnlocked ? COLORS.yellow : COLORS.white,
-              borderRadius: '2px'
-            }}>
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: '900',
+                letterSpacing: '1px',
+                padding: '2px 6px',
+                backgroundColor: isUnlocked ? 'rgba(244,195,32,0.15)' : 'rgba(255,255,255,0.1)',
+                color: isUnlocked ? COLORS.yellow : COLORS.white,
+                borderRadius: '2px'
+              }}
+            >
               {isUnlocked ? 'PRO MODE' : 'EASY MODE'}
             </span>
           </div>
@@ -213,15 +222,12 @@ function ConsoleWorkspace({
           style={{
             padding: `${blockGap}px ${pagePadding}px 0`,
             display: 'grid',
-            // 🌟 动态适配宽容模式，EASY 模式强制单列展开
             gridTemplateColumns: isUnlocked ? topGridTemplate : '1fr',
             gap: blockGap,
-            // 🌟 强迫症修复：从 'start' 改为 'stretch'，强制三个面板无论内容多少都保持绝对等高！
-            alignItems: 'stretch' 
+            alignItems: 'stretch'
           }}
         >
           {isUnlocked ? (
-            /* 🌟 PRO 模式：保留原汁原味的三大控制面板 */
             <>
               <ShellPanel
                 title="System Status"
@@ -259,7 +265,6 @@ function ConsoleWorkspace({
                     gap: '8px'
                   }}
                 >
-                  {/* Row 1 */}
                   <div
                     style={{
                       display: 'grid',
@@ -305,6 +310,7 @@ function ConsoleWorkspace({
                         <option value="HIGHLIGHT">HIGHLIGHT</option>
                         <option value="VIDEO">VIDEO</option>
                         <option value="WINNER">WINNER</option>
+                        <option value="COVER">COVER</option>
                       </select>
                     </div>
 
@@ -396,7 +402,6 @@ function ConsoleWorkspace({
                     </button>
                   </div>
 
-                  {/* Row 2 */}
                   <div
                     style={{
                       display: 'grid',
@@ -621,134 +626,153 @@ function ConsoleWorkspace({
               </ShellPanel>
             </>
           ) : (
-            /* 🌟 EASY 模式：专为 4K 巨屏重构的大字号“播控状态台” */
-            <ShellPanel 
-              title="LIVE STATUS & ACTIONS" 
-              accent 
-              density={density} 
+            <ShellPanel
+              title="LIVE STATUS & ACTIONS"
+              accent
+              density={density}
               style={{ height: '100%' }}
-              bodyStyle={{ 
-                padding: density === 'spacious' ? '16px 24px' : '14px 18px', 
-                height: '100%', 
-                display: 'flex', 
-                flexDirection: 'column', 
-                justifyContent: 'center' 
+              bodyStyle={{
+                padding: density === 'spacious' ? '16px 24px' : '14px 18px',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center'
               }}
             >
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                 <div>
-                   <div style={{ fontSize: density === 'spacious' ? '12px' : '11px', color: COLORS.faintWhite, fontWeight: 900, letterSpacing: '2px', marginBottom: '8px' }}>
-                     CURRENTLY ON AIR
-                   </div>
-                   <div style={{ 
-                     fontSize: density === 'spacious' ? '36px' : '28px', 
-                     color: '#2ecc71', 
-                     fontWeight: 900, 
-                     letterSpacing: '1px', 
-                     textTransform: 'uppercase', 
-                     textShadow: '0 0 20px rgba(46, 204, 113, 0.3)',
-                     lineHeight: 1 
-                   }}>
-                     {matchData.globalScene}
-                   </div>
-                 </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                  <div style={{ fontSize: density === 'spacious' ? '12px' : '11px', color: COLORS.faintWhite, fontWeight: 900, letterSpacing: '2px', marginBottom: '8px' }}>
+                    CURRENTLY ON AIR
+                  </div>
+                  <div
+                    style={{
+                      fontSize: density === 'spacious' ? '36px' : '28px',
+                      color: '#2ecc71',
+                      fontWeight: 900,
+                      letterSpacing: '1px',
+                      textTransform: 'uppercase',
+                      textShadow: '0 0 20px rgba(46, 204, 113, 0.3)',
+                      lineHeight: 1
+                    }}
+                  >
+                    {matchData.globalScene}
+                  </div>
+                </div>
 
-                 <div style={{ display: 'flex', gap: '12px' }}>
-                    <button 
-                      style={{ 
-                        ...ui.actionBtn, 
-                        padding: '0 28px', 
-                        height: density === 'spacious' ? '54px' : '44px', 
-                        backgroundColor: COLORS.blue, 
-                        color: '#fff', 
-                        cursor: 'pointer', 
-                        fontWeight: 900, 
-                        fontSize: density === 'spacious' ? '15px' : '14px',
-                        letterSpacing: '0.5px'
-                      }} 
-                      onClick={handleSwapTeams}
-                    >
-                      SWAP SIDES
-                    </button>
-                    <button 
-                      style={{ 
-                        ...ui.outlineBtn, 
-                        padding: '0 28px', 
-                        height: density === 'spacious' ? '54px' : '44px', 
-                        borderColor: history.length ? COLORS.yellow : COLORS.lineStrong, 
-                        color: history.length ? COLORS.yellow : COLORS.softWhite, 
-                        cursor: history.length ? 'pointer' : 'not-allowed', 
-                        opacity: history.length ? 1 : 0.5, 
-                        fontWeight: 900, 
-                        fontSize: density === 'spacious' ? '15px' : '14px',
-                        letterSpacing: '0.5px'
-                      }} 
-                      onClick={handleUndo} 
-                      disabled={history.length === 0}
-                    >
-                      UNDO
-                    </button>
-                 </div>
-               </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button
+                    style={{
+                      ...ui.actionBtn,
+                      padding: '0 28px',
+                      height: density === 'spacious' ? '54px' : '44px',
+                      backgroundColor: COLORS.blue,
+                      color: '#fff',
+                      cursor: 'pointer',
+                      fontWeight: 900,
+                      fontSize: density === 'spacious' ? '15px' : '14px',
+                      letterSpacing: '0.5px'
+                    }}
+                    onClick={handleSwapTeams}
+                  >
+                    SWAP SIDES
+                  </button>
+                  <button
+                    style={{
+                      ...ui.outlineBtn,
+                      padding: '0 28px',
+                      height: density === 'spacious' ? '54px' : '44px',
+                      borderColor: history.length ? COLORS.yellow : COLORS.lineStrong,
+                      color: history.length ? COLORS.yellow : COLORS.softWhite,
+                      cursor: history.length ? 'pointer' : 'not-allowed',
+                      opacity: history.length ? 1 : 0.5,
+                      fontWeight: 900,
+                      fontSize: density === 'spacious' ? '15px' : '14px',
+                      letterSpacing: '0.5px'
+                    }}
+                    onClick={handleUndo}
+                    disabled={history.length === 0}
+                  >
+                    UNDO
+                  </button>
+                </div>
+              </div>
             </ShellPanel>
           )}
         </div>
 
         <div style={{ minHeight: 0, padding: `${blockGap}px ${pagePadding}px ${pagePadding}px` }}>
           <div style={{ display: 'grid', gridTemplateColumns: mainGridTemplate, gap: blockGap, height: '100%', minHeight: 0 }}>
-            
             {/* Left Sidebar */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: blockGap, minWidth: 0, minHeight: 0 }}>
-              <ShellPanel 
-                title={isUnlocked ? "Scene Selector" : "Auto-Take Deck"} 
-                accent 
-                bodyStyle={headerPanelBodyStyle} 
-                density={density}
-              >
-                <div style={{ display: 'grid', gap: '8px' }}>
-                  {/* 🌟 使用过滤后的 displayTabs 渲染，彻底阻断 WINNER */}
-                  {displayTabs.map((tab, idx) => (
-                    <TabButton
-                      key={tab}
-                      active={activeTab === tab}
-                      onClick={() => {
-                        setActiveTab(tab);
-                        // 🌟 EASY 模式盲切引擎触发
-                        if (!isUnlocked) {
-                          setPreviewScene(tab);
-                          takeScene(tab, '[AUTO-TAKE] Menu');
-                        }
-                      }}
-                      label={tab}
-                      index={idx + 1}
-                      compact={isDense}
-                      density={density}
-                    />
-                  ))}
-                </div>
-              </ShellPanel>
-
-              <ShellPanel
-                title="Quick Summary"
-                bodyStyle={{
-                  ...headerPanelBodyStyle,
-                  padding: isDense || isUltra ? '10px' : headerPanelBodyStyle.padding
-                }}
-                density={density}
-              >
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: isUltra ? '1fr' : isDense ? '1fr' : '1fr 1fr',
-                    gap: isDense || isUltra ? '6px' : '8px'
+            <div style={{ display: 'flex', flexDirection: 'column', gap: blockGap, minWidth: 0, minHeight: 0, height: '100%' }}>
+              <div style={{ flex: '1 1 0', minHeight: 0, overflow: 'hidden' }}>
+                <ShellPanel
+                  title={isUnlocked ? "Scene Selector" : "Auto-Take Deck"}
+                  accent
+                  density={density}
+                  style={{ height: '100%' }}
+                  bodyStyle={{
+                    padding: selectorBodyPadding,
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 0
                   }}
                 >
-                  <QuickStat label="Match Format" value={matchData.matchFormat} compact density={density} />
-                  <QuickStat label="Current Map" value={`MAP ${matchData.currentMap}`} compact density={density} />
-                  <QuickStat label="Score" value={`${matchData.scoreA} : ${matchData.scoreB}`} valueColor={COLORS.yellow} compact density={density} />
-                  <QuickStat label="Ticker" value={matchData.showTicker ? 'ACTIVE' : 'OFF'} valueColor={matchData.showTicker ? COLORS.yellow : COLORS.softWhite} compact density={density} />
-                </div>
-              </ShellPanel>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: selectorGap,
+                      minHeight: 0,
+                      overflowY: 'auto',
+                      overflowX: 'hidden',
+                      paddingRight: isSelectorTight ? '2px' : '0',
+                      scrollbarWidth: 'thin'
+                    }}
+                  >
+                    {displayTabs.map((tab, idx) => (
+                      <TabButton
+                        key={tab}
+                        active={activeTab === tab}
+                        onClick={() => {
+                          setActiveTab(tab);
+                          if (!isUnlocked) {
+                            setPreviewScene(tab);
+                            takeScene(tab, '[AUTO-TAKE] Menu');
+                          }
+                        }}
+                        label={tab}
+                        index={idx + 1}
+                        compact={isSelectorTight}
+                        density={isSelectorTight ? 'compact' : density}
+                      />
+                    ))}
+                  </div>
+                </ShellPanel>
+              </div>
+
+              <div style={{ flex: '0 0 auto' }}>
+                <ShellPanel
+                  title="Quick Summary"
+                  bodyStyle={{
+                    ...headerPanelBodyStyle,
+                    padding: quickSummaryPadding
+                  }}
+                  density={density}
+                >
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: quickSummaryCols,
+                      gap: quickSummaryGap
+                    }}
+                  >
+                    <QuickStat label="Match Format" value={matchData.matchFormat} compact density={density} />
+                    <QuickStat label="Current Map" value={`MAP ${matchData.currentMap}`} compact density={density} />
+                    <QuickStat label="Score" value={`${matchData.scoreA} : ${matchData.scoreB}`} valueColor={COLORS.yellow} compact density={density} />
+                    <QuickStat label="Ticker" value={matchData.showTicker ? 'ACTIVE' : 'OFF'} valueColor={matchData.showTicker ? COLORS.yellow : COLORS.softWhite} compact density={density} />
+                  </div>
+                </ShellPanel>
+              </div>
             </div>
 
             {/* Center Editor */}
@@ -763,7 +787,6 @@ function ConsoleWorkspace({
                 paddingRight: '2px'
               }}
             >
-              {/* 🌟 核心优化：仅在专业模式下渲染监视器 */}
               {isUnlocked && (
                 <div style={{ display: 'grid', gridTemplateColumns: monitorGridTemplate, gap: blockGap }}>
                   <MonitorFrame title={`Preview // ${previewScene}`} accent={COLORS.yellow} compact={isDense} density={density}>
@@ -792,6 +815,7 @@ function ConsoleWorkspace({
               {activeTab === 'HIGHLIGHT' && <HighlightEditor {...editorEnv} />}
               {activeTab === 'STATS' && <StatsEditor {...editorEnv} />}
               {activeTab === 'ROSTER' && <RosterEditor {...editorEnv} blockGap={blockGap} />}
+              {activeTab === 'COVER' && <CoverEditor {...editorEnv} matchData={matchData} updateData={updateData} blockGap={blockGap} />}
 
               {showEmbeddedRightPanels && (
                 <div style={{ display: 'grid', gap: blockGap }}>
