@@ -101,11 +101,6 @@ function CoverModePanel({ coverMode, setField, ui, density }) {
           Match
         </ToggleBtn>
       </div>
-      <SectionHint
-        density={density}
-        text="GENERIC 用于通用直播间封面；MATCH 用于具体对阵封面。"
-        style={{ marginTop: '10px' }}
-      />
     </ShellPanel>
   );
 }
@@ -136,11 +131,6 @@ function BrandingPanel({ matchData, setField, ui, density }) {
             <TextInput value={matchData.titleSubCn} onChange={v => setField('titleSubCn', v)} placeholder="薯条杯学院赛" ui={ui} />
           </Field>
         </div>
-
-        <SectionHint
-          density={density}
-          text="顶栏左侧标签固定为 FCUP，右上状态文案使用场景默认值，不在这里单独编辑。"
-        />
       </div>
     </ShellPanel>
   );
