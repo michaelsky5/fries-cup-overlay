@@ -230,11 +230,6 @@ function GenericPanel({ matchData, setField, ui, density }) {
             />
           </Field>
         </div>
-
-        <SectionHint
-          density={density}
-          text="当前通用封面只显示公开预选赛这一层，不显示瑞士轮 / LCQ 等子阶段。"
-        />
       </div>
     </ShellPanel>
   );
@@ -388,7 +383,10 @@ export default function CoverEditor({
   densityTokens,
   matchData,
   updateData,
-  blockGap = 12
+  blockGap = 12,
+  // 👇 接收外部传进来的导出函数和状态
+  onExport,      
+  isExporting    
 }) {
   const ui = createEditorUi(densityTokens, density);
   const coverMode = (matchData.coverMode || 'GENERIC').toUpperCase();
@@ -405,11 +403,38 @@ export default function CoverEditor({
         alignItems: 'start'
       }}
     >
+      {/* 左列：通用设置 + 导出按钮 */}
       <div style={{ display: 'grid', gap: blockGap }}>
         <CoverModePanel coverMode={coverMode} setField={setField} ui={ui} density={density} />
         <BrandingPanel matchData={matchData} setField={setField} ui={ui} density={density} />
+
+        {/* 👇 新增的导出按钮 */}
+        {onExport && (
+          <button
+            onClick={onExport}
+            disabled={isExporting}
+            style={{
+              ...ui.btn,
+              minHeight: '44px',
+              background: COLORS.yellow,
+              color: COLORS.black,
+              border: UI.outerFrame,
+              fontWeight: 900,
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+              cursor: isExporting ? 'wait' : 'pointer',
+              opacity: isExporting ? 0.7 : 1,
+              marginTop: '4px',
+              boxShadow: isExporting ? 'none' : '0 4px 14px rgba(244,195,32,0.25)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            {isExporting ? 'GENERATING...' : 'EXPORT COVER IMAGE'}
+          </button>
+        )}
       </div>
 
+      {/* 右列：对应模式的详细表单 */}
       {coverMode === 'GENERIC' ? (
         <GenericPanel matchData={matchData} setField={setField} ui={ui} density={density} />
       ) : (

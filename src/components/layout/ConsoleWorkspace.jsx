@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
+import html2canvas from 'html2canvas'; // 👈 引入截图工具
+
 import {
   COLORS,
   UI,
@@ -27,6 +29,9 @@ import CoverEditor from '../controls/CoverEditor';
 
 import RightSidebar from './RightSidebar';
 import StingerTransition from '../scenes/StingerTransition';
+
+// 👇 引入你的渲染画面组件 (请根据你的实际目录结构调整路径)
+import BroadcastCoverScene from '../scenes/BroadcastCoverScene'; 
 
 function ConsoleWorkspace({
   density,
@@ -113,6 +118,34 @@ function ConsoleWorkspace({
 
   const displayTabs = OPTIMAL_TAB_ORDER.filter(tab => availableTabs.includes(tab));
 
+  // ================= 👇 新增的图片导出逻辑 👇 =================
+  const [isExporting, setIsExporting] = useState(false);
+  const coverSceneRef = useRef(null);
+
+  const handleExportCover = async () => {
+    if (!coverSceneRef.current) return;
+    try {
+      setIsExporting(true);
+      const canvas = await html2canvas(coverSceneRef.current, {
+        useCORS: true,
+        scale: 1, 
+        backgroundColor: COLORS.mainDark || '#111',
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      const mode = matchData.coverMode || 'GENERIC';
+      link.download = `FCUP-Cover-${mode}-${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error('导出封面失败:', error);
+      alert('导出图片失败，请检查是否包含跨域图片问题。');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+  // ================= 👆 新增逻辑结束 👆 =================
+
   return (
     <div
       style={{
@@ -128,6 +161,20 @@ function ConsoleWorkspace({
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
         * { box-sizing: border-box; }
       `}</style>
+
+      {/* 👇 专用于无损导出的隐藏 1920x1080 画面 👇 */}
+      <div 
+        style={{ 
+          position: 'absolute', 
+          top: '-20000px', 
+          left: '-20000px', 
+          width: '1920px', 
+          height: '1080px', 
+          pointerEvents: 'none' 
+        }}
+      >
+        <BroadcastCoverScene ref={coverSceneRef} matchData={matchData} />
+      </div>
 
       <div
         style={{
@@ -815,7 +862,18 @@ function ConsoleWorkspace({
               {activeTab === 'HIGHLIGHT' && <HighlightEditor {...editorEnv} />}
               {activeTab === 'STATS' && <StatsEditor {...editorEnv} />}
               {activeTab === 'ROSTER' && <RosterEditor {...editorEnv} blockGap={blockGap} />}
-              {activeTab === 'COVER' && <CoverEditor {...editorEnv} matchData={matchData} updateData={updateData} blockGap={blockGap} />}
+              
+              {/* 👇 这里把导出相关的 Props 传给刚才修改好的 CoverEditor 👇 */}
+              {activeTab === 'COVER' && (
+                <CoverEditor 
+                  {...editorEnv} 
+                  matchData={matchData} 
+                  updateData={updateData} 
+                  blockGap={blockGap} 
+                  onExport={handleExportCover}   
+                  isExporting={isExporting}     
+                />
+              )}
 
               {showEmbeddedRightPanels && (
                 <div style={{ display: 'grid', gap: blockGap }}>

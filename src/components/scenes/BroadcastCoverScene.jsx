@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 
 const COLORS = {
   black: '#2a2a2a',
@@ -255,17 +255,17 @@ function GenericCover({ data }) {
             <div style={{ position: 'absolute', right: '-1px', top: '-1px', width: '38px', height: '8px', background: COLORS.yellow, opacity: 0.16 }} />
           </div>
 
-<div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-  <span style={{ fontSize: '18px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
-    {safe(data.phaseMainEn) || 'OPEN QUALIFIER'}
-  </span>
-  <span style={{ fontSize: '13px', fontWeight: 900, color: 'rgba(255,255,255,0.34)', letterSpacing: '2px' }}>
-    //
-  </span>
-  <span style={{ fontSize: '18px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '0.8px' }}>
-    {safe(data.phaseMainCn) || '公开预选赛'}
-  </span>
-</div>
+          <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '18px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
+              {safe(data.phaseMainEn) || 'OPEN QUALIFIER'}
+            </span>
+            <span style={{ fontSize: '13px', fontWeight: 900, color: 'rgba(255,255,255,0.34)', letterSpacing: '2px' }}>
+              //
+            </span>
+            <span style={{ fontSize: '18px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '0.8px' }}>
+              {safe(data.phaseMainCn) || '公开预选赛'}
+            </span>
+          </div>
         </div>
 
         <div style={{ alignSelf: 'center' }}>
@@ -485,12 +485,14 @@ function BottomBar({ data, isMatch }) {
   );
 }
 
-export default function BroadcastCoverScene({ matchData = {} }) {
+// 重点：使用 forwardRef 包裹并透传 ref
+const BroadcastCoverScene = forwardRef(({ matchData = {} }, ref) => {
   const data = { ...DEFAULT_DATA, ...matchData };
   const isMatch = safe(data.coverMode).toUpperCase() === 'MATCH';
 
   return (
     <div
+      ref={ref} // 👈 ref 挂载在这里
       style={{
         width: '1920px',
         height: '1080px',
@@ -513,4 +515,6 @@ export default function BroadcastCoverScene({ matchData = {} }) {
       <BottomBar data={data} isMatch={isMatch} />
     </div>
   );
-}
+});
+
+export default BroadcastCoverScene;
