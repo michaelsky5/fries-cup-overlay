@@ -11,24 +11,27 @@ export function useKeyboardShortcuts({
 }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // 1. 如果打开了预设弹窗，按 Esc 关闭
+      // 🚀 优化 1：如果有系统级弹窗打开，彻底封锁全局快捷键，防止误操作！
+      if (document.body.classList.contains('fc-modal-open')) return;
+
       if (presetModalTarget && e.key === 'Escape') {
         setPresetModalTarget(null);
         return;
       }
 
-      // 2. 如果焦点在输入框里，无视所有快捷键
       const tag = e.target.tagName.toUpperCase();
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      
+      // 🚀 优化 2：不仅放过输入框，还要放开按钮和链接！防止用户点完按钮按空格键引发的连环车祸
+      if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(tag)) return;
 
-      // 3. 空格 / 回车 触发 TAKE
+      // 空格 / 回车 触发 TAKE
       if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
         takeScene(previewSceneRef.current, '[快捷键] TAKE');
         return;
       }
 
-      // 4. 支持 1-9 和 0
+      // 支持 1-9 和 0
       if (isUnlocked && ((e.key >= '1' && e.key <= '9') || e.key === '0')) {
         const tabs = [
           'LIVE',       // 1
@@ -48,7 +51,7 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      // 5. Ctrl+Z / Cmd+Z 触发撤销
+      // Ctrl+Z / Cmd+Z 触发撤销
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         handleUndo();

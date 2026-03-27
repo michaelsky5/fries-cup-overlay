@@ -58,7 +58,6 @@ function TechCorner({ top = true, left = true, color = colors.yellow }) {
 function TeamBlock({ logo, name, align = 'left', phase }) {
   const isLeft = align === 'left';
   
-  // 🌟 核心修复：完全舍弃 transition，改用 CSS animation
   let animationName = 'none';
   if (phase === 'show') {
     animationName = isLeft ? 'blockSlideInLeft 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards' : 'blockSlideInRight 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards';
@@ -115,11 +114,11 @@ function TeamBlock({ logo, name, align = 'left', phase }) {
 export default function BeginInfoOverlay({
   matchData,
   triggerAt,
-  duration = 2200, // 🌟 广电标准建议延长至 2200ms
+  duration = 3200, // 接收父组件传来的 3200ms
   onFinish
 }) {
-  const [visible, setVisible] = useState(false);
-  const [phase, setPhase] = useState('idle');
+  // 🌟 核心修复：一落地即进入 'show' 阶段！没有那些拖泥带水的 visible 判断！
+  const [phase, setPhase] = useState('show'); 
 
   // 【数据流优化】：防止 React 组件卸载引起的回调丢失
   const onFinishRef = useRef(onFinish);
@@ -127,29 +126,13 @@ export default function BeginInfoOverlay({
     onFinishRef.current = onFinish;
   }, [onFinish]);
 
-  const forceVisible = !!matchData?.beginInfoVisible;
-
   useEffect(() => {
-    if (!forceVisible) return;
-    setVisible(true);
-    setPhase('show'); // 强制模式直接显示，不需要 enter 状态
-  }, [forceVisible]);
-
-  useEffect(() => {
-    if (triggerAt === undefined || triggerAt === null) return;
-    if (forceVisible) return;
-
-    // 🛑 核心修复：如果控制台的 AUTO BEGIN 是关闭状态，直接拦截！
-    if (matchData?.beginInfoEnabled === false) return;
-
-    // 🌟 核心修复：简化生命周期，不再需要极短的 'enter' 状态引起 transition 跳动
-    setVisible(true);
-    setPhase('show'); // 直接设为 show，触发进场 CSS Animation
-
-    // 只保留出场和结束计时器
-    const exitTimer = setTimeout(() => setPhase('exit'), Math.max(700, duration - 420));
+    // 只要被父组件挂载，直接开始计时！
+    // 到点退场 (预留 400ms 给退场动画)
+    const exitTimer = setTimeout(() => setPhase('exit'), Math.max(700, duration - 400));
+    
+    // 到点彻底销毁 (呼叫父组件解除挂载)
     const doneTimer = setTimeout(() => {
-      setVisible(false);
       setPhase('idle');
       onFinishRef.current?.();
     }, duration);
@@ -158,13 +141,11 @@ export default function BeginInfoOverlay({
       clearTimeout(exitTimer);
       clearTimeout(doneTimer);
     };
-  }, [triggerAt, duration, forceVisible, matchData?.beginInfoEnabled]); // 👈 别忘了把开关加进依赖数组里
+  }, [duration]);
 
   const mapLabel = useMemo(() => getMapLabel(matchData), [matchData]);
 
-  if (!visible && !forceVisible) return null;
-
-  // 🌟 核心修复：完全舍弃 inline transition，改用 CSS animation
+  // 🌟 根据 Phase 指派 CSS 动画，绝对防抽搐
   let animationName = 'none';
   if (phase === 'show') {
     animationName = 'panelSlideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards';
@@ -177,7 +158,7 @@ export default function BeginInfoOverlay({
 
   return (
     <div style={OVERLAY_STYLE}>
-      {/* 🌟 注入纯 CSS 动画引擎：单向播放，绝对防抽搐 */}
+      {/* 🌟 样式块第一帧就进入 DOM，动画引擎瞬间接管 */}
       <style>{`
         @keyframes overlayBgFade {
           0% { opacity: 0; }

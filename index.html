@@ -1,16 +1,30 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fries-cup-overlay</title>
+    <title>FCUP Broadcast Control</title>
+
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        /* 直接写死你系统的极暗底色，彻底封杀白屏 */
+        background-color: #2a2a2a; 
+        overflow: hidden;
+      }
+      /* 可选：如果你想在 React 启动的这几十毫秒里连黑屏都不算太单调，可以在这里写个极简的 loading 占位符 */
+      #root {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">

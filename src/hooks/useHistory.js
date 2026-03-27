@@ -1,33 +1,39 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 export function useHistory(matchDataRef, updateData) {
   const [history, setHistory] = useState([]);
   const historyRef = useRef(history);
 
-  // 随时保持 ref 同步，供快捷键(Ctrl+Z)使用，避免闭包陷阱
-  useEffect(() => { 
-    historyRef.current = history; 
-  }, [history]);
-
-  // 核心方法：带历史记录的数据更新
-  const updateWithHistory = (actionName, newData) => {
+  // 🚀 优化：使用 useCallback 并在内部同步更新 Ref，不再依赖 useEffect 的异步生命周期
+  const updateWithHistory = useCallback((actionName, newData) => {
     const timeStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-    // 记录的是动作发生【前】的数据，以便撤销
-    setHistory(prev => [
-      { time: timeStr, action: actionName, data: matchDataRef.current }, 
-      ...prev
-    ].slice(0, 20)); // 最多存 20 步
+    
+    setHistory(prev => {
+      const newHistory = [
+        { time: timeStr, action: actionName, data: matchDataRef.current }, 
+        ...prev
+      ].slice(0, 20); // 最多存 20 步
+      
+      // 同步更新，供后续极速操作读取
+      historyRef.current = newHistory; 
+      return newHistory;
+    });
     
     updateData(newData);
-  };
+  }, [matchDataRef, updateData]);
 
-  // 执行撤销
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     if (historyRef.current.length === 0) return;
+    
     const lastState = historyRef.current[0];
     updateData(lastState.data);
-    setHistory(historyRef.current.slice(1));
-  };
+    
+    setHistory(prev => {
+      const newHistory = prev.slice(1);
+      historyRef.current = newHistory;
+      return newHistory;
+    });
+  }, [updateData]);
 
   return { history, historyRef, setHistory, updateWithHistory, handleUndo };
 }

@@ -14,10 +14,25 @@ export function useViewport() {
   });
 
   useEffect(() => {
-    const handleResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    let timeoutId;
+    
+    const handleResize = () => {
+      // 🚀 优化：使用防抖，只有当用户停止拖拽窗口 150ms 后，才真正触发整个 App 的重渲染
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setViewport({ w: window.innerWidth, h: window.innerHeight });
+      }, 150); 
+    };
+
     window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
+    
+    // 初始调用一次，直接拿当前尺寸
+    setViewport({ w: window.innerWidth, h: window.innerHeight });
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const density = getDensityByWidth(viewport.w);

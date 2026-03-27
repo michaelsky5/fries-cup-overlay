@@ -28,17 +28,6 @@ export default function LoginModeScreen({
     { label: '中文', value: 'zh' }
   ];
 
-  const CONSOLE_PRESETS = [
-    { label: '1080P · 1920 × 1080', value: '1920x1080' },
-    { label: '2K · 2560 × 1440', value: '2560x1440' },
-    { label: '4K · 3840 × 2160', value: '3840x2160' }
-  ];
-
-  const OUTPUT_PRESETS = [
-    { label: '1080P · 1920 × 1080', value: '1920x1080' },
-    { label: '4K · 3840 × 2160', value: '3840x2160' }
-  ];
-
   const t = densityTokens;
 
   const compactSelectStyle = {
@@ -96,7 +85,9 @@ export default function LoginModeScreen({
       outputNotePrefix: 'Output',
       output4k: 'Currently using 4K broadcast output.',
       output1080: 'Currently using 1080P broadcast output.',
-      overlayNote: 'Overlay pages remain locked to a fixed 16:9 output and do not scale with console layout.'
+      overlayNote: 'Overlay pages remain locked to a fixed 16:9 output and do not scale with console layout.',
+      presetAuto: 'Auto · Testing',
+      preset1080: '1080P · 1920 × 1080 (Default)'
     },
     zh: {
       modeSelect: '模式选择',
@@ -119,11 +110,26 @@ export default function LoginModeScreen({
       outputNotePrefix: '播出层',
       output4k: '当前为 4K 播出层。',
       output1080: '当前为 1080P 播出层。',
-      overlayNote: 'Overlay 页面继续保持 16:9 固定输出，不跟随控制台布局缩放。'
+      overlayNote: 'Overlay 页面继续保持 16:9 固定输出，不跟随控制台布局缩放。',
+      presetAuto: 'Auto · 自适应布局',
+      preset1080: '1080P · 1920 × 1080 (默认)'
     }
   };
 
   const text = TEXT[uiLanguage] || TEXT.en;
+
+  // 将 1080P 放在首位作为首选，将 Auto 加上
+  const CONSOLE_PRESETS = [
+    { label: text.preset1080, value: '1920x1080' },
+    { label: '2K · 2560 × 1440', value: '2560x1440' },
+    { label: '4K · 3840 × 2160', value: '3840x2160' },
+    { label: text.presetAuto, value: 'auto' }
+  ];
+
+  const OUTPUT_PRESETS = [
+    { label: '1080P · 1920 × 1080', value: '1920x1080' },
+    { label: '4K · 3840 × 2160', value: '3840x2160' }
+  ];
 
   return (
     <div
@@ -136,7 +142,6 @@ export default function LoginModeScreen({
         overflow: 'hidden'
       }}
     >
-      {/* 🌟 动画声明 */}
       <style>{`
         @keyframes loginSlideUp {
           0% { opacity: 0; transform: translateY(40px); }
@@ -303,7 +308,7 @@ export default function LoginModeScreen({
                 >
                   <QuickStat
                     label={text.consolePreset}
-                    value={consolePresetMeta.label}
+                    value={consolePresetMeta?.label || 'Adaptive'}
                     valueColor={COLORS.yellow}
                     compact
                     density={density}
@@ -337,7 +342,7 @@ export default function LoginModeScreen({
                       lineHeight: 1.8
                     }}
                   >
-                    <strong style={{ color: COLORS.white }}>{text.consoleNotePrefix}：</strong>{consolePresetMeta.desc}
+                    <strong style={{ color: COLORS.white }}>{text.consoleNotePrefix}：</strong>{consolePresetMeta?.desc || 'Auto scaling based on current window size.'}
                     <br />
                     <strong style={{ color: COLORS.white }}>{text.outputNotePrefix}：</strong>{outputResolution === '3840x2160' ? text.output4k : text.output1080}
                     <br />

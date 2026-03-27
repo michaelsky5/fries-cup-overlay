@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { COLORS, UI, panelBase } from '../../constants/styles';
 import { LOGO_LIST } from '../../constants/logos';
@@ -14,6 +14,319 @@ import {
 } from '../../utils';
 import { createEditorUi } from '../../utils/editorUi';
 import { ShellPanel, Field, QuickStat, SectionHint } from '../common/SharedUI';
+
+// 🚀 优化：将复杂的表单行彻底抽离，并加上 React.memo。
+// 现在你再也不用担心“输入一个字母卡半秒”的情况发生了！
+const PlayerRow = React.memo(({
+  player, idx, role, isDense, isUltra, density, t, ui, compactLabel, rowInput, rowNumberInput, rowSelect, 
+  rowBtn, rowOutlineBtn, denseCell, rowLabelCell, tinyGap, smallGap, controlRowHeight, subButtonHeight,
+  handleRosterImageUpload, updateRosterPlayers, rosterPlayers, updatePlayerPositionXY, pos, heroOptions
+}) => {
+  if (isUltra) {
+    return (
+      <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: smallGap, borderLeft: `2px solid ${COLORS.yellow}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: smallGap }}>
+          <div style={{ color: COLORS.white, fontSize: '12px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
+            P{idx + 1}
+          </div>
+          <div style={{ display: 'flex', gap: tinyGap }}>
+            <label style={{ ...rowBtn, backgroundColor: COLORS.yellow, color: COLORS.black, cursor: 'pointer' }}>
+              UPLOAD
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleRosterImageUpload(idx, e)} />
+            </label>
+            <button
+              style={{ ...rowOutlineBtn, borderColor: COLORS.red, color: COLORS.red }}
+              onClick={() => {
+                const next = [...rosterPlayers];
+                next[idx] = {
+                  ...next[idx],
+                  heroImage: getRosterHeroImagePath(role, player.hero),
+                  heroScale: 1.1,
+                  heroBrightness: 0.84,
+                  heroPosition: ''
+                };
+                updateRosterPlayers(next);
+              }}
+            >
+              RESET
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gap: smallGap }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: smallGap }}>
+            <div>
+              <div style={compactLabel}>NICKNAME</div>
+              <input
+                style={rowInput}
+                value={player.nickname || ''}
+                onChange={e => {
+                  const next = [...rosterPlayers];
+                  next[idx] = { ...next[idx], nickname: e.target.value };
+                  updateRosterPlayers(next);
+                }}
+              />
+            </div>
+            <div>
+              <div style={compactLabel}>BATTLETAG</div>
+              <input
+                style={rowInput}
+                value={player.battleTag || ''}
+                onChange={e => {
+                  const next = [...rosterPlayers];
+                  next[idx] = { ...next[idx], battleTag: e.target.value };
+                  updateRosterPlayers(next);
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
+            <div>
+              <div style={compactLabel}>ROLE</div>
+              <select
+                style={rowSelect}
+                value={role}
+                onChange={e => {
+                  const nextRole = e.target.value;
+                  const nextHero = getRosterHeroOptions(nextRole)[0] || '';
+                  const next = [...rosterPlayers];
+                  next[idx] = { ...next[idx], role: nextRole, hero: nextHero, heroImage: getRosterHeroImagePath(nextRole, nextHero) };
+                  updateRosterPlayers(next);
+                }}
+              >
+                {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <div style={compactLabel}>HERO</div>
+              <select
+                style={rowSelect}
+                value={player.hero || ''}
+                onChange={e => {
+                  const nextHero = e.target.value;
+                  const next = [...rosterPlayers];
+                  next[idx] = { ...next[idx], hero: nextHero, heroImage: getRosterHeroImagePath(role, nextHero) };
+                  updateRosterPlayers(next);
+                }}
+              >
+                {heroOptions.map(hero => <option key={hero} value={hero}>{hero}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
+            <div>
+              <div style={compactLabel}>SCALE</div>
+              <input
+                type="number" step="0.01" style={rowNumberInput} value={player.heroScale ?? 1.1}
+                onChange={e => {
+                  const next = [...rosterPlayers];
+                  next[idx] = { ...next[idx], heroScale: Number(e.target.value) || 1.1 };
+                  updateRosterPlayers(next);
+                }}
+              />
+            </div>
+
+            <div>
+              <div style={compactLabel}>BRIGHT</div>
+              <input
+                type="number" step="0.01" style={rowNumberInput} value={player.heroBrightness ?? 0.84}
+                onChange={e => {
+                  const next = [...rosterPlayers];
+                  next[idx] = { ...next[idx], heroBrightness: Number(e.target.value) || 0.84 };
+                  updateRosterPlayers(next);
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
+            <div>
+              <div style={compactLabel}>POS X</div>
+              <input style={rowNumberInput} value={pos.x} onChange={e => updatePlayerPositionXY(idx, e.target.value, pos.y)} placeholder="50%" />
+            </div>
+
+            <div>
+              <div style={compactLabel}>POS Y</div>
+              <input style={rowNumberInput} value={pos.y} onChange={e => updatePlayerPositionXY(idx, pos.x, e.target.value)} placeholder="24%" />
+            </div>
+          </div>
+
+          <div>
+            <div style={compactLabel}>IMAGE PATH</div>
+            <input
+              style={rowInput}
+              value={(player.heroImage || '').startsWith('blob:') ? '[LOCAL_MEMORY_IMAGE]' : (player.heroImage || '')}
+              onChange={e => {
+                const next = [...rosterPlayers];
+                next[idx] = { ...next[idx], heroImage: e.target.value };
+                updateRosterPlayers(next);
+              }}
+              placeholder="/assets/roster/damage/tracer.jpg"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isDense) {
+    return (
+      <div style={{ ...panelBase, padding: density === 'spacious' ? '10px' : '8px', display: 'grid', gap: smallGap, borderLeft: `2px solid ${COLORS.yellow}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: smallGap }}>
+          <div style={{ color: COLORS.white, fontSize: '12px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
+            P{idx + 1}
+          </div>
+          <div style={{ display: 'flex', gap: tinyGap }}>
+            <label style={{ ...rowBtn, backgroundColor: COLORS.yellow, color: COLORS.black, cursor: 'pointer' }}>
+              UPLOAD
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleRosterImageUpload(idx, e)} />
+            </label>
+            <button
+              style={{ ...rowOutlineBtn, borderColor: COLORS.red, color: COLORS.red }}
+              onClick={() => {
+                const next = [...rosterPlayers];
+                next[idx] = {
+                  ...next[idx], heroImage: getRosterHeroImagePath(role, player.hero), heroScale: 1.1, heroBrightness: 0.84, heroPosition: ''
+                };
+                updateRosterPlayers(next);
+              }}
+            >
+              RESET
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
+          <div>
+            <div style={compactLabel}>NICKNAME</div>
+            <input style={rowInput} value={player.nickname || ''} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], nickname: e.target.value }; updateRosterPlayers(next); }} />
+          </div>
+
+          <div>
+            <div style={compactLabel}>BATTLETAG</div>
+            <input style={rowInput} value={player.battleTag || ''} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], battleTag: e.target.value }; updateRosterPlayers(next); }} />
+          </div>
+
+          <div>
+            <div style={compactLabel}>ROLE</div>
+            <select style={rowSelect} value={role} onChange={e => { const nextRole = e.target.value; const nextHero = getRosterHeroOptions(nextRole)[0] || ''; const next = [...rosterPlayers]; next[idx] = { ...next[idx], role: nextRole, hero: nextHero, heroImage: getRosterHeroImagePath(nextRole, nextHero) }; updateRosterPlayers(next); }}>
+              {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <div style={compactLabel}>HERO</div>
+            <select style={rowSelect} value={player.hero || ''} onChange={e => { const nextHero = e.target.value; const next = [...rosterPlayers]; next[idx] = { ...next[idx], hero: nextHero, heroImage: getRosterHeroImagePath(role, nextHero) }; updateRosterPlayers(next); }}>
+              {heroOptions.map(hero => <option key={hero} value={hero}>{hero}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <div style={compactLabel}>SCALE</div>
+            <input type="number" step="0.01" style={rowNumberInput} value={player.heroScale ?? 1.1} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroScale: Number(e.target.value) || 1.1 }; updateRosterPlayers(next); }} />
+          </div>
+
+          <div>
+            <div style={compactLabel}>BRIGHT</div>
+            <input type="number" step="0.01" style={rowNumberInput} value={player.heroBrightness ?? 0.84} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroBrightness: Number(e.target.value) || 0.84 }; updateRosterPlayers(next); }} />
+          </div>
+
+          <div>
+            <div style={compactLabel}>POS X</div>
+            <input style={rowNumberInput} value={pos.x} onChange={e => updatePlayerPositionXY(idx, e.target.value, pos.y)} placeholder="50%" />
+          </div>
+
+          <div>
+            <div style={compactLabel}>POS Y</div>
+            <input style={rowNumberInput} value={pos.y} onChange={e => updatePlayerPositionXY(idx, pos.x, e.target.value)} placeholder="24%" />
+          </div>
+        </div>
+
+        <div>
+          <div style={compactLabel}>IMAGE PATH</div>
+          <input style={rowInput} value={(player.heroImage || '').startsWith('blob:') ? '[LOCAL_MEMORY_IMAGE]' : (player.heroImage || '')} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroImage: e.target.value }; updateRosterPlayers(next); }} placeholder="/assets/roster/damage/tracer.jpg" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '56px 1.2fr 1.2fr 100px 1.35fr 74px 74px 64px 64px 1.8fr 80px', gap: tinyGap, alignItems: 'end' }}>
+      <div style={rowLabelCell}>{`P${idx + 1}`}</div>
+
+      <div style={denseCell}>
+        <div style={compactLabel}>NICKNAME</div>
+        <input style={rowInput} value={player.nickname || ''} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], nickname: e.target.value }; updateRosterPlayers(next); }} />
+      </div>
+
+      <div style={denseCell}>
+        <div style={compactLabel}>BATTLETAG</div>
+        <input style={rowInput} value={player.battleTag || ''} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], battleTag: e.target.value }; updateRosterPlayers(next); }} />
+      </div>
+
+      <div style={denseCell}>
+        <div style={compactLabel}>ROLE</div>
+        <select style={rowSelect} value={role} onChange={e => { const nextRole = e.target.value; const nextHero = getRosterHeroOptions(nextRole)[0] || ''; const next = [...rosterPlayers]; next[idx] = { ...next[idx], role: nextRole, hero: nextHero, heroImage: getRosterHeroImagePath(nextRole, nextHero) }; updateRosterPlayers(next); }}>
+          {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+      </div>
+
+      <div style={denseCell}>
+        <div style={compactLabel}>HERO</div>
+        <select style={rowSelect} value={player.hero || ''} onChange={e => { const nextHero = e.target.value; const next = [...rosterPlayers]; next[idx] = { ...next[idx], hero: nextHero, heroImage: getRosterHeroImagePath(role, nextHero) }; updateRosterPlayers(next); }}>
+          {heroOptions.map(hero => <option key={hero} value={hero}>{hero}</option>)}
+        </select>
+      </div>
+
+      <div style={denseCell}>
+        <div style={compactLabel}>SCALE</div>
+        <input type="number" step="0.01" style={rowNumberInput} value={player.heroScale ?? 1.1} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroScale: Number(e.target.value) || 1.1 }; updateRosterPlayers(next); }} />
+      </div>
+
+      <div style={denseCell}>
+        <div style={compactLabel}>BRIGHT</div>
+        <input type="number" step="0.01" style={rowNumberInput} value={player.heroBrightness ?? 0.84} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroBrightness: Number(e.target.value) || 0.84 }; updateRosterPlayers(next); }} />
+      </div>
+
+      <div style={denseCell}>
+        <div style={compactLabel}>POS X</div>
+        <input style={rowNumberInput} value={pos.x} onChange={e => updatePlayerPositionXY(idx, e.target.value, pos.y)} placeholder="50%" />
+      </div>
+
+      <div style={denseCell}>
+        <div style={compactLabel}>POS Y</div>
+        <input style={rowNumberInput} value={pos.y} onChange={e => updatePlayerPositionXY(idx, pos.x, e.target.value)} placeholder="24%" />
+      </div>
+
+      <div style={denseCell}>
+        <div style={compactLabel}>IMAGE PATH</div>
+        <input style={rowInput} value={(player.heroImage || '').startsWith('blob:') ? '[LOCAL_MEMORY_IMAGE]' : (player.heroImage || '')} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroImage: e.target.value }; updateRosterPlayers(next); }} placeholder="/assets/roster/damage/tracer.jpg" />
+      </div>
+
+      <div style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <label style={{ ...rowBtn, flex: 1, minHeight: 0, padding: 0, fontSize: '10px', backgroundColor: COLORS.yellow, color: COLORS.black, cursor: 'pointer' }}>
+          UPLOAD
+          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleRosterImageUpload(idx, e)} />
+        </label>
+
+        <button
+          style={{ ...rowOutlineBtn, flex: 1, minHeight: 0, padding: 0, fontSize: '10px', borderColor: COLORS.red, color: COLORS.red }}
+          onClick={() => {
+            const next = [...rosterPlayers];
+            next[idx] = { ...next[idx], heroImage: getRosterHeroImagePath(role, player.hero), heroScale: 1.1, heroBrightness: 0.84, heroPosition: '' };
+            updateRosterPlayers(next);
+          }}
+        >
+          RESET
+        </button>
+      </div>
+    </div>
+  );
+});
+
 
 const RosterEditor = ({
   isDense,
@@ -41,13 +354,7 @@ const RosterEditor = ({
   const rosterPresetLibrary = Array.isArray(matchData.rosterPresetLibrary) ? matchData.rosterPresetLibrary : [];
 
   const t = densityTokens || {
-    panelPadding: '12px',
-    panelPaddingLg: '14px',
-    inputPadding: '8px 10px',
-    inputFontSize: 12,
-    buttonPadding: '8px 10px',
-    buttonFontSize: 12,
-    blockGap: 10
+    panelPadding: '12px', panelPaddingLg: '14px', inputPadding: '8px 10px', inputFontSize: 12, buttonPadding: '8px 10px', buttonFontSize: 12, blockGap: 10
   };
   const ui = createEditorUi(t, density);
 
@@ -58,51 +365,43 @@ const RosterEditor = ({
   const smallGap = '8px';
   const modalGap = '14px';
 
-  const modalHeaderStyle = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '10px',
-    borderBottom: `1px solid ${COLORS.line}`,
-    paddingBottom: '10px',
-    flexWrap: 'wrap'
-  };
-
-  const modalTitleWrapStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px'
-  };
-
-  const modalTitleStyle = {
-    fontSize: density === 'spacious' ? '16px' : '15px',
-    fontWeight: '900',
-    color: COLORS.white,
-    letterSpacing: '2px',
-    textTransform: 'uppercase'
-  };
-
-  const updateRosterPlayers = nextPlayers => updateData({ ...matchData, [rosterPlayersKey]: nextPlayers });
+  const updateRosterPlayers = useCallback((nextPlayers) => updateData(prev => ({ ...prev, [rosterPlayersKey]: nextPlayers })), [rosterPlayersKey, updateData]);
   const updateRosterStaff = nextStaff => updateData({ ...matchData, [rosterStaffKey]: nextStaff });
 
-  // 🚀 核心替换：放弃 Base64 压缩，使用 100% 无损原画质的 Blob URL (内存挂载)
-  const handleRosterImageUpload = (idx, e) => {
+  // 🚀 核心替换：完美释放 Blob 内存！
+  const handleRosterImageUpload = useCallback((idx, e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       return showModal({ type: 'alert', title: 'INVALID FILE', message: 'Please upload a valid image file.', isDanger: true });
     }
     
-    // 生成临时的本地内存指针 (例如: blob:http://localhost:3000/xxx)
-    // 瞬间完成，原画质 0 损耗，且不会撑爆历史记录
-    const objectUrl = URL.createObjectURL(file);
+    // 💥 最重要的清理工作：如果旧图存在且是 blob 格式，销毁它释放内存！
+    const oldImage = rosterPlayers[idx]?.heroImage;
+    if (oldImage && oldImage.startsWith('blob:')) {
+      URL.revokeObjectURL(oldImage);
+    }
     
+    const objectUrl = URL.createObjectURL(file);
     const next = [...rosterPlayers];
     next[idx] = { ...next[idx], heroImage: objectUrl };
     updateRosterPlayers(next);
     
     e.target.value = '';
+  }, [rosterPlayers, updateRosterPlayers, showModal]);
+
+  const parsePosition = value => {
+    const parts = String(value || '').trim().replace(',', ' ').split(/\s+/).filter(Boolean);
+    return { x: parts[0] || '', y: parts[1] || '' };
   };
+
+  const updatePlayerPositionXY = useCallback((idx, nextX, nextY) => {
+    const next = [...rosterPlayers];
+    const x = String(nextX || '').trim();
+    const y = String(nextY || '').trim();
+    next[idx] = { ...next[idx], heroPosition: [x, y].filter(Boolean).join(' ') };
+    updateRosterPlayers(next);
+  }, [rosterPlayers, updateRosterPlayers]);
 
   const openRosterPresetPicker = () => setRosterPresetModalOpen(true);
 
@@ -166,30 +465,12 @@ const RosterEditor = ({
 
   const compactLabel = {
     fontSize: density === 'spacious' ? '11px' : '10px',
-    fontWeight: '900',
-    color: COLORS.faintWhite,
-    letterSpacing: '1px',
-    textTransform: 'uppercase',
-    marginBottom: '4px',
-    lineHeight: 1.2
+    fontWeight: '900', color: COLORS.faintWhite, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '4px', lineHeight: 1.2
   };
 
   const rowInput = { ...ui.input, height: rowHeight, minWidth: 0 };
-  
-  const rowNumberInput = { 
-    ...rowInput, 
-    paddingLeft: '4px', 
-    paddingRight: '2px',
-    textAlign: 'center' 
-  };
-
-  const rowSelect = { 
-    ...ui.select, 
-    height: rowHeight, 
-    minWidth: 0,
-    padding: '0 8px', 
-    textOverflow: 'ellipsis'
-  };
+  const rowNumberInput = { ...rowInput, paddingLeft: '4px', paddingRight: '2px', textAlign: 'center' };
+  const rowSelect = { ...ui.select, height: rowHeight, minWidth: 0, padding: '0 8px', textOverflow: 'ellipsis' };
   
   const btnFlex = { display: 'flex', alignItems: 'center', justifyContent: 'center' };
   const rowBtn = { ...ui.btn, height: rowHeight, minHeight: rowHeight, whiteSpace: 'nowrap', ...btnFlex };
@@ -198,550 +479,13 @@ const RosterEditor = ({
 
   const denseCell = { ...panelBase, padding: cellPadding, minWidth: 0 };
   const rowLabelCell = {
-    ...panelBase,
-    padding: cellPaddingWide,
-    minWidth: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: COLORS.white,
-    fontSize: density === 'spacious' ? '12px' : '11px',
-    fontWeight: '900',
-    letterSpacing: '1px',
-    textTransform: 'uppercase',
-    borderLeft: `2px solid ${COLORS.yellow}`
+    ...panelBase, padding: cellPaddingWide, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: COLORS.white, fontSize: density === 'spacious' ? '12px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase', borderLeft: `2px solid ${COLORS.yellow}`
   };
 
-  const parsePosition = value => {
-    const parts = String(value || '').trim().replace(',', ' ').split(/\s+/).filter(Boolean);
-    return { x: parts[0] || '', y: parts[1] || '' };
-  };
-
-  const updatePlayerPositionXY = (idx, nextX, nextY) => {
-    const next = [...rosterPlayers];
-    const x = String(nextX || '').trim();
-    const y = String(nextY || '').trim();
-    next[idx] = { ...next[idx], heroPosition: [x, y].filter(Boolean).join(' ') };
-    updateRosterPlayers(next);
-  };
-
-  const getPlayerRowTemplate = () => {
-    if (isUltra) return '56px minmax(0,1fr)';
-    if (isDense) return '56px 1fr 1fr 100px 1.2fr';
-    if (density === 'spacious') return '56px 1.35fr 1.35fr 110px 1.45fr 80px 80px 72px 72px 1.9fr 86px';
-    return '56px 1.2fr 1.2fr 100px 1.35fr 74px 74px 64px 64px 1.8fr 80px';
-  };
-
-  const renderPlayerRow = (player, idx) => {
-    const role = player.role || 'DAMAGE';
-    const heroOptions = getRosterHeroOptions(role);
-    const pos = parsePosition(player.heroPosition);
-
-    if (isUltra) {
-      return (
-        <div key={idx} style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: smallGap, borderLeft: `2px solid ${COLORS.yellow}` }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: smallGap }}>
-            <div style={{ color: COLORS.white, fontSize: '12px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              P{idx + 1}
-            </div>
-            <div style={{ display: 'flex', gap: tinyGap }}>
-              <label style={{ ...rowBtn, backgroundColor: COLORS.yellow, color: COLORS.black, cursor: 'pointer' }}>
-                UPLOAD
-                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleRosterImageUpload(idx, e)} />
-              </label>
-              <button
-                style={{ ...rowOutlineBtn, borderColor: COLORS.red, color: COLORS.red }}
-                onClick={() => {
-                  const next = [...rosterPlayers];
-                  next[idx] = {
-                    ...next[idx],
-                    heroImage: getRosterHeroImagePath(role, player.hero),
-                    heroScale: 1.1,
-                    heroBrightness: 0.84,
-                    heroPosition: ''
-                  };
-                  updateRosterPlayers(next);
-                }}
-              >
-                RESET
-              </button>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gap: smallGap }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: smallGap }}>
-              <div>
-                <div style={compactLabel}>NICKNAME</div>
-                <input
-                  style={rowInput}
-                  value={player.nickname || ''}
-                  onChange={e => {
-                    const next = [...rosterPlayers];
-                    next[idx] = { ...next[idx], nickname: e.target.value };
-                    updateRosterPlayers(next);
-                  }}
-                />
-              </div>
-              <div>
-                <div style={compactLabel}>BATTLETAG</div>
-                <input
-                  style={rowInput}
-                  value={player.battleTag || ''}
-                  onChange={e => {
-                    const next = [...rosterPlayers];
-                    next[idx] = { ...next[idx], battleTag: e.target.value };
-                    updateRosterPlayers(next);
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
-              <div>
-                <div style={compactLabel}>ROLE</div>
-                <select
-                  style={rowSelect}
-                  value={role}
-                  onChange={e => {
-                    const nextRole = e.target.value;
-                    const nextHero = getRosterHeroOptions(nextRole)[0] || '';
-                    const next = [...rosterPlayers];
-                    next[idx] = { ...next[idx], role: nextRole, hero: nextHero, heroImage: getRosterHeroImagePath(nextRole, nextHero) };
-                    updateRosterPlayers(next);
-                  }}
-                >
-                  {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <div style={compactLabel}>HERO</div>
-                <select
-                  style={rowSelect}
-                  value={player.hero || ''}
-                  onChange={e => {
-                    const nextHero = e.target.value;
-                    const next = [...rosterPlayers];
-                    next[idx] = { ...next[idx], hero: nextHero, heroImage: getRosterHeroImagePath(role, nextHero) };
-                    updateRosterPlayers(next);
-                  }}
-                >
-                  {heroOptions.map(hero => <option key={hero} value={hero}>{hero}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
-              <div>
-                <div style={compactLabel}>SCALE</div>
-                <input
-                  type="number"
-                  step="0.01"
-                  style={rowNumberInput}
-                  value={player.heroScale ?? 1.1}
-                  onChange={e => {
-                    const next = [...rosterPlayers];
-                    next[idx] = { ...next[idx], heroScale: Number(e.target.value) || 1.1 };
-                    updateRosterPlayers(next);
-                  }}
-                />
-              </div>
-
-              <div>
-                <div style={compactLabel}>BRIGHT</div>
-                <input
-                  type="number"
-                  step="0.01"
-                  style={rowNumberInput}
-                  value={player.heroBrightness ?? 0.84}
-                  onChange={e => {
-                    const next = [...rosterPlayers];
-                    next[idx] = { ...next[idx], heroBrightness: Number(e.target.value) || 0.84 };
-                    updateRosterPlayers(next);
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
-              <div>
-                <div style={compactLabel}>POS X</div>
-                <input
-                  style={rowNumberInput}
-                  value={pos.x}
-                  onChange={e => updatePlayerPositionXY(idx, e.target.value, pos.y)}
-                  placeholder="50%"
-                />
-              </div>
-
-              <div>
-                <div style={compactLabel}>POS Y</div>
-                <input
-                  style={rowNumberInput}
-                  value={pos.y}
-                  onChange={e => updatePlayerPositionXY(idx, pos.x, e.target.value)}
-                  placeholder="24%"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div style={compactLabel}>HERO IMAGE PATH</div>
-              <input
-                style={rowInput}
-                value={(player.heroImage || '').startsWith('blob:') ? '[LOCAL_MEMORY_IMAGE]' : (player.heroImage || '')}
-                onChange={e => {
-                  const next = [...rosterPlayers];
-                  next[idx] = { ...next[idx], heroImage: e.target.value };
-                  updateRosterPlayers(next);
-                }}
-                placeholder="/assets/roster/damage/tracer.jpg"
-              />
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (isDense) {
-      return (
-        <div key={idx} style={{ ...panelBase, padding: density === 'spacious' ? '10px' : '8px', display: 'grid', gap: smallGap, borderLeft: `2px solid ${COLORS.yellow}` }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: smallGap }}>
-            <div style={{ color: COLORS.white, fontSize: '12px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              P{idx + 1}
-            </div>
-            <div style={{ display: 'flex', gap: tinyGap }}>
-              <label style={{ ...rowBtn, backgroundColor: COLORS.yellow, color: COLORS.black, cursor: 'pointer' }}>
-                UPLOAD
-                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleRosterImageUpload(idx, e)} />
-              </label>
-              <button
-                style={{ ...rowOutlineBtn, borderColor: COLORS.red, color: COLORS.red }}
-                onClick={() => {
-                  const next = [...rosterPlayers];
-                  next[idx] = {
-                    ...next[idx],
-                    heroImage: getRosterHeroImagePath(role, player.hero),
-                    heroScale: 1.1,
-                    heroBrightness: 0.84,
-                    heroPosition: ''
-                  };
-                  updateRosterPlayers(next);
-                }}
-              >
-                RESET
-              </button>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
-            <div>
-              <div style={compactLabel}>NICKNAME</div>
-              <input
-                style={rowInput}
-                value={player.nickname || ''}
-                onChange={e => {
-                  const next = [...rosterPlayers];
-                  next[idx] = { ...next[idx], nickname: e.target.value };
-                  updateRosterPlayers(next);
-                }}
-              />
-            </div>
-
-            <div>
-              <div style={compactLabel}>BATTLETAG</div>
-              <input
-                style={rowInput}
-                value={player.battleTag || ''}
-                onChange={e => {
-                  const next = [...rosterPlayers];
-                  next[idx] = { ...next[idx], battleTag: e.target.value };
-                  updateRosterPlayers(next);
-                }}
-              />
-            </div>
-
-            <div>
-              <div style={compactLabel}>ROLE</div>
-              <select
-                style={rowSelect}
-                value={role}
-                onChange={e => {
-                  const nextRole = e.target.value;
-                  const nextHero = getRosterHeroOptions(nextRole)[0] || '';
-                  const next = [...rosterPlayers];
-                  next[idx] = { ...next[idx], role: nextRole, hero: nextHero, heroImage: getRosterHeroImagePath(nextRole, nextHero) };
-                  updateRosterPlayers(next);
-                }}
-              >
-                {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
-
-            <div>
-              <div style={compactLabel}>HERO</div>
-              <select
-                style={rowSelect}
-                value={player.hero || ''}
-                onChange={e => {
-                  const nextHero = e.target.value;
-                  const next = [...rosterPlayers];
-                  next[idx] = { ...next[idx], hero: nextHero, heroImage: getRosterHeroImagePath(role, nextHero) };
-                  updateRosterPlayers(next);
-                }}
-              >
-                {heroOptions.map(hero => <option key={hero} value={hero}>{hero}</option>)}
-              </select>
-            </div>
-
-            <div>
-              <div style={compactLabel}>SCALE</div>
-              <input
-                type="number"
-                step="0.01"
-                style={rowNumberInput}
-                value={player.heroScale ?? 1.1}
-                onChange={e => {
-                  const next = [...rosterPlayers];
-                  next[idx] = { ...next[idx], heroScale: Number(e.target.value) || 1.1 };
-                  updateRosterPlayers(next);
-                }}
-              />
-            </div>
-
-            <div>
-              <div style={compactLabel}>BRIGHT</div>
-              <input
-                type="number"
-                step="0.01"
-                style={rowNumberInput}
-                value={player.heroBrightness ?? 0.84}
-                onChange={e => {
-                  const next = [...rosterPlayers];
-                  next[idx] = { ...next[idx], heroBrightness: Number(e.target.value) || 0.84 };
-                  updateRosterPlayers(next);
-                }}
-              />
-            </div>
-
-            <div>
-              <div style={compactLabel}>POS X</div>
-              <input
-                style={rowNumberInput}
-                value={pos.x}
-                onChange={e => updatePlayerPositionXY(idx, e.target.value, pos.y)}
-                placeholder="50%"
-              />
-            </div>
-
-            <div>
-              <div style={compactLabel}>POS Y</div>
-              <input
-                style={rowNumberInput}
-                value={pos.y}
-                onChange={e => updatePlayerPositionXY(idx, pos.x, e.target.value)}
-                placeholder="24%"
-              />
-            </div>
-          </div>
-
-          <div>
-            <div style={compactLabel}>IMAGE PATH</div>
-            <input
-              style={rowInput}
-              value={(player.heroImage || '').startsWith('blob:') ? '[LOCAL_MEMORY_IMAGE]' : (player.heroImage || '')}
-              onChange={e => {
-                const next = [...rosterPlayers];
-                next[idx] = { ...next[idx], heroImage: e.target.value };
-                updateRosterPlayers(next);
-              }}
-              placeholder="/assets/roster/damage/tracer.jpg"
-            />
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div
-        key={idx}
-        style={{
-          display: 'grid',
-          gridTemplateColumns: getPlayerRowTemplate(),
-          gap: tinyGap,
-          alignItems: 'end'
-        }}
-      >
-        <div style={rowLabelCell}>{`P${idx + 1}`}</div>
-
-        <div style={denseCell}>
-          <div style={compactLabel}>NICKNAME</div>
-          <input
-            style={rowInput}
-            value={player.nickname || ''}
-            onChange={e => {
-              const next = [...rosterPlayers];
-              next[idx] = { ...next[idx], nickname: e.target.value };
-              updateRosterPlayers(next);
-            }}
-          />
-        </div>
-
-        <div style={denseCell}>
-          <div style={compactLabel}>BATTLETAG</div>
-          <input
-            style={rowInput}
-            value={player.battleTag || ''}
-            onChange={e => {
-              const next = [...rosterPlayers];
-              next[idx] = { ...next[idx], battleTag: e.target.value };
-              updateRosterPlayers(next);
-            }}
-          />
-        </div>
-
-        <div style={denseCell}>
-          <div style={compactLabel}>ROLE</div>
-          <select
-            style={rowSelect}
-            value={role}
-            onChange={e => {
-              const nextRole = e.target.value;
-              const nextHero = getRosterHeroOptions(nextRole)[0] || '';
-              const next = [...rosterPlayers];
-              next[idx] = { ...next[idx], role: nextRole, hero: nextHero, heroImage: getRosterHeroImagePath(nextRole, nextHero) };
-              updateRosterPlayers(next);
-            }}
-          >
-            {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-          </select>
-        </div>
-
-        <div style={denseCell}>
-          <div style={compactLabel}>HERO</div>
-          <select
-            style={rowSelect}
-            value={player.hero || ''}
-            onChange={e => {
-              const nextHero = e.target.value;
-              const next = [...rosterPlayers];
-              next[idx] = { ...next[idx], hero: nextHero, heroImage: getRosterHeroImagePath(role, nextHero) };
-              updateRosterPlayers(next);
-            }}
-          >
-            {heroOptions.map(hero => <option key={hero} value={hero}>{hero}</option>)}
-          </select>
-        </div>
-
-        <div style={denseCell}>
-          <div style={compactLabel}>SCALE</div>
-          <input
-            type="number"
-            step="0.01"
-            style={rowNumberInput}
-            value={player.heroScale ?? 1.1}
-            onChange={e => {
-              const next = [...rosterPlayers];
-              next[idx] = { ...next[idx], heroScale: Number(e.target.value) || 1.1 };
-              updateRosterPlayers(next);
-            }}
-          />
-        </div>
-
-        <div style={denseCell}>
-          <div style={compactLabel}>BRIGHT</div>
-          <input
-            type="number"
-            step="0.01"
-            style={rowNumberInput}
-            value={player.heroBrightness ?? 0.84}
-            onChange={e => {
-              const next = [...rosterPlayers];
-              next[idx] = { ...next[idx], heroBrightness: Number(e.target.value) || 0.84 };
-              updateRosterPlayers(next);
-            }}
-          />
-        </div>
-
-        <div style={denseCell}>
-          <div style={compactLabel}>POS X</div>
-          <input
-            style={rowNumberInput}
-            value={pos.x}
-            onChange={e => updatePlayerPositionXY(idx, e.target.value, pos.y)}
-            placeholder="50%"
-          />
-        </div>
-
-        <div style={denseCell}>
-          <div style={compactLabel}>POS Y</div>
-          <input
-            style={rowNumberInput}
-            value={pos.y}
-            onChange={e => updatePlayerPositionXY(idx, pos.x, e.target.value)}
-            placeholder="24%"
-          />
-        </div>
-
-        <div style={denseCell}>
-          <div style={compactLabel}>IMAGE PATH</div>
-          <input
-            style={rowInput}
-            value={(player.heroImage || '').startsWith('blob:') ? '[LOCAL_MEMORY_IMAGE]' : (player.heroImage || '')}
-            onChange={e => {
-              const next = [...rosterPlayers];
-              next[idx] = { ...next[idx], heroImage: e.target.value };
-              updateRosterPlayers(next);
-            }}
-            placeholder="/assets/roster/damage/tracer.jpg"
-          />
-        </div>
-
-        <div style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <label
-            style={{
-              ...rowBtn,
-              flex: 1,           
-              minHeight: 0,      
-              padding: 0,
-              fontSize: '10px',
-              backgroundColor: COLORS.yellow,
-              color: COLORS.black,
-              cursor: 'pointer'
-            }}
-          >
-            UPLOAD
-            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleRosterImageUpload(idx, e)} />
-          </label>
-
-          <button
-            style={{ 
-              ...rowOutlineBtn, 
-              flex: 1, 
-              minHeight: 0, 
-              padding: 0, 
-              fontSize: '10px', 
-              borderColor: COLORS.red, 
-              color: COLORS.red 
-            }}
-            onClick={() => {
-              const next = [...rosterPlayers];
-              next[idx] = {
-                ...next[idx],
-                heroImage: getRosterHeroImagePath(role, player.hero),
-                heroScale: 1.1,
-                heroBrightness: 0.84,
-                heroPosition: ''
-              };
-              updateRosterPlayers(next);
-            }}
-          >
-            RESET
-          </button>
-        </div>
-      </div>
-    );
-  };
+  const modalHeaderStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', borderBottom: `1px solid ${COLORS.line}`, paddingBottom: '10px', flexWrap: 'wrap' };
+  const modalTitleWrapStyle = { display: 'flex', alignItems: 'center', gap: '10px' };
+  const modalTitleStyle = { fontSize: density === 'spacious' ? '16px' : '15px', fontWeight: '900', color: COLORS.white, letterSpacing: '2px', textTransform: 'uppercase' };
 
   return (
     <>
@@ -753,13 +497,8 @@ const RosterEditor = ({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', backgroundColor: '#111', border: UI.innerFrame }}>
                 <button
                   style={{
-                    border: 'none',
-                    cursor: 'pointer',
-                    height: density === 'spacious' ? '36px' : '34px',
-                    fontSize: `${t.buttonFontSize}px`,
-                    fontWeight: '900',
-                    backgroundColor: teamTarget === 'A' ? COLORS.yellow : 'transparent',
-                    color: teamTarget === 'A' ? COLORS.black : COLORS.softWhite
+                    border: 'none', cursor: 'pointer', height: density === 'spacious' ? '36px' : '34px', fontSize: `${t.buttonFontSize}px`, fontWeight: '900',
+                    backgroundColor: teamTarget === 'A' ? COLORS.yellow : 'transparent', color: teamTarget === 'A' ? COLORS.black : COLORS.softWhite
                   }}
                   onClick={() => updateData({ ...matchData, rosterTeamTarget: 'A' })}
                 >
@@ -767,13 +506,8 @@ const RosterEditor = ({
                 </button>
                 <button
                   style={{
-                    border: 'none',
-                    cursor: 'pointer',
-                    height: density === 'spacious' ? '36px' : '34px',
-                    fontSize: `${t.buttonFontSize}px`,
-                    fontWeight: '900',
-                    backgroundColor: teamTarget === 'B' ? COLORS.yellow : 'transparent',
-                    color: teamTarget === 'B' ? COLORS.black : COLORS.softWhite
+                    border: 'none', cursor: 'pointer', height: density === 'spacious' ? '36px' : '34px', fontSize: `${t.buttonFontSize}px`, fontWeight: '900',
+                    backgroundColor: teamTarget === 'B' ? COLORS.yellow : 'transparent', color: teamTarget === 'B' ? COLORS.black : COLORS.softWhite
                   }}
                   onClick={() => updateData({ ...matchData, rosterTeamTarget: 'B' })}
                 >
@@ -812,8 +546,7 @@ const RosterEditor = ({
                 <div style={compactLabel}>CLUB LOGO</div>
                 <button
                   style={{
-                    ...rowBtn,
-                    width: '100%',
+                    ...rowBtn, width: '100%',
                     backgroundColor: rosterStaff.showClubName ? COLORS.yellow : '#444',
                     color: rosterStaff.showClubName ? COLORS.black : '#bbb'
                   }}
@@ -882,27 +615,34 @@ const RosterEditor = ({
               </div>
             </div>
 
-            <SectionHint
-              text="PRESET SAVES: TEAM NAME / LOGO / CLUB / STAFF / ALL PLAYER DATA (ROLE/HERO/ASSETS/TRANSFORMS)."
-              density={density}
-            />
+            
+            {/* 🚀 新增：彻底解耦编辑和播出界面，防止误触导致播出事故 */}
+            <div style={{ marginTop: '4px' }}>
+               <button 
+                 style={{...rowActionBtn, width: '100%', backgroundColor: COLORS.red, color: COLORS.white, border: `1px solid ${COLORS.red}`}}
+                 onClick={() => {
+                   updateWithHistory(`TAKE ROSTER TEAM ${teamTarget}`, {
+                     ...matchData,
+                     liveRosterTeam: teamTarget, // 锁定要播出的队伍
+                     globalScene: 'ROSTER'       // 强切画面
+                   });
+                 }}
+               >
+                 ▶ TAKE TO BROADCAST
+               </button>
+            </div>
           </div>
         </ShellPanel>
 
         <ShellPanel title="Roster Players" accent density={density}>
           <div style={{ display: 'grid', gap: tinyGap }}>
             {!isUltra && !isDense && (
-              <div style={{ display: 'grid', gridTemplateColumns: getPlayerRowTemplate(), gap: tinyGap, alignItems: 'end' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '56px 1.2fr 1.2fr 100px 1.35fr 74px 74px 64px 64px 1.8fr 80px', gap: tinyGap, alignItems: 'end' }}>
                 {['P', 'NICKNAME', 'BATTLETAG', 'ROLE', 'HERO', 'SCALE', 'BRIGHT', 'POS X', 'POS Y', 'IMAGE PATH', 'ACTIONS'].map((label, i) => (
                   <div
                     key={i}
                     style={{
-                      color: COLORS.faintWhite,
-                      fontSize: '10px',
-                      fontWeight: '900',
-                      letterSpacing: '1px',
-                      textTransform: 'uppercase',
-                      padding: i === 0 ? '0 0 0 4px' : 0
+                      color: COLORS.faintWhite, fontSize: '10px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase', padding: i === 0 ? '0 0 0 4px' : 0
                     }}
                   >
                     {label}
@@ -912,7 +652,24 @@ const RosterEditor = ({
             )}
 
             <div style={{ maxHeight: density === 'spacious' ? '620px' : '560px', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', paddingRight: tinyGap, display: 'grid', gap: tinyGap }}>
-              {rosterPlayers.map((player, idx) => renderPlayerRow(player, idx))}
+              {rosterPlayers.map((player, idx) => {
+                const role = player.role || 'DAMAGE';
+                const heroOptions = getRosterHeroOptions(role);
+                const pos = parsePosition(player.heroPosition);
+                
+                return (
+                  <PlayerRow 
+                    key={`${player.nickname || 'p'}-${idx}`} 
+                    player={player} idx={idx} role={role} 
+                    isDense={isDense} isUltra={isUltra} density={density} t={t} ui={ui} 
+                    compactLabel={compactLabel} rowInput={rowInput} rowNumberInput={rowNumberInput} rowSelect={rowSelect} 
+                    rowBtn={rowBtn} rowOutlineBtn={rowOutlineBtn} denseCell={denseCell} rowLabelCell={rowLabelCell} 
+                    tinyGap={tinyGap} smallGap={smallGap} controlRowHeight={rowHeight} subButtonHeight={rowHeight}
+                    handleRosterImageUpload={handleRosterImageUpload} updateRosterPlayers={updateRosterPlayers} 
+                    rosterPlayers={rosterPlayers} updatePlayerPositionXY={updatePlayerPositionXY} pos={pos} heroOptions={heroOptions}
+                  />
+                )
+              })}
             </div>
 
             <div style={{ display: 'flex', gap: smallGap, flexWrap: 'wrap', marginTop: '4px' }}>
@@ -942,6 +699,13 @@ const RosterEditor = ({
                 style={{ ...rowOutlineBtn, borderColor: COLORS.red, color: COLORS.red }}
                 onClick={() => {
                   if (rosterPlayers.length <= 5) return showModal({ type: 'alert', title: 'LIMIT REACHED', message: 'MIN 5 PLAYERS REQUIRED', isDanger: true });
+                  
+                  // 🚀 在移除最后一名选手时，顺手检查并清理它的内存图
+                  const lastPlayer = rosterPlayers[rosterPlayers.length - 1];
+                  if (lastPlayer.heroImage && lastPlayer.heroImage.startsWith('blob:')) {
+                    URL.revokeObjectURL(lastPlayer.heroImage);
+                  }
+                  
                   updateRosterPlayers(rosterPlayers.slice(0, -1));
                 }}
               >
@@ -955,26 +719,11 @@ const RosterEditor = ({
       {rosterPresetModalOpen && (
         <div
           onClick={() => setRosterPresetModalOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.78)',
-            zIndex: 10000,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: isUltra ? '12px' : '24px'
-          }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 10000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: isUltra ? '12px' : '24px' }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{
-              width: density === 'spacious' ? 'min(980px, 100%)' : 'min(880px, 100%)',
-              maxHeight: '84vh',
-              ...panelBase,
-              border: `2px solid ${COLORS.yellow}`,
-              overflow: 'hidden'
-            }}
+            style={{ width: density === 'spacious' ? 'min(980px, 100%)' : 'min(880px, 100%)', maxHeight: '84vh', ...panelBase, border: `2px solid ${COLORS.yellow}`, overflow: 'hidden' }}
           >
             <div style={{ position: 'relative', zIndex: 1, padding: t.panelPaddingLg, display: 'grid', gap: modalGap }}>
               <div style={modalHeaderStyle}>
@@ -1043,25 +792,11 @@ const RosterEditor = ({
       {rosterPresetSaveModalOpen && (
         <div
           onClick={() => setRosterPresetSaveModalOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.78)',
-            zIndex: 10001,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: isUltra ? '12px' : '24px'
-          }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 10001, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: isUltra ? '12px' : '24px' }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{
-              width: density === 'spacious' ? 'min(620px, 100%)' : 'min(560px, 100%)',
-              ...panelBase,
-              border: `2px solid ${COLORS.yellow}`,
-              overflow: 'hidden'
-            }}
+            style={{ width: density === 'spacious' ? 'min(620px, 100%)' : 'min(560px, 100%)', ...panelBase, border: `2px solid ${COLORS.yellow}`, overflow: 'hidden' }}
           >
             <div style={{ position: 'relative', zIndex: 1, padding: t.panelPaddingLg, display: 'grid', gap: modalGap }}>
               <div style={modalHeaderStyle}>

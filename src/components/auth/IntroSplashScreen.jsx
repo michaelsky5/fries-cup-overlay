@@ -1,13 +1,20 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { COLORS } from '../../constants/styles';
 
 export default function IntroSplashScreen({ duration = 2200, onFinish }) {
+  // 🚀 核心修复 1：使用 useRef 存储最新的回调，断绝由于父组件传递新函数导致的定时器重置死循环
+  const onFinishRef = useRef(onFinish);
   useEffect(() => {
+    onFinishRef.current = onFinish;
+  }, [onFinish]);
+
+  useEffect(() => {
+    // 🚀 核心修复 2：给卸载计时器增加 50ms 缓冲，确保 CSS 淡出动画 100% 播放完毕才移除 DOM
     const timer = setTimeout(() => {
-      if (onFinish) onFinish();
-    }, duration);
+      if (onFinishRef.current) onFinishRef.current();
+    }, duration + 50);
     return () => clearTimeout(timer);
-  }, [duration, onFinish]);
+  }, [duration]);
 
   const durationInSeconds = (duration / 1000).toFixed(2);
 
@@ -23,7 +30,6 @@ export default function IntroSplashScreen({ duration = 2200, onFinish }) {
         inset: 0,
         zIndex: 9999,
         overflow: 'hidden',
-        // 【修复 1 & 2】：移除了错误的转义符，并将动画放在最外层，确保背景和文字一起平滑淡出
         animation: `introFadeOut ${durationInSeconds}s ease forwards`
       }}
     >
@@ -69,7 +75,6 @@ export default function IntroSplashScreen({ duration = 2200, onFinish }) {
           alignItems: 'center',
           justifyContent: 'center',
           padding: '32px'
-          // 这里的 animation 已经移到了最外层父 div 上
         }}
       >
         <div

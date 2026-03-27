@@ -1,45 +1,23 @@
 import React, { useState, useEffect } from 'react';
 
-// =====================================================================
-// 1. 系统色彩与规范
-// =====================================================================
-const COLORS = {
-  black: '#2a2a2a',
-  panel: '#2a2a2a',
-  panel2: '#2a2a2a',
-  yellow: '#f4c320',
-  white: '#ffffff',
-  red: '#ff4d4d',
-  line: 'rgba(255,255,255,0.08)',
-  lineStrong: 'rgba(255,255,255,0.18)',
-  softWhite: 'rgba(255,255,255,0.62)',
-  faintWhite: 'rgba(255,255,255,0.26)'
-};
-
-const UI = {
-  outerFrame: `1px solid ${COLORS.lineStrong}`,
-  panelShadow: '0 18px 40px rgba(0,0,0,0.28)',
-  yellowGlow: '0 0 0 1px rgba(244,195,32,0.16), 0 0 18px rgba(244,195,32,0.08)',
-  insetLine: 'inset 0 0 0 1px rgba(255,255,255,0.04)',
-  bevelInset: 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.35)'
-};
-
+const COLORS = { black: '#2a2a2a', panel: '#2a2a2a', panel2: '#2a2a2a', yellow: '#f4c320', white: '#ffffff', red: '#ff4d4d', line: 'rgba(255,255,255,0.08)', lineStrong: 'rgba(255,255,255,0.18)', softWhite: 'rgba(255,255,255,0.62)', faintWhite: 'rgba(255,255,255,0.26)' };
+const UI = { outerFrame: `1px solid ${COLORS.lineStrong}`, panelShadow: '0 18px 40px rgba(0,0,0,0.28)', yellowGlow: '0 0 0 1px rgba(244,195,32,0.16), 0 0 18px rgba(244,195,32,0.08)', insetLine: 'inset 0 0 0 1px rgba(255,255,255,0.04)', bevelInset: 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.35)' };
 const GLOBAL_FONT = '"HarmonyOS Sans SC", sans-serif';
 const containerStyle = { width: '1920px', height: '1080px', backgroundColor: COLORS.black, position: 'relative', fontFamily: GLOBAL_FONT, overflow: 'hidden' };
 
-// =====================================================================
-// 2. 工具函数
-// =====================================================================
 const formatNumber = (v) => {
   const n = Number(v || 0);
   return Number.isFinite(n) ? n.toLocaleString('en-US') : '0';
 };
 
-// =====================================================================
-// 3. TEMPLATE 模式对比行
-// =====================================================================
+// 🚀 核心修复：更严格的数字解析，避免用户手滑打出 'NaN' 导致 CSS 计算直接崩溃
+const parseStat = v => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.max(0, n) : 0; 
+};
+
 const StatCompareRow = ({ label, a, b, delay }) => {
-  const na = Number(a || 0), nb = Number(b || 0);
+  const na = parseStat(a), nb = parseStat(b);
   const total = Math.max(na + nb, 1);
   const ratioA = `${(na / total) * 100}%`;
   const ratioB = `${(nb / total) * 100}%`;
@@ -82,32 +60,21 @@ const StatCompareRow = ({ label, a, b, delay }) => {
   );
 };
 
-// =====================================================================
-// 4. TEMPLATE 模式主面板
-// =====================================================================
 const TemplateStats = ({ matchData, statsData }) => {
   const vis = matchData.statsTemplateVisibility || {};
   const nameA = matchData.teamA || 'TEAM A';
   const nameB = matchData.teamB || 'TEAM B';
 
-  // 🌟 动态计算出场延迟，确保即使中间关掉某行，剩余行的出场动画也能顺畅衔接
   let delayCounter = 0;
-  const getDelay = () => {
-    delayCounter += 1;
-    return 0.08 + (delayCounter * 0.1);
-  };
+  const getDelay = () => { delayCounter += 1; return 0.08 + (delayCounter * 0.1); };
 
   return (
     <div style={{ width: '1420px', display: 'flex', flexDirection: 'column', gap: 0, zIndex: 10 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px 1fr', minHeight: '126px', background: COLORS.black, border: `2px solid ${COLORS.yellow}`, boxShadow: `${UI.panelShadow}, ${UI.yellowGlow}`, position: 'relative', overflow: 'hidden', opacity: 0, willChange: 'opacity, transform', animation: 'statsHeaderDrop 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.014) 0 1px, transparent 1px 22px)', pointerEvents: 'none', opacity: 0.18 }} />
-
-        {/* 🌟 左侧队名全称展示，带防越界处理 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '18px', padding: '20px 30px', position: 'relative', zIndex: 1, minWidth: 0 }}>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-end' }}>
-            <span style={{ fontSize: '38px', fontWeight: '900', color: COLORS.white, letterSpacing: '1px', textTransform: 'uppercase', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {nameA}
-            </span>
+            <span style={{ fontSize: '38px', fontWeight: '900', color: COLORS.white, letterSpacing: '1px', textTransform: 'uppercase', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameA}</span>
           </div>
           <div style={{ width: '82px', height: '82px', backgroundColor: matchData.logoBgA, display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0, border: `1px solid rgba(0,0,0,0.14)`, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.04)' }}>
             <img src={matchData.logoA} alt="A" style={{ height: '74%', maxWidth: '74%', objectFit: 'contain' }} onError={e => e.target.style.display = 'none'} />
@@ -121,15 +88,12 @@ const TemplateStats = ({ matchData, statsData }) => {
           <span style={{ fontSize: '82px', fontWeight: '900', color: COLORS.black, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{matchData.scoreB}</span>
         </div>
 
-        {/* 🌟 右侧队名全称展示，带防越界处理 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '18px', padding: '20px 30px', position: 'relative', zIndex: 1, minWidth: 0 }}>
           <div style={{ width: '82px', height: '82px', backgroundColor: matchData.logoBgB, display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0, border: `1px solid rgba(0,0,0,0.14)`, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.04)' }}>
             <img src={matchData.logoB} alt="B" style={{ height: '74%', maxWidth: '74%', objectFit: 'contain' }} onError={e => e.target.style.display = 'none'} />
           </div>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-start' }}>
-            <span style={{ fontSize: '38px', fontWeight: '900', color: COLORS.white, letterSpacing: '1px', textTransform: 'uppercase', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {nameB}
-            </span>
+            <span style={{ fontSize: '38px', fontWeight: '900', color: COLORS.white, letterSpacing: '1px', textTransform: 'uppercase', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameB}</span>
           </div>
         </div>
       </div>
@@ -142,7 +106,6 @@ const TemplateStats = ({ matchData, statsData }) => {
           <div style={{ width: '8px', height: '8px', background: COLORS.yellow }} />
         </div>
 
-        {/* 🌟 核心判断：仅当该属性开启时渲染，且延迟时间连续计算 */}
         {vis.elims !== false && <StatCompareRow label="Total Eliminations" a={statsData.elimsA} b={statsData.elimsB} delay={getDelay()} />}
         {vis.assists !== false && <StatCompareRow label="Total Assists" a={statsData.assistsA} b={statsData.assistsB} delay={getDelay()} />}
         {vis.deaths !== false && <StatCompareRow label="Total Deaths" a={statsData.deathsA} b={statsData.deathsB} delay={getDelay()} />}
@@ -154,22 +117,22 @@ const TemplateStats = ({ matchData, statsData }) => {
   );
 };
 
-// =====================================================================
-// 5. 主场景
-// =====================================================================
-export default function StatsScene({ matchData }) {
+// 🚀 确保接收 isActive 属性
+export default function StatsScene({ matchData, isActive = false }) {
   const statsData = matchData.statsTemplateData || {};
   const statsMode = matchData.statsMode || 'TEMPLATE';
   const statsImageSrc = matchData.statsImageTempUrl || matchData.statsImagePath || '/assets/screenshots/placeholder.png';
   const [techTime, setTechTime] = useState('');
 
+  // 🚀 核心修复：只有组件真正在播的时候，才跑时间定时器，释放 OBS 空转后台算力！
   useEffect(() => {
+    if (!isActive) return;
     const timer = setInterval(() => {
       const now = new Date();
       setTechTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`);
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isActive]);
 
   return (
     <div style={containerStyle}>
@@ -236,7 +199,7 @@ export default function StatsScene({ matchData }) {
         <div>FCUP_DATA_CORE // STATS_RENDER_ACTIVE</div>
         <div style={{ display: 'flex', gap: '40px' }}>
           <span>Mode: {statsMode}</span>
-          <span style={{ color: COLORS.yellow, opacity: 0.9 }}>TC: {techTime}</span>
+          <span style={{ color: COLORS.yellow, opacity: 0.9 }}>TC: {techTime || '--:--:--'}</span>
         </div>
       </div>
     </div>

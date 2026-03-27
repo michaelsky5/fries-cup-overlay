@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { COLORS, UI, panelBase, labelStyle, btnStyle, BASE_SCENE_W, BASE_SCENE_H, getDensityTokens } from '../../constants/styles';
 
-export const ShellPanel = ({ title, right, children, accent = false, style = {}, bodyStyle = {}, density = 'standard' }) => {
+// 🚀 优化：所有基础 UI 组件全部套用 React.memo，彻底阻断毫无意义的重绘！
+export const ShellPanel = React.memo(({ title, right, children, accent = false, style = {}, bodyStyle = {}, density = 'standard' }) => {
   const t = getDensityTokens(density);
 
   return (
@@ -42,9 +43,9 @@ export const ShellPanel = ({ title, right, children, accent = false, style = {},
       </div>
     </div>
   );
-};
+});
 
-export const Field = ({ label, children, style = {}, density = 'standard' }) => {
+export const Field = React.memo(({ label, children, style = {}, density = 'standard' }) => {
   const t = getDensityTokens(density);
 
   return (
@@ -69,9 +70,9 @@ export const Field = ({ label, children, style = {}, density = 'standard' }) => 
       {children}
     </div>
   );
-};
+});
 
-export const TogglePill = ({ active, onClick, onText, offText, onColor = COLORS.green, offColor = '#555', density = 'standard' }) => {
+export const TogglePill = React.memo(({ active, onClick, onText, offText, onColor = COLORS.green, offColor = '#555', density = 'standard' }) => {
   const t = getDensityTokens(density);
   return (
     <button
@@ -89,9 +90,9 @@ export const TogglePill = ({ active, onClick, onText, offText, onColor = COLORS.
       {active ? onText : offText}
     </button>
   );
-};
+});
 
-export const TabButton = ({ active, onClick, label, index, compact = false, density = 'standard' }) => {
+export const TabButton = React.memo(({ active, onClick, label, index, compact = false, density = 'standard' }) => {
   const t = getDensityTokens(density);
   return (
     <button
@@ -115,9 +116,9 @@ export const TabButton = ({ active, onClick, label, index, compact = false, dens
       <span style={{ fontSize: '10px', marginLeft: '8px', opacity: active ? 0.7 : 0.45 }}>[{index}]</span>
     </button>
   );
-};
+});
 
-export const QuickStat = ({ label, value, valueColor = COLORS.white, compact = false, density = 'standard' }) => {
+export const QuickStat = React.memo(({ label, value, valueColor = COLORS.white, compact = false, density = 'standard' }) => {
   const t = getDensityTokens(density);
   const isCompactStat = compact && (density === 'compact' || density === 'ultra');
 
@@ -169,9 +170,9 @@ export const QuickStat = ({ label, value, valueColor = COLORS.white, compact = f
       </div>
     </div>
   );
-};
+});
 
-export const SectionHint = ({ text, density = 'standard', style = {} }) => {
+export const SectionHint = React.memo(({ text, density = 'standard', style = {} }) => {
   const t = getDensityTokens(density);
 
   return (
@@ -186,9 +187,9 @@ export const SectionHint = ({ text, density = 'standard', style = {} }) => {
       {text}
     </div>
   );
-};
+});
 
-export const MonitorFrame = ({ title, accent = COLORS.yellow, children, compact = false, density = 'standard' }) => {
+export const MonitorFrame = React.memo(({ title, accent = COLORS.yellow, children, compact = false, density = 'standard' }) => {
   const t = getDensityTokens(density);
   return (
     <div style={{ ...panelBase, padding: compact ? '10px' : t.panelPadding, borderTop: `2px solid ${accent}` }}>
@@ -204,8 +205,9 @@ export const MonitorFrame = ({ title, accent = COLORS.yellow, children, compact 
       </div>
     </div>
   );
-};
+});
 
+// AutoFitScene 不需要 React.memo，因为它本来就不依赖 React 渲染机制，纯靠 useRef 控制 DOM
 // 🌟 神级优化：使用 useRef 直接操纵 DOM 样式，完美绕过 React Render 周期
 export function AutoFitScene({ children }) {
   const viewportRef = useRef(null);

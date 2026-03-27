@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import html2canvas from 'html2canvas'; // 👈 引入截图工具
+import React, { useRef, useState, useMemo } from 'react';
+import html2canvas from 'html2canvas';
 
 import {
   COLORS,
@@ -29,8 +29,6 @@ import CoverEditor from '../controls/CoverEditor';
 
 import RightSidebar from './RightSidebar';
 import StingerTransition from '../scenes/StingerTransition';
-
-// 👇 引入你的渲染画面组件 (请根据你的实际目录结构调整路径)
 import BroadcastCoverScene from '../scenes/BroadcastCoverScene'; 
 
 function ConsoleWorkspace({
@@ -81,17 +79,24 @@ function ConsoleWorkspace({
   renderProgramMonitorScene,
   sceneLabelMap
 }) {
-  const t = densityTokens || {
+  // 🚀 优化：使用 useMemo 缓存 UI 对象，防止其在每次渲染时重建导致子组件 props 改变而击穿缓存
+  const t = useMemo(() => densityTokens || {
     panelPadding: '12px',
     buttonPadding: '10px 12px',
     buttonFontSize: 12,
     inputFontSize: 12,
     inputPadding: '8px 10px'
-  };
+  }, [densityTokens]);
 
-  const ui = createEditorUi(densityTokens, density);
+  const ui = useMemo(() => createEditorUi(t, density), [t, density]);
   const headerPanelBodyStyle = { padding: t.panelPadding };
-  const editorEnv = { density, densityTokens, isDense, isUltra };
+  
+  const editorEnv = useMemo(() => ({ 
+    density, 
+    densityTokens, 
+    isDense, 
+    isUltra 
+  }), [density, densityTokens, isDense, isUltra]);
 
   const isTakeDisabled = isTransitioning || previewScene === matchData.globalScene;
 
@@ -118,7 +123,6 @@ function ConsoleWorkspace({
 
   const displayTabs = OPTIMAL_TAB_ORDER.filter(tab => availableTabs.includes(tab));
 
-  // ================= 👇 新增的图片导出逻辑 👇 =================
   const [isExporting, setIsExporting] = useState(false);
   const coverSceneRef = useRef(null);
 
@@ -144,7 +148,6 @@ function ConsoleWorkspace({
       setIsExporting(false);
     }
   };
-  // ================= 👆 新增逻辑结束 👆 =================
 
   return (
     <div
@@ -162,15 +165,18 @@ function ConsoleWorkspace({
         * { box-sizing: border-box; }
       `}</style>
 
-      {/* 👇 专用于无损导出的隐藏 1920x1080 画面 👇 */}
+      {/* 🚀 修复：移回坐标原点，使用透明度而非负数坐标进行隐藏，防止现代浏览器离屏资源被强行回收导致截图空白 */}
       <div 
         style={{ 
           position: 'absolute', 
-          top: '-20000px', 
-          left: '-20000px', 
+          top: 0, 
+          left: 0, 
           width: '1920px', 
           height: '1080px', 
-          pointerEvents: 'none' 
+          pointerEvents: 'none',
+          opacity: 0.001, // 确保它仍在浏览器的渲染管线中
+          zIndex: -100,
+          overflow: 'hidden'
         }}
       >
         <BroadcastCoverScene ref={coverSceneRef} matchData={matchData} />
@@ -863,7 +869,6 @@ function ConsoleWorkspace({
               {activeTab === 'STATS' && <StatsEditor {...editorEnv} />}
               {activeTab === 'ROSTER' && <RosterEditor {...editorEnv} blockGap={blockGap} />}
               
-              {/* 👇 这里把导出相关的 Props 传给刚才修改好的 CoverEditor 👇 */}
               {activeTab === 'COVER' && (
                 <CoverEditor 
                   {...editorEnv} 
@@ -905,4 +910,5 @@ function ConsoleWorkspace({
   );
 }
 
-export default ConsoleWorkspace;
+// 🚀 优化：增加 React.memo，只有 Props 改变时才触发工作区整体重渲染
+export default React.memo(ConsoleWorkspace);

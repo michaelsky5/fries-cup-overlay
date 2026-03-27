@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 // Context / Hooks
 import { MatchContext } from './contexts/MatchContext';
+import { OBSProvider } from './contexts/OBSContext';
 import { useViewport } from './hooks/useViewport';
 import { useMatchState } from './hooks/useMatchState';
 import { useHistory } from './hooks/useHistory';
@@ -36,7 +37,6 @@ import { LOGO_LIST } from './constants/logos';
 
 const APP_SCREENS = { INTRO: 'intro', NOTICE: 'notice', LOGIN: 'login', WORKSPACE: 'workspace' };
 
-// 🌟 彻底重命名为 EASY_TABS
 const EASY_TABS = ['LIVE', 'MAP_POOL', 'COUNTDOWN', 'STATS'];
 const PRO_TABS = ['LIVE', 'MAP_POOL', 'ROSTER', 'STATS', 'CASTERS', 'COUNTDOWN', 'HIGHLIGHT', 'VIDEO', 'TEAM_DB', 'COVER'];
 
@@ -49,18 +49,23 @@ const getConsolePresetMeta = (value, viewportW = 0) => {
   return { label: 'AUTO · 1080P', width: null, desc: 'Auto-adapting to 1080P environments.', densityHint: 'compact' };
 };
 
+// 🚀 优化：使用对象映射表替换长长的 if-else，代码更干净查找更块
+const SceneComponentMap = {
+  LIVE: MatchLiveHUD,
+  COUNTDOWN: CountdownScene,
+  CASTERS: CasterScene,
+  MAP_POOL: MapPoolScene,
+  VIDEO: VideoScene,
+  HIGHLIGHT: HighlightScene,
+  STATS: StatsScene,
+  ROSTER: RosterScene,
+  WINNER: WinnerScene,
+  COVER: BroadcastCoverScene
+};
+
 const renderSceneByKey = (sceneKey, matchData, isActive = false) => {
-  if (sceneKey === 'LIVE') return <MatchLiveHUD matchData={matchData} isActive={isActive} />;
-  if (sceneKey === 'COUNTDOWN') return <CountdownScene matchData={matchData} />;
-  if (sceneKey === 'CASTERS') return <CasterScene matchData={matchData} />;
-  if (sceneKey === 'MAP_POOL') return <MapPoolScene matchData={matchData} />;
-  if (sceneKey === 'VIDEO') return <VideoScene matchData={matchData} />;
-  if (sceneKey === 'HIGHLIGHT') return <HighlightScene matchData={matchData} />;
-  if (sceneKey === 'STATS') return <StatsScene matchData={matchData} />;
-  if (sceneKey === 'ROSTER') return <RosterScene matchData={matchData} />;
-  if (sceneKey === 'WINNER') return <WinnerScene matchData={matchData} />;
-  if (sceneKey === 'COVER') return <BroadcastCoverScene matchData={matchData} />;
-  return <MatchLiveHUD matchData={matchData} isActive={isActive} />;
+  const SceneComponent = SceneComponentMap[sceneKey] || MatchLiveHUD;
+  return <SceneComponent matchData={matchData} isActive={isActive} />;
 };
 
 function App() {
@@ -76,11 +81,11 @@ function App() {
   const [isLogOpen, setIsLogOpen] = useState(true);
 
   const [appScreen, setAppScreen] = useState(APP_SCREENS.INTRO);
-  const [consoleMode, setConsoleMode] = useState('easy'); // 🌟 初始化为 easy
+  const [consoleMode, setConsoleMode] = useState('easy'); 
   const [consoleResolution, setConsoleResolution] = useState('auto');
 
-  // 这个状态只在控制台 UI 切换时有用
-  const [outputResolution, setOutputResolution] = useState(matchData.outputMode === '4K' ? '3840x2160' : '1920x1080');
+  // 🚀 优化：不再使用独立 state，直接从 matchData 派生，杜绝状态脱节
+  const outputResolution = matchData.outputMode === '4K' ? '3840x2160' : '1920x1080';
   const [proAccessCode, setProAccessCode] = useState('');
 
   const [modalConfig, setModalConfig] = useState({ isOpen: false });
@@ -101,7 +106,7 @@ function App() {
   const uiDensity = consoleResolution === 'auto' ? density : consolePresetMeta.densityHint;
   const densityTokens = useMemo(() => getDensityTokens(uiDensity), [uiDensity]);
 
-  const availableTabs = isUnlocked ? PRO_TABS : EASY_TABS; // 🌟 使用 EASY_TABS
+  const availableTabs = isUnlocked ? PRO_TABS : EASY_TABS; 
 
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) setActiveTab('LIVE');
@@ -139,11 +144,12 @@ function App() {
     COVER: 'BROADCAST COVER',
   };
 
-  const silentMatchData = {
+  // 🚀 优化：包裹 useMemo 防止每次 App 渲染都创建新对象导致下游画面全盘闪烁
+  const silentMatchData = useMemo(() => ({
     ...matchData,
     autoBeginTrigger: 0,
     beginInfoVisible: false
-  };
+  }), [matchData]);
 
   const renderMonitorScene = sceneKey =>
     renderSceneByKey(sceneKey, silentMatchData, sceneKey === 'LIVE' && sceneKey === renderScene);
@@ -155,11 +161,9 @@ function App() {
     renderSceneByKey(sceneKey, silentMatchData, sceneKey === 'LIVE');
 
   const syncOutputResolution = value => {
-    setOutputResolution(value);
     updateData({ ...matchData, outputMode: value === '3840x2160' ? '4K' : '1080P' });
   };
 
-  // 🌟 更名为 Easy
   const enterEasyMode = () => {
     setConsoleMode('easy');
     setIsUnlocked(false);
@@ -190,10 +194,12 @@ function App() {
     setAppScreen(APP_SCREENS.LOGIN);
   };
 
-  const exportConfig = () =>
-    navigator.clipboard.writeText(JSON.stringify(matchData)).then(() =>
-      showModal({ type: 'alert', title: 'EXPORT SUCCESS', message: 'All configurations successfully copied to clipboard.' })
-    );
+  // 🚀 优化：加上 catch 处理，防止非 HTTPS 或浏览器权限拒绝导致应用崩溃
+  const exportConfig = () => {
+    navigator.clipboard.writeText(JSON.stringify(matchData))
+      .then(() => showModal({ type: 'alert', title: 'EXPORT SUCCESS', message: 'All configurations successfully copied to clipboard.' }))
+      .catch(err => showModal({ type: 'alert', title: 'EXPORT FAILED', message: 'Failed to copy to clipboard. Ensure you have clipboard permissions.', isDanger: true }));
+  };
 
   const importConfig = () => {
     showModal({
@@ -293,7 +299,6 @@ function App() {
   };
 
   const renderOverlayPage = () => {
-    // 🚀 核心修复：这里不再读取过时的 outputResolution 状态，而是强制根据实时的 matchData 计算大小！
     const is4K = matchData.outputMode === '4K';
     const outW = is4K ? 3840 : 1920;
     const outH = is4K ? 2160 : 1080;
@@ -313,7 +318,8 @@ function App() {
     );
   };
 
-  const contextValue = {
+  // 🚀 优化：缓存 Context Value，避免 App.jsx 内部小状态更新导致全组件强制重绘！
+  const contextValue = useMemo(() => ({
     matchData,
     updateData,
     updateWithHistory,
@@ -322,102 +328,104 @@ function App() {
     videoProgress,
     showModal,
     setPreviewScene
-  };
+  }), [matchData, updateData, updateWithHistory, history, handleUndo, videoProgress, showModal, setPreviewScene]);
 
   return (
-    <MatchContext.Provider value={contextValue}>
-      {isOverlay ? (
-        renderOverlayPage()
-      ) : appScreen === APP_SCREENS.INTRO ? (
-        <IntroSplashScreen
-          duration={2200}
-          onFinish={() => setAppScreen(APP_SCREENS.NOTICE)}
-        />
-      ) : appScreen === APP_SCREENS.NOTICE ? (
-        <NoticeScreen
-          density={uiDensity}
-          densityTokens={densityTokens}
-          isDense={isDense}
-          isUltra={isUltra}
-          blockGap={blockGap}
-          w={w}
-          h={h}
-          consolePresetMeta={consolePresetMeta}
-          outputResolution={outputResolution}
-          consoleMode={consoleMode}
-          onEnterSystem={() => setAppScreen(APP_SCREENS.LOGIN)}
-          onSetDefault1080={() => syncOutputResolution('1920x1080')}
-        />
-      ) : appScreen === APP_SCREENS.LOGIN ? (
-        <LoginModeScreen
-          density={uiDensity}
-          densityTokens={densityTokens}
-          isDense={isDense}
-          isUltra={isUltra}
-          blockGap={blockGap}
-          consoleResolution={consoleResolution}
-          setConsoleResolution={setConsoleResolution}
-          outputResolution={outputResolution}
-          onChangeOutputResolution={syncOutputResolution}
-          consolePresetMeta={consolePresetMeta}
-          w={w}
-          h={h}
-          proAccessCode={proAccessCode}
-          setProAccessCode={setProAccessCode}
-          onEnterBasicMode={enterEasyMode}
-          onEnterProMode={enterProMode}
-          onBackNotice={() => setAppScreen(APP_SCREENS.NOTICE)}
-        />
-      ) : (
-        <ConsoleWorkspace
-          density={uiDensity}
-          densityTokens={densityTokens}
-          isOverlay={isOverlay}
-          isDense={isDense}
-          isUltra={isUltra}
-          isShort={isShort}
-          pagePadding={pagePadding}
-          blockGap={blockGap}
-          sideColWidth={sideColWidth}
-          rightColWidth={rightColWidth}
-          showRightColumn={showRightColumn}
-          showEmbeddedRightPanels={showEmbeddedRightPanels}
-          topGridTemplate={topGridTemplate}
-          mainGridTemplate={mainGridTemplate}
-          monitorGridTemplate={monitorGridTemplate}
-          workspaceFrameStyle={workspaceFrameStyle}
-          matchData={matchData}
-          updateData={updateData}
-          history={history}
-          handleUndo={handleUndo}
-          previewScene={previewScene}
-          setPreviewScene={setPreviewScene}
-          renderScene={renderScene}
-          isTransitioning={isTransitioning}
-          takeScene={takeScene}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          availableTabs={availableTabs}
-          isUnlocked={isUnlocked}
-          isLogOpen={isLogOpen}
-          setIsLogOpen={setIsLogOpen}
-          handleUnlock={handleUnlock}
-          exportConfig={exportConfig}
-          importConfig={importConfig}
-          handleSwapTeams={handleSwapTeams}
-          handleReset={handleReset}
-          consolePresetMeta={consolePresetMeta}
-          outputResolution={outputResolution}
-          onChangeOutputResolution={syncOutputResolution}
-          renderMonitorScene={renderMonitorScene}
-          renderPreviewMonitorScene={renderPreviewMonitorScene}
-          renderProgramMonitorScene={renderProgramMonitorScene}
-          sceneLabelMap={sceneLabelMap}
-        />
-      )}
+    <OBSProvider>
+      <MatchContext.Provider value={contextValue}>
+        {isOverlay ? (
+          renderOverlayPage()
+        ) : appScreen === APP_SCREENS.INTRO ? (
+          <IntroSplashScreen
+            duration={2200}
+            onFinish={() => setAppScreen(APP_SCREENS.NOTICE)}
+          />
+        ) : appScreen === APP_SCREENS.NOTICE ? (
+          <NoticeScreen
+            density={uiDensity}
+            densityTokens={densityTokens}
+            isDense={isDense}
+            isUltra={isUltra}
+            blockGap={blockGap}
+            w={w}
+            h={h}
+            consolePresetMeta={consolePresetMeta}
+            outputResolution={outputResolution}
+            consoleMode={consoleMode}
+            onEnterSystem={() => setAppScreen(APP_SCREENS.LOGIN)}
+            onSetDefault1080={() => syncOutputResolution('1920x1080')}
+          />
+        ) : appScreen === APP_SCREENS.LOGIN ? (
+          <LoginModeScreen
+            density={uiDensity}
+            densityTokens={densityTokens}
+            isDense={isDense}
+            isUltra={isUltra}
+            blockGap={blockGap}
+            consoleResolution={consoleResolution}
+            setConsoleResolution={setConsoleResolution}
+            outputResolution={outputResolution}
+            onChangeOutputResolution={syncOutputResolution}
+            consolePresetMeta={consolePresetMeta}
+            w={w}
+            h={h}
+            proAccessCode={proAccessCode}
+            setProAccessCode={setProAccessCode}
+            onEnterBasicMode={enterEasyMode}
+            onEnterProMode={enterProMode}
+            onBackNotice={() => setAppScreen(APP_SCREENS.NOTICE)}
+          />
+        ) : (
+          <ConsoleWorkspace
+            density={uiDensity}
+            densityTokens={densityTokens}
+            isOverlay={isOverlay}
+            isDense={isDense}
+            isUltra={isUltra}
+            isShort={isShort}
+            pagePadding={pagePadding}
+            blockGap={blockGap}
+            sideColWidth={sideColWidth}
+            rightColWidth={rightColWidth}
+            showRightColumn={showRightColumn}
+            showEmbeddedRightPanels={showEmbeddedRightPanels}
+            topGridTemplate={topGridTemplate}
+            mainGridTemplate={mainGridTemplate}
+            monitorGridTemplate={monitorGridTemplate}
+            workspaceFrameStyle={workspaceFrameStyle}
+            matchData={matchData}
+            updateData={updateData}
+            history={history}
+            handleUndo={handleUndo}
+            previewScene={previewScene}
+            setPreviewScene={setPreviewScene}
+            renderScene={renderScene}
+            isTransitioning={isTransitioning}
+            takeScene={takeScene}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            availableTabs={availableTabs}
+            isUnlocked={isUnlocked}
+            isLogOpen={isLogOpen}
+            setIsLogOpen={setIsLogOpen}
+            handleUnlock={handleUnlock}
+            exportConfig={exportConfig}
+            importConfig={importConfig}
+            handleSwapTeams={handleSwapTeams}
+            handleReset={handleReset}
+            consolePresetMeta={consolePresetMeta}
+            outputResolution={outputResolution}
+            onChangeOutputResolution={syncOutputResolution}
+            renderMonitorScene={renderMonitorScene}
+            renderPreviewMonitorScene={renderPreviewMonitorScene}
+            renderProgramMonitorScene={renderProgramMonitorScene}
+            sceneLabelMap={sceneLabelMap}
+          />
+        )}
 
-      {!isOverlay && <FriesModal config={modalConfig} onClose={closeModal} />}
-    </MatchContext.Provider>
+        {!isOverlay && <FriesModal config={modalConfig} onClose={closeModal} />}
+      </MatchContext.Provider>
+    </OBSProvider>
   );
 }
 

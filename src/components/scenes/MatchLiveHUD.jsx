@@ -4,29 +4,13 @@ import { LOGO_LIST } from '../../constants/logos';
 import BanPhaseScene from './BanPhaseScene';
 import { needsAttackDefense } from '../../constants/gameData';
 
-// =====================================================================
-// 1. 静态配置与样式
-// =====================================================================
 const COLORS = {
-  mainDark: '#2a2a2a',
-  yellow: '#f4c320',
-  white: '#ffffff',
-  black: '#000000',
-  banRed: '#ff4d4d',
-  gray: '#aaaaaa',
-  line: 'rgba(255,255,255,0.05)',
-  lineStrong: 'rgba(255,255,255,0.10)'
+  mainDark: '#2a2a2a', yellow: '#f4c320', white: '#ffffff', black: '#000000',
+  banRed: '#ff4d4d', gray: '#aaaaaa', line: 'rgba(255,255,255,0.05)', lineStrong: 'rgba(255,255,255,0.10)'
 };
 
-const containerStyle = {
-  width: '1920px',
-  height: '1080px',
-  backgroundColor: 'transparent',
-  position: 'relative',
-  fontFamily: '"HarmonyOS Sans SC", sans-serif'
-};
+const containerStyle = { width: '1920px', height: '1080px', backgroundColor: 'transparent', position: 'relative', fontFamily: '"HarmonyOS Sans SC", sans-serif' };
 
-// 🌟 注入 GPU 硬件加速：willChange 和 backfaceVisibility
 const infoBarStyle = { 
   position: 'absolute', top: '-2px', left: '50%', transform: 'translateX(-50%)', 
   backgroundColor: COLORS.mainDark, color: COLORS.white, padding: '5px 15px', 
@@ -34,25 +18,21 @@ const infoBarStyle = {
   opacity: 0, animation: 'hudFadeInDownCenter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards', 
   borderLeft: `1px solid ${COLORS.lineStrong}`, borderRight: `1px solid ${COLORS.lineStrong}`, 
   borderBottom: `1px solid ${COLORS.lineStrong}`, textTransform: 'uppercase',
-  willChange: 'transform, opacity',
-  backfaceVisibility: 'hidden'
+  willChange: 'transform, opacity', backfaceVisibility: 'hidden'
 };
 
 const teamBarLayout = { display: 'flex', justifyContent: 'space-between', padding: '0px 42.5px' };
 
-// 🌟 注入 GPU 硬件加速
 const teamWrapperLeftStyle = { 
   width: '525px', display: 'flex', flexDirection: 'column', gap: '81px', marginTop: '0px', 
   opacity: 0, animation: 'hudSlideInLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards',
-  willChange: 'transform, opacity',
-  backfaceVisibility: 'hidden'
+  willChange: 'transform, opacity', backfaceVisibility: 'hidden'
 };
 
 const teamWrapperRightStyle = { 
   width: '525px', display: 'flex', flexDirection: 'column', gap: '81px', marginTop: '0px', 
   opacity: 0, animation: 'hudSlideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards',
-  willChange: 'transform, opacity',
-  backfaceVisibility: 'hidden'
+  willChange: 'transform, opacity', backfaceVisibility: 'hidden'
 };
 
 const subBarStyle = { height: '20px', backgroundColor: 'rgba(26,26,26,0.94)', display: 'flex', width: '100%', borderTop: `1px solid ${COLORS.lineStrong}`, borderBottom: `1px solid ${COLORS.lineStrong}` };
@@ -65,31 +45,11 @@ const teamGroupStyle = { display: 'flex', width: '100%', height: '45px', alignIt
 const logoBlockStyle = { width: '45px', height: '45px', display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 };
 const logoImgStyle = { width: '80%', height: '80%', objectFit: 'contain' };
 const banAreaStyle = { height: '45px', backgroundColor: COLORS.mainDark, display: 'flex', alignItems: 'center', padding: '0 5px', gap: '3px', flexShrink: 0 };
-
-const teamNameBlockStyle = { 
-  flex: 1, height: '45px', backgroundColor: COLORS.mainDark, color: COLORS.white, 
-  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', 
-  fontWeight: '900', overflow: 'hidden', whiteSpace: 'nowrap', textTransform: 'uppercase', 
-  letterSpacing: '0.4px', position: 'relative' 
-};
-
+const teamNameBlockStyle = { flex: 1, height: '45px', backgroundColor: COLORS.mainDark, color: COLORS.white, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '900', overflow: 'hidden', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.4px', position: 'relative' };
 const teamNameTextStyle = { maxWidth: 'calc(100% - 20px)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 10px' };
 
 const getSideTagStyle = (tag, isLeft) => ({
-  height: '45px',
-  padding: '0 12px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: COLORS.mainDark,
-  color: tag === 'ATK' ? COLORS.yellow : COLORS.gray,
-  fontSize: '13px',
-  fontWeight: '900',
-  letterSpacing: '1px',
-  borderLeft: isLeft ? `1px solid ${COLORS.lineStrong}` : 'none',
-  borderRight: !isLeft ? `1px solid ${COLORS.lineStrong}` : 'none',
-  boxSizing: 'border-box',
-  flexShrink: 0
+  height: '45px', padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.mainDark, color: tag === 'ATK' ? COLORS.yellow : COLORS.gray, fontSize: '13px', fontWeight: '900', letterSpacing: '1px', borderLeft: isLeft ? `1px solid ${COLORS.lineStrong}` : 'none', borderRight: !isLeft ? `1px solid ${COLORS.lineStrong}` : 'none', boxSizing: 'border-box', flexShrink: 0
 });
 
 const scoreBoxStyle = { width: '45px', height: '45px', backgroundColor: COLORS.yellow, color: COLORS.black, display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '32px', fontWeight: '900', flexShrink: 0 };
@@ -101,10 +61,6 @@ const banBoxContainer = { display: 'flex', height: '45px', gap: '2px' };
 const banImgStyle = { height: '45px', width: '45px', objectFit: 'cover', backgroundColor: '#111' };
 const banLabelStyle = { width: '14px', height: '45px', backgroundColor: COLORS.yellow, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', fontWeight: '900', color: COLORS.black, padding: '4px 0', boxSizing: 'border-box' };
 
-
-// =====================================================================
-// 2. 辅助函数
-// =====================================================================
 const normalizeText = v => String(v || '').trim().toLowerCase();
 
 const normalizeRosterRole = role => {
@@ -120,16 +76,13 @@ const getModeKey = type => (type || '').split(' ')[0];
 const getKeyPlayerProfileFromRoster = (matchData, side, playerName) => {
   const roster = side === 'A' ? matchData.rosterPlayersA || [] : matchData.rosterPlayersB || [];
   const target = normalizeText(playerName);
-
   const found = roster.find(p =>
     normalizeText(p?.nickname) === target ||
     normalizeText(p?.battleTag) === target ||
     normalizeText(p?.name) === target ||
     normalizeText(p?.id) === target
   );
-
   if (!found) return null;
-
   return {
     nickname: found.nickname || playerName || 'PLAYER',
     battleTag: found.battleTag || '',
@@ -146,48 +99,30 @@ const getValidLogo = logoPath => {
   return fallback ? fallback.path : LOGO_LIST[0]?.path;
 };
 
-
-// =====================================================================
-// 3. 抽离的独立组件
-// =====================================================================
-
 const BanBox = React.memo(({ heroName, align }) => (
   <div style={{ ...banBoxContainer, flexDirection: align === 'left' ? 'row-reverse' : 'row' }}>
-    <img
-      src={`/assets/heroes/${heroName}.png`}
-      style={banImgStyle}
-      alt="ban"
-      onError={e => { e.target.src = '/assets/logos/OW.png'; }}
-    />
+    <img src={`/assets/heroes/${heroName}.png`} style={banImgStyle} alt="ban" onError={e => { e.target.src = '/assets/logos/OW.png'; }} />
     <div style={banLabelStyle}><span>B</span><span>A</span><span>N</span></div>
   </div>
 ));
 
 const KeyPlayerCard = React.memo(({ show, phase, data, matchData }) => {
   if (!show) return null;
-
   const isLeft = data.side === 'A';
   const isEnter = phase === 'enter';
   const profile = getKeyPlayerProfileFromRoster(matchData, data.side, data.name);
-
   const heroImg = profile?.role && profile?.hero ? `/assets/roster/${profile.role}/${profile.hero}.png` : '';
   const fallbackHeroImg = profile?.role && profile?.hero ? `/assets/heroes/${profile.role}/${profile.hero}.png` : '';
 
   return (
     <div style={{
-      position: 'absolute', top: '610px', [isLeft ? 'left' : 'right']: '52px',
-      width: '900px', height: '330px', zIndex: 340, pointerEvents: 'none',
-      opacity: isEnter ? 1 : 0,
-      transform: isEnter ? 'translateX(0)' : isLeft ? 'translateX(-240px)' : 'translateX(240px)',
+      position: 'absolute', top: '500px', [isLeft ? 'left' : 'right']: '52px', width: '800px', height: '330px', zIndex: 340, pointerEvents: 'none', opacity: isEnter ? 1 : 0,
+      transform: isEnter ? 'translateX(0) scale(0.7)' : isLeft ? 'translateX(-240px) scale(0.7)' : 'translateX(240px) scale(0.7)',
+      transformOrigin: isLeft ? 'left center' : 'right center',
       transition: 'transform 520ms cubic-bezier(0.16, 1, 0.3, 1), opacity 420ms ease',
-      willChange: 'transform, opacity',
-      backfaceVisibility: 'hidden' // 🌟 注入 GPU 加速
+      willChange: 'transform, opacity', backfaceVisibility: 'hidden'
     }}>
-      <div style={{
-        position: 'absolute', inset: 0, overflow: 'hidden',
-        background: 'linear-gradient(180deg, rgba(14,14,14,0.94) 0%, rgba(6,6,6,0.99) 100%)',
-        border: `1px solid ${COLORS.lineStrong}`, boxShadow: '0 32px 90px rgba(0,0,0,0.52)'
-      }}>
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: 'linear-gradient(180deg, rgba(14,14,14,0.94) 0%, rgba(6,6,6,0.99) 100%)', border: `1px solid ${COLORS.lineStrong}`, boxShadow: '0 32px 90px rgba(0,0,0,0.52)' }}>
         <div style={{ position: 'absolute', inset: '10px', border: `1px solid ${COLORS.line}`, pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '5px', background: COLORS.yellow }} />
         <div style={{ position: 'absolute', top: 0, [isLeft ? 'right' : 'left']: 0, width: 0, height: 0, borderTop: '120px solid rgba(244,195,32,0.96)', borderLeft: isLeft ? '120px solid transparent' : '0 solid transparent', borderRight: isLeft ? '0 solid transparent' : '120px solid transparent' }} />
@@ -226,17 +161,37 @@ const KeyPlayerCard = React.memo(({ show, phase, data, matchData }) => {
   );
 });
 
-
-// =====================================================================
-// 4. 主 HUD 组件
-// =====================================================================
 export default function MatchLiveHUD({ matchData, isActive = false }) {
+  const [runState, setRunState] = useState('IDLE');
+  
+  // 🚀 核心黑科技：识别当前是在 OBS 还是控制台！
+  const isOverlay = typeof window !== 'undefined' && window.location.hash === '#overlay';
+
+  const beginArmedRef = useRef(matchData.beginInfoEnabled);
+  useEffect(() => {
+    beginArmedRef.current = matchData.beginInfoEnabled;
+  }, [matchData.beginInfoEnabled]);
+
+  useEffect(() => {
+    if (isActive) {
+      if (beginArmedRef.current) {
+        setRunState('INTRO'); 
+      } else {
+        setRunState('HUD'); 
+      }
+    } else {
+      setRunState('IDLE'); 
+    }
+  }, [isActive]);
+
+  // 🌟 解决预览变黑的终极派生状态：
+  // 在 OBS (Overlay) 中，IDLE 就是黑屏待命。
+  // 在控制台预览 (Preview) 中，为了方便你编辑，IDLE 强制视为 HUD 显示出来！
+  const renderState = (runState === 'IDLE' && !isOverlay) ? 'HUD' : runState;
+
   const [tickerKey, setTickerKey] = useState(0);
   const [localShowTicker, setLocalShowTicker] = useState(matchData.showTicker);
-  const [showBeginInfo, setShowBeginInfo] = useState(false);
-  const [beginInfoTrigger, setBeginInfoTrigger] = useState(0);
   const [banPhaseTrigger, setBanPhaseTrigger] = useState(0);
-
   const [showKeyPlayer, setShowKeyPlayer] = useState(false);
   const [keyPlayerPhase, setKeyPlayerPhase] = useState('hidden');
   const [keyPlayerData, setKeyPlayerData] = useState({ side: 'A', name: '', battleTag: '' });
@@ -249,10 +204,7 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
 
   const clearKeyPlayerTimers = () => {
     [keyPlayerTimerRef, keyPlayerExitTimerRef, keyPlayerEnterTimerRef].forEach(ref => {
-      if (ref.current) {
-        clearTimeout(ref.current);
-        ref.current = null;
-      }
+      if (ref.current) { clearTimeout(ref.current); ref.current = null; }
     });
   };
 
@@ -262,22 +214,9 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
   }, [matchData.showTicker]);
 
   useEffect(() => {
-    if (!isActive) {
-      setShowBeginInfo(false);
-      return;
-    }
-    const next = matchData.beginInfoTriggerAt || 0;
-    if (next && next !== beginInfoTrigger) {
-      setBeginInfoTrigger(next);
-      setShowBeginInfo(true);
-    }
-  }, [isActive, matchData.beginInfoTriggerAt, beginInfoTrigger]);
-
-  useEffect(() => {
     const next = matchData.heroBanTriggerAt || 0;
     if (next && next !== banPhaseTrigger) {
       setBanPhaseTrigger(next);
-      setShowBeginInfo(false);
     }
   }, [matchData.heroBanTriggerAt, banPhaseTrigger]);
 
@@ -311,7 +250,6 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
     });
 
     clearKeyPlayerTimers();
-
     setShowKeyPlayer(true);
     setKeyPlayerPhase('pre-enter');
 
@@ -329,10 +267,7 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
       }, 520);
       keyPlayerTimerRef.current = null;
     }, 2300);
-  }, [
-    isActive, matchData.keyPlayerTriggerAt, matchData.keyPlayerSide, matchData.keyPlayerName,
-    matchData.rosterPlayersA, matchData.rosterPlayersB
-  ]);
+  }, [isActive, matchData.keyPlayerTriggerAt, matchData.keyPlayerSide, matchData.keyPlayerName, matchData.rosterPlayersA, matchData.rosterPlayersB]);
 
   useEffect(() => {
     return clearKeyPlayerTimers;
@@ -347,7 +282,11 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
     Math.floor((parseInt(matchData.matchFormat.replace('BO', '')) || 3) / 2) + 1, 
   [matchData.matchFormat]);
 
-  const holdLiveHudForAutoBegin = isActive && !!matchData.autoBeginPendingAt && !showBeginInfo && !matchData.showBanPhase;
+  const activeCastersText = useMemo(() => {
+    const castersArray = Array.isArray(matchData.casters) ? matchData.casters : [];
+    const validNames = castersArray.map(c => c.id).filter(Boolean);
+    return validNames.length > 0 ? validNames.join(' & ') : 'TBD';
+  }, [matchData.casters]);
 
   const renderScoreDots = (score, align) => (
     <div style={{ display: 'flex', gap: '3px', margin: align === 'left' ? '0 10px 0 0' : '0 0 0 10px', flexDirection: align === 'left' ? 'row' : 'row-reverse' }}>
@@ -398,8 +337,7 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
 
   const handleTickerEnd = () => {
     if (matchData.tickerMode === 'ONCE') {
-      setLocalShowTicker(false);
-      localStorage.setItem('fries_cup_ticker_command', 'OFF');
+      setTimeout(() => { setLocalShowTicker(false); }, 0);
     }
   };
 
@@ -412,10 +350,20 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
         @keyframes tickerScroll { 0% { transform: translateX(1920px); } 100% { transform: translateX(-100%); } }
       `}</style>
 
-      <KeyPlayerCard show={showKeyPlayer} phase={keyPlayerPhase} data={keyPlayerData} matchData={matchData} />
+      {/* 🚀 阶段 1：入场动画 */}
+      {renderState === 'INTRO' && (
+        <BeginInfoOverlay 
+          matchData={matchData} 
+          duration={3200} 
+          onFinish={() => setRunState('HUD')} 
+        />
+      )}
 
-      {!holdLiveHudForAutoBegin && !showBeginInfo && !matchData.showBanPhase && (
+      {/* 🚀 阶段 2：正常 HUD (同时处理预览状态的强行显示) */}
+      {renderState === 'HUD' && !matchData.showBanPhase && (
         <>
+          <KeyPlayerCard show={showKeyPlayer} phase={keyPlayerPhase} data={keyPlayerData} matchData={matchData} />
+          
           <div style={infoBarStyle}>{matchData.info}</div>
           <div style={teamBarLayout}>
             {/* 左侧队伍 A */}
@@ -431,7 +379,6 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
                   </div>
                 </div>
 
-                {/* 修改后的左侧主对战条 */}
                 <div style={teamGroupStyle}>
                   <div style={{ ...logoBlockStyle, backgroundColor: matchData.logoBgA }}>
                     <img src={safeLogoA} style={logoImgStyle} alt="logoA" />
@@ -442,7 +389,6 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
                   <div style={teamNameBlockStyle}>
                     <div style={teamNameTextStyle}>{matchData.teamA}</div>
                   </div>
-                  {/* ATK/DEF 标签靠紧比分内侧 */}
                   {leftSideTag && (
                     <div style={getSideTagStyle(leftSideTag, true)}>
                       {leftSideTag}
@@ -456,7 +402,7 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                   <div style={playerListRowStyle}>
                     {matchData.playersA?.map((p, i) => (
-                      <div key={i} style={{ ...playerSlotStyle, color: matchData.subIndexA === i ? COLORS.yellow : COLORS.white }}>
+                      <div key={`${p || 'empty'}-${i}`} style={{ ...playerSlotStyle, color: matchData.subIndexA === i ? COLORS.yellow : COLORS.white }}>
                         {matchData.subIndexA === i && <span style={subBadgeStyle}>IN</span>}
                         {p}
                       </div>
@@ -481,17 +427,15 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
                       <span style={subBarTextNormal}>{currentMapData.name}</span>
                     </div>
                     <div style={{ flex: 1, textAlign: 'right', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                      <span style={subBarTextHighlight}>CASTERS: {matchData.caster1} {matchData.caster2 && `& ${matchData.caster2}`}</span>
+                      <span style={subBarTextHighlight}>CASTERS: {activeCastersText}</span>
                       {renderScoreDots(matchData.scoreB, 'right')}
                     </div>
                   </div>
                   <div style={yellowAccentRight}></div>
                 </div>
 
-                {/* 修改后的右侧主对战条 */}
                 <div style={{ ...teamGroupStyle, justifyContent: 'flex-end' }}>
                   <div style={scoreBoxStyle}>{matchData.scoreB}</div>
-                  {/* ATK/DEF 标签靠紧比分内侧 */}
                   {rightSideTag && (
                     <div style={getSideTagStyle(rightSideTag, false)}>
                       {rightSideTag}
@@ -513,7 +457,7 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                   <div style={{ ...playerListRowStyle, justifyContent: 'flex-end' }}>
                     {matchData.playersB?.map((p, i) => (
-                      <div key={i} style={{ ...playerSlotStyle, color: matchData.subIndexB === i ? COLORS.yellow : COLORS.white }}>
+                      <div key={`${p || 'empty'}-${i}`} style={{ ...playerSlotStyle, color: matchData.subIndexB === i ? COLORS.yellow : COLORS.white }}>
                         {matchData.subIndexB === i && <span style={subBadgeStyle}>IN</span>}
                         {p}
                       </div>
@@ -535,23 +479,17 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
             transform: localShowTicker ? 'translateY(0)' : 'translateY(100%)',
             opacity: localShowTicker ? 1 : 0, 
             transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
-            willChange: 'transform, opacity', // 🌟 注入 GPU 加速
-            backfaceVisibility: 'hidden'      // 🌟 注入 GPU 加速
+            willChange: 'transform, opacity', backfaceVisibility: 'hidden'      
           }}>
             <div key={tickerKey} onAnimationEnd={handleTickerEnd} style={{
               whiteSpace: 'nowrap', color: COLORS.black, fontSize: '16px', fontWeight: '900', letterSpacing: '1.8px',
               animation: `tickerScroll 25s linear ${matchData.tickerMode === 'ONCE' ? '1 forwards' : 'infinite'}`, textTransform: 'uppercase',
-              willChange: 'transform',      // 🌟 注入 GPU 加速
-              backfaceVisibility: 'hidden'  // 🌟 注入 GPU 加速
+              willChange: 'transform', backfaceVisibility: 'hidden'  
             }}>
               {matchData.tickerText || 'SPONSORS // THANK YOU FOR YOUR SUPPORT // JOIN THE OFFICIAL COMMUNITY FOR THE LATEST NEWS // SPONSORS // THANKS FOR WATCHING'}
             </div>
           </div>
         </>
-      )}
-
-      {showBeginInfo && (
-        <BeginInfoOverlay matchData={matchData} triggerAt={beginInfoTrigger} duration={3200} onFinish={() => setShowBeginInfo(false)} />
       )}
 
       {matchData.showBanPhase && (

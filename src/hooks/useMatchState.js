@@ -6,28 +6,33 @@ export function useMatchState() {
   const [matchData, setMatchData] = useState(defaultData);
   const [videoProgress, setVideoProgress] = useState({ currentTime: 0, duration: 0 });
   const matchDataRef = useRef(matchData);
+  
+  // 🚀 优化：新增一个 ref 用于防抖存储，避免高频操作卡死浏览器
+  const saveTimeoutRef = useRef(null);
 
-  // 1. 统一的数据清洗与合并逻辑
   const getNormalizedData = useCallback((input) => {
     const merged = { ...defaultData, ...input };
     return { ...merged, casters: getSafeCasters(merged) };
   }, []);
 
-  // 2. 核心更新逻辑：使用 useCallback 避免向下传递时引发子组件重渲染
   const updateData = useCallback((nextInput) => {
     setMatchData((prev) => {
-      // 完美支持 updateData(prev => next) 和 updateData(next) 两种写法
       const resolvedInput = typeof nextInput === 'function' ? nextInput(prev) : nextInput;
       const safeData = getNormalizedData({ ...prev, ...resolvedInput });
       
       matchDataRef.current = safeData;
-      localStorage.setItem('fries_cup_data', JSON.stringify(safeData));
+      
+      // 🚀 优化：非阻塞写入。延迟 300ms 存入本地，打字再快也不会掉帧
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
+        localStorage.setItem('fries_cup_data', JSON.stringify(safeData));
+      }, 300);
+      
       return safeData;
     });
   }, [getNormalizedData]);
 
   useEffect(() => {
-    // 初始化读取
     const saved = localStorage.getItem('fries_cup_data');
     if (saved) {
       try {
@@ -39,7 +44,6 @@ export function useMatchState() {
       }
     }
 
-    // 跨标签页/窗口同步
     const handleStorage = (e) => {
       if (!e.newValue) return;
       try {

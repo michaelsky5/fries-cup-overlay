@@ -1,20 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// =====================================================================
-// 1. 系统色彩与规范
-// =====================================================================
 const COLORS = {
-  black: '#2a2a2a',
-  yellow: '#f4c320',
-  white: '#ffffff',
-  darkGray: '#1a1a1a',
-  dimGray: '#555555',
-  panel: '#101010',
-  panel2: '#161616',
-  line: 'rgba(255,255,255,0.08)',
-  lineStrong: 'rgba(255,255,255,0.18)',
-  softWhite: 'rgba(255,255,255,0.72)',
-  softYellow: 'rgba(244,195,32,0.18)',
+  black: '#2a2a2a', yellow: '#f4c320', white: '#ffffff',
+  darkGray: '#1a1a1a', dimGray: '#555555', panel: '#101010', panel2: '#161616',
+  line: 'rgba(255,255,255,0.08)', lineStrong: 'rgba(255,255,255,0.18)',
+  softWhite: 'rgba(255,255,255,0.72)', softYellow: 'rgba(244,195,32,0.18)',
   shadow: 'rgba(0,0,0,0.35)'
 };
 
@@ -28,9 +18,6 @@ const UI = {
   bevelInset: 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.35)'
 };
 
-// =====================================================================
-// 2. 赛程面板组件
-// =====================================================================
 const ScheduleBoard = ({ matches, compact = false, dense = false }) => {
   const teamNameColor = (bg) => (bg === COLORS.white ? COLORS.black : COLORS.white);
 
@@ -144,9 +131,6 @@ const ScheduleBoard = ({ matches, compact = false, dense = false }) => {
   );
 };
 
-// =====================================================================
-// 3. 主场景
-// =====================================================================
 export default function CountdownScene({ matchData, updateData }) {
   const mode = matchData.countdownMode || 'FULL';
   const videoRef = useRef(null);
@@ -155,27 +139,29 @@ export default function CountdownScene({ matchData, updateData }) {
 
   const [timeLeft, setTimeLeft] = useState(0);
 
-  // 🌟 核心修复：完全依赖控制台下发的绝对时间戳进行倒计时
+  // 🚀 终极静音大法：判断当前窗口是不是 OBS 里的 Overlay
+  const isOverlay = typeof window !== 'undefined' && window.location.hash === '#overlay';
+  const forceMuted = !isOverlay || !!matchData.videoMuted;
+
+  useEffect(() => {
+    if (videoRef.current && currentVideo) {
+      videoRef.current.muted = forceMuted; // 播放前强行上锁
+      videoRef.current.play().catch(err => console.warn('[FCUP_SYS] PiP Autoplay blocked:', err));
+    }
+  }, [currentVideo, forceMuted]);
+
   useEffect(() => {
     const timerId = setInterval(() => {
-      // 获取控制台传来的目标时间戳，如果没有则默认为 0
       const target = matchData.targetTimestamp || 0;
-      
       if (target > 0) {
-        // 计算目标时间与当前本地时间的差值
         const remaining = Math.max(0, Math.floor((target - Date.now()) / 1000));
         setTimeLeft(remaining);
       } else {
         setTimeLeft(0);
       }
-    }, 100); // 100ms 刷新一次，保证数字跳动时视觉上的极致精准
-    
+    }, 100); 
     return () => clearInterval(timerId);
-  }, [matchData.targetTimestamp]); // 只在 targetTimestamp 改变时重置定时器逻辑
-
-  useEffect(() => { 
-    if (videoRef.current) videoRef.current.muted = matchData.videoMuted !== undefined ? matchData.videoMuted : false; 
-  }, [matchData.videoMuted, currentVideo]);
+  }, [matchData.targetTimestamp]); 
 
   const handleVideoEnded = () => {
     if (!playlist || playlist.length <= 1) return;
@@ -260,7 +246,18 @@ export default function CountdownScene({ matchData, updateData }) {
             <div style={{ position: 'absolute', bottom: 14, right: 14, width: 22, height: 22, borderBottom: `2px solid ${COLORS.yellow}`, borderRight: `2px solid ${COLORS.yellow}`, zIndex: 3 }} />
 
             {currentVideo ? (
-              <video ref={videoRef} src={currentVideo} autoPlay loop={!playlist || playlist.length <= 1} onEnded={handleVideoEnded} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
+              <video 
+                key={currentVideo} // 🚀 终极修复：确保切视频时重置 DOM
+                ref={videoRef} 
+                src={currentVideo} 
+                autoPlay 
+                muted={forceMuted} // 🚀 使用强制静音标识
+                playsInline
+                loop={!playlist || playlist.length <= 1} 
+                onEnded={handleVideoEnded} 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                onError={(e) => { e.target.style.display = 'none'; }} 
+              />
             ) : (
               <div style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'rgba(255,255,255,0.26)', fontSize: '24px', fontWeight: '900', letterSpacing: '4px', textTransform: 'uppercase' }}>Promo_Sys // Standby</div>
             )}

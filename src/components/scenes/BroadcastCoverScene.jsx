@@ -1,5 +1,6 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, memo } from 'react';
 
+// --- 常量与主题 ---
 const COLORS = {
   black: '#2a2a2a',
   yellow: '#f4c320',
@@ -18,18 +19,11 @@ const UI = {
   insetLine: 'inset 0 0 0 1px rgba(255,255,255,0.04)'
 };
 
-const safe = v => (v === undefined || v === null ? '' : String(v));
-const up = v => safe(v).toUpperCase();
-
 const DEFAULT_DATA = {
-  coverMode: 'GENERIC', // GENERIC | MATCH
-
-  // 固定品牌层
+  coverMode: 'GENERIC', 
   titleMain: 'FRIES CUP',
   titleSubEn: 'ACADEMY',
   titleSubCn: '薯条杯学院赛',
-
-  // 顶部 / 底部
   topLeftLabel: 'FCUP',
   topLeftYear: '2026',
   topRightLabelGeneric: 'BROADCAST // STANDBY',
@@ -37,23 +31,23 @@ const DEFAULT_DATA = {
   footerLeft: 'FRIES CUP LIVE ROOM',
   footerCenter: 'FRIES-CUP.COM',
   footerRight: 'LIVE COVER SYSTEM',
-
-  // 通用封面可编辑阶段
   genericWatermark: 'BROADCAST',
   phaseMainEn: 'OPEN QUALIFIER',
   phaseMainCn: '公开预选赛',
   phaseSubEn: 'SWISS STAGE',
   phaseSubCn: '瑞士轮',
-
-  // 通用封面右侧信息
   coverCasters: 'AAA / BBB',
   coverAdmins: 'CCC / DDD',
-
-  // 对阵封面
+  
+  // 对阵数据
   teamA: 'TEAM A',
   teamB: 'TEAM B',
   logoA: '',
   logoB: '',
+  rosterStaffA: { clubName: '' }, 
+  rosterStaffB: { clubName: '' },
+  rosterPresetLibrary: [], // ✅ 引入 TEAM_DB 库
+  
   matchStage: 'OPEN QUALIFIER',
   roundLabel: 'ROUND 01',
   matchTime: '19:30 CST',
@@ -61,449 +55,402 @@ const DEFAULT_DATA = {
   casterNames: 'A / B',
   matchFormat: 'BO3',
   matchWatermark: 'MATCHDAY',
-
   showLogos: true,
   showFooterCenter: true
 };
 
-function TopBar({ data, isMatch }) {
+// --- 工具函数 ---
+const safe = (v, fallback = '') => (v === undefined || v === null || v === '' ? fallback : String(v));
+const up = (v, fallback = '') => safe(v, fallback).toUpperCase();
+
+// --- 子组件 ---
+
+const TopBar = memo(({ data, isMatch }) => {
+  const { topLeftLabel, topLeftYear, topRightLabelMatch, topRightLabelGeneric } = data;
+  const rightLabel = isMatch 
+    ? up(topRightLabelMatch, 'MATCH // READY') 
+    : up(topRightLabelGeneric, 'BROADCAST // STANDBY');
+
   return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '44px',
-        background: 'rgba(255,255,255,0.02)',
-        borderBottom: `1px solid ${COLORS.line}`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 30px',
-        boxSizing: 'border-box',
-        backdropFilter: 'blur(4px)',
-        zIndex: 30
-      }}
-    >
+    <div style={{
+      position: 'absolute', top: 0, left: 0, right: 0, height: '44px',
+      background: 'rgba(255,255,255,0.02)', borderBottom: `1px solid ${COLORS.line}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0 30px', boxSizing: 'border-box', backdropFilter: 'blur(4px)', zIndex: 30
+    }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div style={{ width: '10px', height: '10px', background: COLORS.yellow, boxShadow: '0 0 12px rgba(244,195,32,0.28)' }} />
         <span style={{ fontSize: '12px', fontWeight: 900, letterSpacing: '2px', color: COLORS.softWhite, textTransform: 'uppercase' }}>
-          {safe(data.topLeftLabel) || 'FCUP'}
+          {up(topLeftLabel, 'FCUP')}
         </span>
-        <span style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '2px', color: 'rgba(255,255,255,0.32)' }}>
-          //
-        </span>
+        <span style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '2px', color: 'rgba(255,255,255,0.32)' }}>//</span>
         <span style={{ fontSize: '12px', fontWeight: 900, letterSpacing: '2px', color: COLORS.softWhite }}>
-          {safe(data.topLeftYear) || '2026'}
+          {up(topLeftYear, '2026')}
         </span>
       </div>
-
       <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '2px', color: 'rgba(255,255,255,0.38)' }}>
-        {isMatch ? (safe(data.topRightLabelMatch) || 'MATCH // READY') : (safe(data.topRightLabelGeneric) || 'BROADCAST // STANDBY')}
+        {rightLabel}
       </div>
     </div>
   );
-}
+});
 
-function FrameShell({ children }) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: '96px 120px 92px',
-        border: UI.outerFrame,
-        boxShadow: `${UI.hardShadow}, ${UI.insetLine}`,
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.018) 0%, rgba(255,255,255,0.008) 100%)',
-        overflow: 'hidden'
-      }}
-    >
-      <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.01) 0 1px, transparent 1px 24px)', opacity: 0.22, pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `linear-gradient(90deg, ${COLORS.yellow} 0%, rgba(244,195,32,0.28) 100%)`, boxShadow: UI.yellowGlow }} />
+const FrameShell = memo(({ children }) => (
+  <div style={{
+    position: 'absolute', inset: '96px 120px 92px',
+    border: UI.outerFrame, boxShadow: `${UI.hardShadow}, ${UI.insetLine}`,
+    background: 'linear-gradient(180deg, rgba(255,255,255,0.018) 0%, rgba(255,255,255,0.008) 100%)',
+    overflow: 'hidden'
+  }}>
+    <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.01) 0 1px, transparent 1px 24px)', opacity: 0.22, pointerEvents: 'none' }} />
+    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `linear-gradient(90deg, ${COLORS.yellow} 0%, rgba(244,195,32,0.28) 100%)`, boxShadow: UI.yellowGlow }} />
 
-      <div style={{ position: 'absolute', top: '28px', left: '28px', width: '18px', height: '18px', borderTop: `2px solid ${COLORS.yellow}`, borderLeft: `2px solid ${COLORS.yellow}` }} />
-      <div style={{ position: 'absolute', top: '28px', right: '28px', width: '18px', height: '18px', borderTop: `2px solid rgba(255,255,255,0.10)`, borderRight: `2px solid rgba(255,255,255,0.10)` }} />
-      <div style={{ position: 'absolute', bottom: '28px', left: '28px', width: '18px', height: '18px', borderBottom: `2px solid rgba(255,255,255,0.10)`, borderLeft: `2px solid rgba(255,255,255,0.10)` }} />
-      <div style={{ position: 'absolute', bottom: '28px', right: '28px', width: '18px', height: '18px', borderBottom: `2px solid ${COLORS.yellow}`, borderRight: `2px solid ${COLORS.yellow}` }} />
+    <div style={{ position: 'absolute', top: '28px', left: '28px', width: '18px', height: '18px', borderTop: `2px solid ${COLORS.yellow}`, borderLeft: `2px solid ${COLORS.yellow}` }} />
+    <div style={{ position: 'absolute', top: '28px', right: '28px', width: '18px', height: '18px', borderTop: `2px solid rgba(255,255,255,0.10)`, borderRight: `2px solid rgba(255,255,255,0.10)` }} />
+    <div style={{ position: 'absolute', bottom: '28px', left: '28px', width: '18px', height: '18px', borderBottom: `2px solid rgba(255,255,255,0.10)`, borderLeft: `2px solid rgba(255,255,255,0.10)` }} />
+    <div style={{ position: 'absolute', bottom: '28px', right: '28px', width: '18px', height: '18px', borderBottom: `2px solid ${COLORS.yellow}`, borderRight: `2px solid ${COLORS.yellow}` }} />
+    {children}
+  </div>
+));
 
-      {children}
+const Watermark = memo(({ text, size = 220, x = 0, y = 0 }) => (
+  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', overflow: 'hidden' }}>
+    <div style={{
+      fontSize: `${size}px`, fontWeight: 900, letterSpacing: '8px', color: 'transparent',
+      WebkitTextStroke: '1px rgba(255,255,255,0.08)', textTransform: 'uppercase',
+      lineHeight: 0.9, transform: `translate(${x}px, ${y}px)`, whiteSpace: 'nowrap', userSelect: 'none'
+    }}>
+      {up(text, 'BROADCAST')}
     </div>
-  );
-}
+  </div>
+));
 
-function Watermark({ text, size = 220, x = 0, y = 0 }) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        pointerEvents: 'none',
-        overflow: 'hidden'
-      }}
-    >
-      <div
-        style={{
-          fontSize: `${size}px`,
-          fontWeight: 900,
-          letterSpacing: '8px',
-          color: 'transparent',
-          WebkitTextStroke: '1px rgba(255,255,255,0.08)',
-          textTransform: 'uppercase',
-          lineHeight: 0.9,
-          transform: `translate(${x}px, ${y}px)`,
-          whiteSpace: 'nowrap',
-          userSelect: 'none'
-        }}
-      >
-        {up(text || 'BROADCAST')}
+const GenericInfoPanel = memo(({ data }) => (
+  <div style={{
+    background: 'rgba(255,255,255,0.02)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`,
+    padding: '24px 26px', position: 'relative', overflow: 'hidden', minHeight: '250px',
+    display: 'grid', gridTemplateRows: '1fr 1fr'
+  }}>
+    <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.014) 0 1px, transparent 1px 22px)', opacity: 0.38, pointerEvents: 'none' }} />
+    <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+    <div style={{ position: 'absolute', top: '50%', left: 0, width: '100%', height: '3px', background: `linear-gradient(90deg, ${COLORS.yellow} 0%, rgba(244,195,32,0.10) 100%)`, transform: 'translateY(-1px)' }} />
+
+    <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <div style={{ fontSize: '12px', fontWeight: 900, color: COLORS.faintWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
+        {`${up(data.coverCasterLabelEn, 'CASTERS')} // ${up(data.coverCasterLabelCn, '解说')}`}
+      </div>
+      <div style={{ marginTop: '12px', fontSize: '26px', fontWeight: 900, color: COLORS.white, lineHeight: 1.08, letterSpacing: '1px', wordBreak: 'break-word' }}>
+        {safe(data.coverCasters, 'AAA / BBB')}
       </div>
     </div>
-  );
-}
 
-function GenericInfoPanel({ data }) {
-  return (
-    <div
-      style={{
-        background: 'rgba(255,255,255,0.02)',
-        border: UI.outerFrame,
-        boxShadow: `${UI.panelShadow}, ${UI.insetLine}`,
-        padding: '24px 26px',
-        position: 'relative',
-        overflow: 'hidden',
-        minHeight: '250px',
-        display: 'grid',
-        gridTemplateRows: '1fr 1fr'
-      }}
-    >
-      <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.014) 0 1px, transparent 1px 22px)', opacity: 0.38, pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
-      <div style={{ position: 'absolute', top: '50%', left: 0, width: '100%', height: '3px', background: `linear-gradient(90deg, ${COLORS.yellow} 0%, rgba(244,195,32,0.10) 100%)`, transform: 'translateY(-1px)' }} />
-
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <div style={{ fontSize: '12px', fontWeight: 900, color: COLORS.faintWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
-          {`${safe(data.coverCasterLabelEn) || 'CASTERS'} // ${safe(data.coverCasterLabelCn) || '解说'}`}
-        </div>
-        <div style={{ marginTop: '12px', fontSize: '26px', fontWeight: 900, color: COLORS.white, lineHeight: 1.08, letterSpacing: '1px', wordBreak: 'break-word' }}>
-          {safe(data.coverCasters) || 'AAA / BBB'}
-        </div>
+    <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <div style={{ fontSize: '12px', fontWeight: 900, color: COLORS.faintWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
+        {`${up(data.coverAdminLabelEn, 'ADMIN')} // ${up(data.coverAdminLabelCn, '赛管')}`}
       </div>
-
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <div style={{ fontSize: '12px', fontWeight: 900, color: COLORS.faintWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
-          {`${safe(data.coverAdminLabelEn) || 'ADMIN'} // ${safe(data.coverAdminLabelCn) || '赛管'}`}
-        </div>
-        <div style={{ marginTop: '12px', fontSize: '26px', fontWeight: 900, color: COLORS.white, lineHeight: 1.08, letterSpacing: '1px', wordBreak: 'break-word' }}>
-          {safe(data.coverAdmins) || 'CCC / DDD'}
-        </div>
+      <div style={{ marginTop: '12px', fontSize: '26px', fontWeight: 900, color: COLORS.white, lineHeight: 1.08, letterSpacing: '1px', wordBreak: 'break-word' }}>
+        {safe(data.coverAdmins, 'CCC / DDD')}
       </div>
     </div>
-  );
-}
+  </div>
+));
 
-function GenericCover({ data }) {
-  return (
-    <>
-      <Watermark text={safe(data.genericWatermark) || 'BROADCAST'} />
-
-      <div
-        style={{
-          position: 'absolute',
-          left: '64px',
-          right: '64px',
-          top: '190px',
-          bottom: '160px',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(760px, 1fr) 390px',
-          gap: '42px',
-          zIndex: 10,
-          alignItems: 'center'
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
-          <div style={{ fontSize: '112px', fontWeight: 900, color: COLORS.white, lineHeight: 0.92, letterSpacing: '2px', textTransform: 'uppercase' }}>
-            {safe(data.titleMain) || 'FRIES CUP'}
-          </div>
-
-          <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-            <div style={{ width: '10px', height: '10px', background: COLORS.yellow }} />
-            <span style={{ fontSize: '24px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '2.6px', textTransform: 'uppercase' }}>
-              {safe(data.titleSubEn) || 'ACADEMY'}
-            </span>
-            <span style={{ fontSize: '16px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '2px' }}>
-              //
-            </span>
-            <span style={{ fontSize: '24px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '1px' }}>
-              {safe(data.titleSubCn) || '薯条杯学院赛'}
-            </span>
-          </div>
-
-          <div
-            style={{
-              width: '620px',
-              height: '8px',
-              marginTop: '24px',
-              background: `linear-gradient(90deg, ${COLORS.yellow} 0%, rgba(244,195,32,0.16) 100%)`,
-              border: '1px solid rgba(244,195,32,0.18)',
-              boxShadow: UI.yellowGlow,
-              position: 'relative'
-            }}
-          >
-            <div style={{ position: 'absolute', right: '-1px', top: '-1px', width: '38px', height: '8px', background: COLORS.yellow, opacity: 0.16 }} />
-          </div>
-
-          <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '18px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
-              {safe(data.phaseMainEn) || 'OPEN QUALIFIER'}
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 900, color: 'rgba(255,255,255,0.34)', letterSpacing: '2px' }}>
-              //
-            </span>
-            <span style={{ fontSize: '18px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '0.8px' }}>
-              {safe(data.phaseMainCn) || '公开预选赛'}
-            </span>
-          </div>
+const GenericCover = memo(({ data }) => (
+  <>
+    <Watermark text={data.genericWatermark} />
+    <div style={{
+      position: 'absolute', left: '64px', right: '64px', top: '190px', bottom: '160px',
+      display: 'grid', gridTemplateColumns: 'minmax(760px, 1fr) 390px', gap: '42px', zIndex: 10, alignItems: 'center'
+    }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+        <div style={{ fontSize: '112px', fontWeight: 900, color: COLORS.white, lineHeight: 0.92, letterSpacing: '2px', textTransform: 'uppercase' }}>
+          {up(data.titleMain, 'FRIES CUP')}
         </div>
-
-        <div style={{ alignSelf: 'center' }}>
-          <GenericInfoPanel data={data} />
+        <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+          <div style={{ width: '10px', height: '10px', background: COLORS.yellow }} />
+          <span style={{ fontSize: '24px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '2.6px', textTransform: 'uppercase' }}>
+            {up(data.titleSubEn, 'ACADEMY')}
+          </span>
+          <span style={{ fontSize: '16px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '2px' }}>//</span>
+          <span style={{ fontSize: '24px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '1px' }}>
+            {up(data.titleSubCn, '薯条杯学院赛')}
+          </span>
+        </div>
+        <div style={{ width: '620px', height: '8px', marginTop: '24px', background: `linear-gradient(90deg, ${COLORS.yellow} 0%, rgba(244,195,32,0.16) 100%)`, border: '1px solid rgba(244,195,32,0.18)', boxShadow: UI.yellowGlow, position: 'relative' }}>
+          <div style={{ position: 'absolute', right: '-1px', top: '-1px', width: '38px', height: '8px', background: COLORS.yellow, opacity: 0.16 }} />
+        </div>
+        <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '18px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
+            {up(data.phaseMainEn, 'OPEN QUALIFIER')}
+          </span>
+          <span style={{ fontSize: '13px', fontWeight: 900, color: 'rgba(255,255,255,0.34)', letterSpacing: '2px' }}>//</span>
+          <span style={{ fontSize: '18px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '0.8px' }}>
+            {up(data.phaseMainCn, '公开预选赛')}
+          </span>
         </div>
       </div>
-    </>
-  );
-}
+      <div style={{ alignSelf: 'center' }}>
+        <GenericInfoPanel data={data} />
+      </div>
+    </div>
+  </>
+));
 
-function TeamLogoBox({ logo, alt, align = 'left' }) {
+const TeamLogoBox = memo(({ logo, alt, align = 'left', size = 178 }) => {
+  const isSmall = size <= 160;
+  const padding = isSmall ? '14px' : '18px';
+  const cornerSize = isSmall ? '16px' : '18px';
+
   return (
-    <div
-      style={{
-        width: '178px',
-        height: '178px',
-        background: 'rgba(255,255,255,0.03)',
-        border: UI.outerFrame,
-        boxShadow: `${UI.panelShadow}, ${UI.insetLine}`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        overflow: 'hidden'
-      }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          top: '18px',
-          [align]: '18px',
-          width: '18px',
-          height: '18px',
-          borderTop: `2px solid ${COLORS.yellow}`,
-          ...(align === 'left' ? { borderLeft: `2px solid ${COLORS.yellow}` } : { borderRight: `2px solid ${COLORS.yellow}` })
-        }}
-      />
+    <div style={{
+      width: `${size}px`, height: `${size}px`, background: 'rgba(255,255,255,0.03)',
+      border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      position: 'relative', overflow: 'hidden', flexShrink: 0
+    }}>
+      <div style={{
+        position: 'absolute', top: padding, [align]: padding,
+        width: cornerSize, height: cornerSize, borderTop: `2px solid ${COLORS.yellow}`,
+        ...(align === 'left' ? { borderLeft: `2px solid ${COLORS.yellow}` } : { borderRight: `2px solid ${COLORS.yellow}` })
+      }} />
       {logo ? (
         <img src={logo} alt={alt} style={{ width: '74%', height: '74%', objectFit: 'contain', display: 'block' }} />
       ) : (
-        <div style={{ fontSize: '20px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>LOGO</div>
+        <div style={{ fontSize: isSmall ? '18px' : '20px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>LOGO</div>
       )}
     </div>
   );
-}
+});
 
-function MatchCover({ data }) {
+// ✅ 确保字号充足
+const getUnifiedNameStyle = (nameA = '', nameB = '') => {
+  const lenA = String(nameA).replace(/\s+/g, '').length;
+  const lenB = String(nameB).replace(/\s+/g, '').length;
+  const maxLen = Math.max(lenA, lenB);
+
+  if (maxLen <= 8) return { fontSize: '72px', letterSpacing: '1px' };
+  if (maxLen <= 12) return { fontSize: '56px', letterSpacing: '0px' };
+  if (maxLen <= 16) return { fontSize: '46px', letterSpacing: '-0.5px' }; 
+  if (maxLen <= 22) return { fontSize: '38px', letterSpacing: '-1px' };
+  return { fontSize: '32px', letterSpacing: '-1.5px' };
+};
+
+const TeamNameBlock = memo(({ name, club, align = 'left', unifiedStyle }) => {
+  const isLeft = align === 'left';
+
+  return (
+    <div style={{ 
+      minWidth: 0, 
+      display: 'flex', 
+      alignSelf: 'stretch', 
+      justifyContent: isLeft ? 'flex-end' : 'flex-start' 
+    }}>
+      <div style={{
+        width: '100%', 
+        height: '100%', 
+        minWidth: 0, 
+        textAlign: isLeft ? 'right' : 'left',
+        display: 'flex', 
+        flexDirection: 'column', 
+        justifyContent: 'center', 
+        alignItems: isLeft ? 'flex-end' : 'flex-start',
+        borderRight: isLeft ? `4px solid ${COLORS.yellow}` : 'none',
+        borderLeft: !isLeft ? `4px solid ${COLORS.yellow}` : 'none',
+        paddingRight: isLeft ? '24px' : '0',
+        paddingLeft: !isLeft ? '24px' : '0',
+        overflow: 'hidden'
+      }}>
+        
+        {club && (
+          <div style={{
+            fontSize: '13px',
+            color: COLORS.yellow,
+            letterSpacing: '4px',
+            fontWeight: 900,
+            marginBottom: '6px',
+            textTransform: 'uppercase',
+            opacity: 0.9,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxWidth: '100%'
+          }}>
+            {up(club)}
+          </div>
+        )}
+
+        <div style={{
+          fontWeight: 900,
+          color: COLORS.white,
+          textTransform: 'uppercase',
+          whiteSpace: 'nowrap', 
+          overflow: 'hidden',   
+          textOverflow: 'ellipsis', 
+          textShadow: '3px 3px 0 rgba(0,0,0,0.5)', 
+          lineHeight: 1, 
+          maxWidth: '100%',
+          ...unifiedStyle 
+        }}>
+          {up(name, 'TEAM')}
+        </div>
+        
+      </div>
+    </div>
+  );
+});
+
+const InfoCard = memo(({ label, value, highlight = false }) => (
+  <div style={{
+    background: highlight ? 'linear-gradient(180deg, rgba(244,195,32,0.16) 0%, rgba(244,195,32,0.08) 100%)' : 'rgba(255,255,255,0.03)',
+    border: highlight ? '1px solid rgba(244,195,32,0.22)' : UI.outerFrame,
+    boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '18px 20px', position: 'relative', overflow: 'hidden'
+  }}>
+    <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 22px)', opacity: 0.45, pointerEvents: 'none' }} />
+    <div style={{ position: 'relative', zIndex: 1, fontSize: '11px', fontWeight: 900, color: highlight ? 'rgba(244,195,32,0.82)' : COLORS.faintWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
+      {label}
+    </div>
+    <div style={{ position: 'relative', zIndex: 1, marginTop: '10px', fontSize: '26px', fontWeight: 900, color: COLORS.white, letterSpacing: '1px', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      {value}
+    </div>
+  </div>
+));
+
+const MatchCover = memo(({ data }) => {
+  const { 
+    roundLabel, matchStage, matchFormat, matchTime, casterLabel, casterNames, 
+    teamA, teamB, logoA, logoB, showLogos, 
+    rosterStaffA, rosterStaffB, rosterPresetLibrary // ✅ 解构引入数据库
+  } = data;
+  
+  const safeRound = up(roundLabel, 'ROUND 01');
+  const safeStage = up(matchStage, 'OPEN QUALIFIER');
+
+  // ✅ 终极核心修复：通过下拉框传入的 teamA 名字，主动去 TEAM_DB (rosterPresetLibrary) 里面把 clubName 捞出来！
+  const findClubName = (teamName, staffData, fallback) => {
+    if (!teamName) return fallback || '';
+    
+    // 1. 优先去 TEAM_DB 库里找这个队伍的预设（匹配 name 或 teamName）
+    const preset = (rosterPresetLibrary || []).find(p => p.name === teamName || p.data?.teamName === teamName);
+    
+    // 如果预设里存了 clubName，直接返回预设里的！这完美解决了“下拉载入后没变动”的问题
+    if (preset && preset.data && typeof preset.data.clubName === 'string') {
+      return preset.data.clubName; 
+    }
+    
+    // 2. 如果库里没有，再退回看当前表单上暂存的数据
+    if (staffData && typeof staffData.clubName === 'string') {
+      return staffData.clubName;
+    }
+    
+    // 3. 最后兜底
+    return fallback || '';
+  };
+
+  const clubA = findClubName(teamA, rosterStaffA, data.clubA);
+  const clubB = findClubName(teamB, rosterStaffB, data.clubB);
+
+  // 统一下发字号
+  const unifiedTeamStyle = getUnifiedNameStyle(teamA, teamB);
+
   return (
     <>
-      <Watermark text={safe(data.matchWatermark) || 'MATCHDAY'} size={240} x={0} y={0} />
-
-      <div
-        style={{
-          position: 'absolute',
-          top: '170px',
-          left: '64px',
-          right: '64px',
-          bottom: '160px',
-          zIndex: 10,
-          display: 'grid',
-          gridTemplateRows: 'auto auto 1fr auto',
-          gap: '22px'
-        }}
-      >
+      <Watermark text={data.matchWatermark || 'MATCHDAY'} size={240} />
+      <div style={{
+        position: 'absolute', top: '170px', left: '64px', right: '64px', bottom: '160px',
+        zIndex: 10, display: 'grid', gridTemplateRows: 'auto auto 1fr auto', gap: '22px'
+      }}>
+        
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
           <div style={{ background: COLORS.yellow, color: COLORS.black, padding: '8px 16px', fontSize: '13px', fontWeight: 900, letterSpacing: '1.8px', textTransform: 'uppercase', boxShadow: UI.yellowGlow }}>
-            {safe(data.roundLabel) || 'ROUND 01'}
+            {safeRound}
           </div>
-
           <div style={{ background: 'rgba(255,255,255,0.03)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '8px 16px', fontSize: '13px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '1.8px', textTransform: 'uppercase' }}>
-            {safe(data.matchStage) || 'OPEN QUALIFIER'}
+            {safeStage}
           </div>
-
           <div style={{ background: 'rgba(255,255,255,0.03)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '8px 16px', fontSize: '13px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '1.8px', textTransform: 'uppercase' }}>
-            {safe(data.matchFormat) || 'BO3'}
+            {up(matchFormat, 'BO3')}
           </div>
         </div>
 
-        <div
-          style={{
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.012) 100%)',
-            border: UI.outerFrame,
-            boxShadow: `${UI.hardShadow}, ${UI.insetLine}`,
-            minHeight: '360px',
-            position: 'relative',
-            overflow: 'hidden'
-          }}
-        >
+        <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.012) 100%)', border: UI.outerFrame, boxShadow: `${UI.hardShadow}, ${UI.insetLine}`, minHeight: '360px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.014) 0 1px, transparent 1px 22px)', opacity: 0.42, pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `linear-gradient(90deg, ${COLORS.yellow} 0%, rgba(244,195,32,0.16) 100%)` }} />
-
-          <div
-            style={{
-              position: 'relative',
-              zIndex: 1,
-              height: '100%',
-              display: 'grid',
-              gridTemplateColumns: data.showLogos === false ? '1fr 180px 1fr' : '220px 1fr 180px 1fr 220px',
-              alignItems: 'center',
-              padding: '48px 42px'
-            }}
-          >
-            {data.showLogos !== false && <TeamLogoBox logo={safe(data.logoA)} alt={safe(data.teamA)} align="left" />}
-
-            <div style={{ minWidth: 0, paddingRight: data.showLogos === false ? '26px' : '28px', display: 'flex', justifyContent: 'flex-end' }}>
-              <div style={{ textAlign: 'right', minWidth: 0 }}>
-                <div style={{ fontSize: '16px', fontWeight: 900, color: COLORS.faintWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>TEAM A</div>
-                <div style={{ marginTop: '12px', fontSize: '72px', fontWeight: 900, color: COLORS.white, lineHeight: 0.92, letterSpacing: '1px', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {safe(data.teamA) || 'TEAM A'}
-                </div>
-              </div>
-            </div>
+          
+          <div style={{
+            position: 'relative', zIndex: 1, height: '100%', display: 'grid',
+            gridTemplateColumns: showLogos === false ? '1fr 124px 1fr' : '156px minmax(0,1.35fr) 124px minmax(0,1.35fr) 156px',
+            alignItems: 'center', columnGap: '20px', padding: '42px 28px'
+          }}>
+            {showLogos !== false && <TeamLogoBox logo={logoA} alt={teamA} align="left" size={156} />}
+            
+            <TeamNameBlock name={teamA} club={clubA} align="left" unifiedStyle={unifiedTeamStyle} />
 
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <div
-                style={{
-                  width: '148px',
-                  height: '148px',
-                  background: COLORS.yellow,
-                  color: COLORS.black,
-                  borderLeft: `2px solid ${COLORS.black}`,
-                  borderRight: `2px solid ${COLORS.black}`,
-                  boxShadow: UI.yellowGlow,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  position: 'relative'
-                }}
-              >
+              <div style={{ width: '124px', height: '124px', background: COLORS.yellow, color: COLORS.black, borderLeft: `2px solid ${COLORS.black}`, borderRight: `2px solid ${COLORS.black}`, boxShadow: UI.yellowGlow, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
                 <div style={{ position: 'absolute', inset: '10px', border: '1px solid rgba(0,0,0,0.12)' }} />
-                <span style={{ position: 'relative', zIndex: 1, fontSize: '38px', fontWeight: 900, letterSpacing: '3px', textTransform: 'uppercase' }}>VS</span>
+                <span style={{ position: 'relative', zIndex: 1, fontSize: '34px', fontWeight: 900, letterSpacing: '2px', textTransform: 'uppercase' }}>VS</span>
               </div>
             </div>
 
-            <div style={{ minWidth: 0, paddingLeft: data.showLogos === false ? '26px' : '28px', display: 'flex', justifyContent: 'flex-start' }}>
-              <div style={{ textAlign: 'left', minWidth: 0 }}>
-                <div style={{ fontSize: '16px', fontWeight: 900, color: COLORS.faintWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>TEAM B</div>
-                <div style={{ marginTop: '12px', fontSize: '72px', fontWeight: 900, color: COLORS.white, lineHeight: 0.92, letterSpacing: '1px', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {safe(data.teamB) || 'TEAM B'}
-                </div>
-              </div>
-            </div>
-
-            {data.showLogos !== false && <TeamLogoBox logo={safe(data.logoB)} alt={safe(data.teamB)} align="right" />}
+            <TeamNameBlock name={teamB} club={clubB} align="right" unifiedStyle={unifiedTeamStyle} />
+            
+            {showLogos !== false && <TeamLogoBox logo={logoB} alt={teamB} align="right" size={156} />}
           </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-          <InfoCard label="TIME" value={safe(data.matchTime) || '19:30 CST'} highlight />
-          <InfoCard label={safe(data.casterLabel) || 'CASTER'} value={safe(data.casterNames) || 'A / B'} />
-          <InfoCard label="SERIES" value={`${safe(data.roundLabel) || 'ROUND 01'} // ${safe(data.matchStage) || 'OPEN QUALIFIER'}`} />
+          <InfoCard label="TIME" value={up(matchTime, '19:30 CST')} highlight />
+          <InfoCard label={up(casterLabel, 'CASTER')} value={up(casterNames, 'A / B')} />
+          <InfoCard label="SERIES" value={`${safeRound} // ${safeStage}`} />
         </div>
       </div>
     </>
   );
-}
+});
 
-function InfoCard({ label, value, highlight = false }) {
-  return (
-    <div
-      style={{
-        background: highlight ? 'linear-gradient(180deg, rgba(244,195,32,0.16) 0%, rgba(244,195,32,0.08) 100%)' : 'rgba(255,255,255,0.03)',
-        border: highlight ? '1px solid rgba(244,195,32,0.22)' : UI.outerFrame,
-        boxShadow: `${UI.panelShadow}, ${UI.insetLine}`,
-        padding: '18px 20px',
-        position: 'relative',
-        overflow: 'hidden'
-      }}
-    >
-      <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 22px)', opacity: 0.45, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', zIndex: 1, fontSize: '11px', fontWeight: 900, color: highlight ? 'rgba(244,195,32,0.82)' : COLORS.faintWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
-        {label}
-      </div>
-      <div style={{ position: 'relative', zIndex: 1, marginTop: '10px', fontSize: '26px', fontWeight: 900, color: COLORS.white, letterSpacing: '1px', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function BottomBar({ data, isMatch }) {
-  const left = safe(data.footerLeft) || 'FRIES CUP LIVE ROOM';
-  const center = safe(data.footerCenter) || 'FRIES-CUP.COM';
-  const right = isMatch ? `${safe(data.matchTime) || '19:30 CST'}${safe(data.matchFormat) ? ` // ${safe(data.matchFormat)}` : ''}` : (safe(data.footerRight) || 'LIVE COVER SYSTEM');
+const BottomBar = memo(({ data, isMatch }) => {
+  const left = up(data.footerLeft, 'FRIES CUP LIVE ROOM');
+  const center = up(data.footerCenter, 'FRIES-CUP.COM');
+  
+  const rightBase = isMatch 
+    ? `${up(data.matchTime, '19:30 CST')}${data.matchFormat ? ` // ${up(data.matchFormat)}` : ''}` 
+    : up(data.footerRight, 'LIVE COVER SYSTEM');
 
   return (
     <>
       <div style={{ position: 'absolute', left: '64px', right: '64px', bottom: '70px', height: '2px', background: 'rgba(255,255,255,0.08)', zIndex: 12 }} />
-      <div
-        style={{
-          position: 'absolute',
-          left: '64px',
-          right: '64px',
-          bottom: '42px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '20px',
-          zIndex: 12
-        }}
-      >
+      <div style={{
+        position: 'absolute', left: '64px', right: '64px', bottom: '42px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', zIndex: 12
+      }}>
         <span style={{ fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.26)', letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
           {left}
         </span>
-
         {data.showFooterCenter !== false && (
           <span style={{ fontSize: '11px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
             {center}
           </span>
         )}
-
         <span style={{ fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.26)', letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-          {right}
+          {rightBase}
         </span>
       </div>
     </>
   );
-}
+});
 
-// 重点：使用 forwardRef 包裹并透传 ref
+// --- 主渲染出口 ---
 const BroadcastCoverScene = forwardRef(({ matchData = {} }, ref) => {
   const data = { ...DEFAULT_DATA, ...matchData };
-  const isMatch = safe(data.coverMode).toUpperCase() === 'MATCH';
+  const isMatch = up(data.coverMode) === 'MATCH';
 
   return (
     <div
-      ref={ref} // 👈 ref 挂载在这里
+      ref={ref}
       style={{
-        width: '1920px',
-        height: '1080px',
-        position: 'relative',
-        overflow: 'hidden',
-        backgroundColor: COLORS.black,
-        fontFamily: '"HarmonyOS Sans SC", "Microsoft YaHei", sans-serif',
-        backgroundImage: `
-          radial-gradient(circle at center, rgba(42,42,42,0.90) 0%, rgba(42,42,42,0.98) 100%),
-          linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%)
-        `
+        width: '1920px', height: '1080px', position: 'relative', overflow: 'hidden',
+        backgroundColor: COLORS.black, fontFamily: '"HarmonyOS Sans SC", "Microsoft YaHei", sans-serif',
+        backgroundImage: `radial-gradient(circle at center, rgba(42,42,42,0.90) 0%, rgba(42,42,42,0.98) 100%), linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%)`
       }}
     >
       <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 40px)', opacity: 0.18, pointerEvents: 'none' }} />
@@ -511,7 +458,9 @@ const BroadcastCoverScene = forwardRef(({ matchData = {} }, ref) => {
       <div style={{ position: 'absolute', right: '-120px', bottom: '-120px', width: '460px', height: '460px', border: '1px solid rgba(255,255,255,0.03)', transform: 'rotate(45deg)', pointerEvents: 'none' }} />
 
       <TopBar data={data} isMatch={isMatch} />
-      <FrameShell>{isMatch ? <MatchCover data={data} /> : <GenericCover data={data} />}</FrameShell>
+      <FrameShell>
+        {isMatch ? <MatchCover data={data} /> : <GenericCover data={data} />}
+      </FrameShell>
       <BottomBar data={data} isMatch={isMatch} />
     </div>
   );

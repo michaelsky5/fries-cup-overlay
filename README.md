@@ -1,424 +1,70 @@
-# FCUP React 导播 / Overlay 工具项目说明
+Markdown
+# 🍟 FCUP Broadcast Control System (薯条杯赛事导播总控系统)
 
-## 1. 项目目标
+![Version](https://img.shields.io/badge/version-1.0.0--beta-f4c320?style=for-the-badge)
+![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)
+![OBS WebSocket](https://img.shields.io/badge/OBS_WebSocket-v5-black?style=for-the-badge&logo=obsstudio)
 
-这套项目是一套 React 电竞赛事导播 / Overlay 控制台工具，当前目标是：
+FCUP Broadcast Control System 是一套专为《守望先锋》(Overwatch) 赛事设计的**双轨制电竞转播包装系统**。它将高强度的“赛事数据控制台”与供 OBS 捕获的“高帧率实况渲染层”进行了物理隔离，并深度集成了 OBS WebSocket 控制，为现场导播提供演播室级别的流媒体制播体验。
 
-* 把原本非常大的 `App.jsx` 逐步拆成可维护的组件结构
-* 统一控制台在不同分辨率 / 不同信息密度下的 UI 表现
-* 保持 Overlay 播出逻辑与 Console 控制逻辑清晰分层
-* 让后续新增功能时，不再频繁回到单文件巨型维护模式
+## ✨ 核心特性 (Core Features)
 
-当前已完成的阶段重点是：
+* 🎛️ **双轨物理隔离 (Dual-Screen Architecture)**
+  * **Console Workspace (操作台)**：响应式多密度 UI（支持 1080P 至 4K 监视器），集成全部赛况控制逻辑。
+  * **Overlay Scenes (渲染层)**：纯净的数据接收端，包含入场动画、计分板、赛程池等，专供 OBS 浏览器源捕获，深度优化 CSS 硬件加速 (60FPS+)。
+  * **毫秒级同步**：基于 `localStorage` 的跨窗口状态总线，实现控制台与渲染画面的零延迟通信。
+* ⏱️ **全局容错引擎 (Time-Machine History)**
+  * 为加减分、换人、切图等高危操作提供最高 20 步的全局 Undo (撤销) 保护机制。
+* 🔌 **OBS 底层联动 (Hardware Integration)**
+  * 内置 OBS WebSocket，支持在网页端直接遥控 OBS 场景切换、硬切回放 (Highlights) 与媒体源 (Video Playback) 播放。
+* 🏆 **全覆盖赛事模块 (Complete Tournament Modules)**
+  * **Live HUD**: 实时计分板、BP 状态、攻防选边、语音频道监听指示、自动轮播 Ticker。
+  * **Map Pool**: 支持 BO3/BO5/BO7 的比赛地图序列编辑，与赛事全局图池概览。
+  * **Roster**: 可视化选手大名单，支持坐标与缩放微调，原生 Blob URL 无损人像挂载。
+  * **Cover Generator**: 内置海报生成器，结合 `html2canvas` 一键导出对阵前瞻图。
 
-* 主壳层拆分
-* density 样式系统贯通
-* 主要 editor 统一接入 `density / densityTokens / createEditorUi`
-* 历史残留文件清理
-* `VIDEO / HIGHLIGHT` 编辑器补回
+## 📁 目录结构 (Project Structure)
 
----
+```text
+src/
+├── assets/          # 静态资源 (Logo、选手立绘、地图背景等)
+├── components/
+│   ├── auth/        # 系统鉴权、闪屏与配置检视页
+│   ├── common/      # 基础 UI 库 (SharedUI, 弹窗等)
+│   ├── controls/    # 【核心】控制台各类数据编辑器 (Live, MapPool, Roster...)
+│   ├── layout/      # 控制台框架结构与右侧备份边栏
+│   └── scenes/      # 【核心】专供 OBS 捕获的渲染源 (MatchLiveHUD, WinnerScene...)
+├── constants/       # 全局配置 (颜色令牌、默认数据、守望先锋地图/英雄数据库)
+├── contexts/        # 状态总线 (MatchContext, OBSContext)
+├── hooks/           # 自定义钩子 (状态中心、时光机、视图控制、快捷键)
+└── utils/           # 辅助函数库
+🚀 部署与使用 (Getting Started)
 
-## 2. 目录职责概览
+OBS 捕获设置 (OBS Setup)
+在 OBS 中添加两个浏览器源 (Browser Source)：
 
-### `App.jsx`
+渲染源 (Overlay)：指向 https://console.fries-cup.com/#overlay
 
-总入口。
+宽度: 1920
 
-负责：
+高度: 1080
 
-* 组装全局状态 hooks
-* 初始化 `MatchContext`
-* 区分 Notice / Login / Workspace 三种主界面
-* 区分 Console 路由与 `#overlay` 播出路由
-* 连接各个 scene、workspace、modal、history、keyboard shortcut
+勾选: "通过 OBS 控制音频" (若需捕捉网页播放的回放声音)
 
-可以理解为：
+操作源 (可选/第二显示器打开)：直接在导播电脑的 Chrome 浏览器中打开 console.fries-cup.com。系统会自动进入鉴权页与操作台。
 
-**总调度中心 / 根容器**
+🛠️ 路线图与待优化项 (Roadmap & Known Issues)
+(注：以下为 Beta 阶段重点性能攻坚方向)
 
----
+[ ] I/O 节流阀 (I/O Throttling)：重构 useMatchState 中的 localStorage.setItem，引入防抖机制，解决高频打字和拖拽时的 React 主线程阻塞问题。
 
-### `components/layout/ConsoleWorkspace.jsx`
+[ ] 渲染隔离 (Render Isolation)：为 LiveEditor 和 RosterEditor 等重型表单组件内部的列表渲染套用 React.memo，阻断不必要的连带重绘雪崩。
 
-主控制台工作区。
+[ ] 内存安全 (Memory Management)：在 Roster / Stats 面板的图片本地上传逻辑中，增加 URL.revokeObjectURL 机制，防止 Blob URL 堆积导致 OOM (内存泄漏)。
 
-负责：
+[ ] 媒体自动播放安全 (AutoPlay Policy)：为所有 <video> 标签在挂载瞬间显式声明 muted 属性，绕过现代浏览器的自动播放静音限制。
 
-* 顶部系统状态条
-* Scene Routing Center
-* 左侧 Scene Selector
-* 中间 monitor + editor 区
-* 右侧 `RightSidebar`
-* 将 `density / densityTokens / isDense / isUltra` 继续传给各 editor
+[ ] Vite 资产路径对齐：统一 import.meta.glob 与硬编码字符串路径的打包逻辑，建议将高频更换的赛事素材统一移入 /public 目录。
 
-可以理解为：
-
-**控制台页面骨架**
-
----
-
-### `components/common/SharedUI.jsx`
-
-通用 UI 组件集合。
-
-当前主要包括：
-
-* `ShellPanel`
-* `Field`
-* `TogglePill`
-* `TabButton`
-* `QuickStat`
-* `SectionHint`
-* `MonitorFrame`
-* `AutoFitScene`
-
-职责：
-
-* 统一面板、字段、按钮、状态块、监看窗口等基础表现
-* 接入 `density`，让基础组件自动适配不同密度
-
-可以理解为：
-
-**通用基础 UI 层**
-
----
-
-### `constants/styles.js`
-
-全局颜色 / 基础样式 / density token 源头。
-
-主要负责：
-
-* `COLORS`
-* `UI`
-* `panelBase`
-* `inputStyle / selectStyle / btnStyle / actionBtn / outlineBtn`
-* `DENSITY_TOKENS`
-* `getDensityTokens(density)`
-
-可以理解为：
-
-**设计系统底层配置**
-
----
-
-### `utils/editorUi.js`
-
-编辑器通用样式工厂。
-
-当前负责输出：
-
-* `ui.input`
-* `ui.select`
-* `ui.btn`
-* `ui.outlineBtn`
-* `ui.actionBtn`
-* `ui.softOutlineBtn`
-
-作用：
-
-* 把 editor 中重复的 `compactInput / compactBtn / compactOutlineBtn` 统一抽掉
-* 让不同 editor 的输入框 / 按钮尺寸来源统一
-
-可以理解为：
-
-**editor 专用样式工厂**
-
----
-
-### `components/controls/*`
-
-控制台编辑器区。
-
-当前主要 editor：
-
-* `LiveEditor.jsx`
-* `TeamDBEditor.jsx`
-* `MapPoolEditor.jsx`
-* `CasterEditor.jsx`
-* `CountdownEditor.jsx`
-* `VideoEditor.jsx`
-* `HighlightEditor.jsx`
-* `StatsEditor.jsx`
-* `RosterEditor.jsx`
-
-职责：
-
-* 编辑各个 scene 所需字段
-* 不直接负责播出渲染
-* 只负责控制数据
-
-可以理解为：
-
-**各业务模块的控制面板层**
-
----
-
-### `components/scenes/*`
-
-播出页场景组件。
-
-当前主要 scene：
-
-* `MatchLiveHUD`
-* `CountdownScene`
-* `CasterScene`
-* `MapPoolScene`
-* `VideoScene`
-* `HighlightScene`
-* `StatsScene`
-* `RosterScene`
-* `StingerTransition`
-
-职责：
-
-* 使用 `matchData` 渲染最终播出画面
-* 提供给 Overlay 页面和 Console monitor 预览使用
-
-可以理解为：
-
-**播出渲染层**
-
----
-
-### `hooks/*`
-
-状态和交互逻辑。
-
-当前主干：
-
-* `useMatchState.js`：核心状态读写、本地存储同步
-* `useHistory.js`：撤销历史
-* `useSceneController.js`：preview / program / take 切换
-* `useViewport.js`：响应式分辨率与 density 判断
-* `useKeyboardShortcuts.js`：快捷键逻辑
-
-可以理解为：
-
-**状态逻辑层 / 行为控制层**
-
----
-
-### `contexts/MatchContext.jsx`
-
-上下文共享层。
-
-作用：
-
-* 给各 editor / sidebar / modal 提供统一访问 `matchData`、`updateData`、`history` 等能力
-
-可以理解为：
-
-**页面级共享状态入口**
-
----
-
-## 3. 分层关系
-
-推荐把项目理解成下面这条链：
-
-`styles.js` → `SharedUI / editorUi` → `controls / layout` → `App.jsx`
-
-和另一条链：
-
-`matchData` → `scenes` → `overlay / monitors`
-
-更具体一点：
-
-* `styles.js` 提供 design token
-* `SharedUI.jsx` 和 `editorUi.js` 消费 token
-* `ConsoleWorkspace.jsx` 和各 `Editor` 消费 UI 组件与样式工厂
-* `App.jsx` 把所有状态 / 视图拼起来
-* `Scene` 只读 `matchData` 渲染最终播出结果
-
----
-
-## 4. `matchData` 字段分区说明
-
-下面是当前最重要的字段分区。
-
-### A. 全局 / 路由 / 通用
-
-* `globalScene`
-* `outputMode`
-* `stingerLogo`
-* `showTicker`
-* `tickerText`
-* `tickerMode`
-
----
-
-### B. LIVE
-
-* `teamA`
-* `teamB`
-* `logoA`
-* `logoB`
-* `logoBgA`
-* `logoBgB`
-* `scoreA`
-* `scoreB`
-* `playersA`
-* `playersB`
-* `subIndexA`
-* `subIndexB`
-* `showPlayers`
-* `showBans`
-* `bansA`
-* `bansB`
-* `activeComms`
-
----
-
-### C. MAP POOL / MATCH FLOW
-
-* `info`
-* `matchFormat`
-* `currentMap`
-* `mapLineup`
-* `mapPoolDisplayMode`
-* `showOverviewCurrent`
-* `eventMapPool`
-* `enabledMapTypes`
-
----
-
-### D. CASTERS / STAFF
-
-* `casters`
-* `casterDisplayMode`
-* `staffTitle`
-* `staffSubtitle`
-* `staffMembers`
-
----
-
-### E. COUNTDOWN
-
-* `countdownMode`
-* `countdownSeconds`
-* `infoCupName`
-* `infoSubtitle`
-* `matchStageDescription`
-* `upcomingMatches`
-
----
-
-### F. VIDEO
-
-* `videoLibrary`
-* `videoPlaylist`
-* `activeVideoPath`
-* `videoMuted`
-
----
-
-### G. HIGHLIGHT
-
-* `highlightLibrary`
-* `highlightPlaylist`
-* `activeHighlightPath`
-* `highlightMuted`
-
----
-
-### H. STATS
-
-* `statsMode`
-* `statsImagePath`
-* `statsImageTempUrl`
-* `statsTemplateData`
-
----
-
-### I. ROSTER
-
-* `rosterTeamTarget`
-* `rosterPlayersA`
-* `rosterPlayersB`
-* `rosterStaffA`
-* `rosterStaffB`
-* `rosterPresetLibrary`
-
----
-
-### J. Team Preset / 老预设链
-
-* `teamPresets`
-
-说明：
-
-这部分是旧的战队预设系统，和现在的 `rosterPresetLibrary` 有一定功能重叠。
-后续如果确认不再需要，可以考虑逐步统一或清理。
-
----
-
-## 5. 当前已经完成的工程化成果
-
-### 已完成
-
-* `App.jsx` 巨型结构已经拆出主壳层
-* `ConsoleWorkspace.jsx` 成为主控制台骨架
-* `RightSidebar.jsx` 已接入 density
-* `SharedUI.jsx` 的核心组件已接入 density
-* `Field / SectionHint` 已接 density
-* 多数 editor 已改成接收：
-
-  * `density`
-  * `densityTokens`
-  * `isDense`
-  * `isUltra`
-* `createEditorUi()` 已落地到多个 editor
-* 历史残留文件已清理一轮
-* `VIDEO / HIGHLIGHT` 编辑器已补回
-
----
-
-## 6. 当前仍然值得记住的注意点
-
-### 1. `matchData` 还在继续变大
-
-后面如果功能继续扩展，最容易失控的是字段堆积。
-
-建议未来有机会时，把默认数据按模块拆注释或分区整理清楚。
-
-### 2. `teamPresets` 和 `rosterPresetLibrary` 有一定重叠
-
-后续要决定是否保留双系统，还是统一成一套。
-
-### 3. 热更新偶尔会因为 hook 变动抽风
-
-特别是开发中改过自定义 hook 内部 hook 数量时，最好直接硬刷新。
-
----
-
-## 7. 下一阶段建议
-
-### 近一步建议
-
-1. 做一轮最终真实回归测试
-2. 确认 `VIDEO / HIGHLIGHT` 场景真的各读各的字段
-3. 检查 `defaultData` 是否还残留明显废字段
-
-### 再下一阶段建议
-
-1. 整理 `defaultData.js`
-2. 梳理 `teamPresets` 与 `rosterPresetLibrary`
-3. 考虑更正式的配置版本管理 / 备份恢复面板
-
----
-
-## 8. 一句话记忆版
-
-这套项目现在的主结构可以简单记成：
-
-* `App.jsx`：总入口
-* `ConsoleWorkspace.jsx`：控制台骨架
-* `SharedUI.jsx + styles.js + editorUi.js`：样式系统
-* `controls/*`：编辑器
-* `scenes/*`：播出画面
-* `hooks/*`：状态与交互逻辑
-* `MatchContext`：共享状态入口
-
-当前已从“能跑”进入“可维护”阶段。
+👨‍💻 作者 (Author)
+MICHAELSKY5 - Built for the FRIES CUP
