@@ -41,7 +41,6 @@ const ScheduleBoard = ({ matches, compact = false, dense = false }) => {
               <img src={m.logoA} alt={m.teamA} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} onError={(e) => (e.target.style.display = 'none')} />
             </div>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 34px', position: 'relative' }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: teamNameColor(m.logoBgA) === COLORS.black ? 'rgba(42,42,42,0.55)' : 'rgba(255,255,255,0.52)', letterSpacing: '2.2px', marginBottom: '10px' }}>SIDE_A // ACTIVE_SLOT</div>
               <span style={{ fontSize: '40px', fontWeight: '900', color: teamNameColor(m.logoBgA), textTransform: 'uppercase', lineHeight: 1.05, letterSpacing: '1px' }}>{m.teamA}</span>
             </div>
           </div>
@@ -65,7 +64,6 @@ const ScheduleBoard = ({ matches, compact = false, dense = false }) => {
               <img src={m.logoB} alt={m.teamB} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} onError={(e) => (e.target.style.display = 'none')} />
             </div>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 34px', position: 'relative' }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: teamNameColor(m.logoBgB) === COLORS.black ? 'rgba(42,42,42,0.55)' : 'rgba(255,255,255,0.52)', letterSpacing: '2.2px', marginBottom: '10px' }}>SIDE_B // ACTIVE_SLOT</div>
               <span style={{ fontSize: '40px', fontWeight: '900', color: teamNameColor(m.logoBgB), textTransform: 'uppercase', lineHeight: 1.05, letterSpacing: '1px' }}>{m.teamB}</span>
             </div>
           </div>
