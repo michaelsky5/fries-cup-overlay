@@ -84,6 +84,9 @@ export default function HighlightEditor({
   const { matchData, updateData } = useMatchContext();
   const { obsStatus, playHighlight } = useOBS(); 
 
+  // 获取当前渲染模式
+  const renderMode = matchData.highlightRenderMode || 'WEB';
+
   // 🚀 优化：使用 useMemo 缓存环境配置
   const t = useMemo(() => densityTokens || {
     blockGap: 10, panelPadding: '12px 14px', panelPaddingLg: '14px 16px', buttonFontSize: 12
@@ -251,6 +254,18 @@ export default function HighlightEditor({
         density={density}
         right={
           <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              style={{ 
+                ...softBtn, 
+                backgroundColor: renderMode === 'OBS_LOCAL' ? COLORS.yellow : '#333333', 
+                color: renderMode === 'OBS_LOCAL' ? COLORS.black : COLORS.white, 
+                border: renderMode === 'OBS_LOCAL' ? `1px solid ${COLORS.yellow}` : '1px solid #555555',
+                padding: density === 'spacious' ? '0 14px' : '0 12px' 
+              }} 
+              onClick={() => updateData({ ...matchData, highlightRenderMode: renderMode === 'WEB' ? 'OBS_LOCAL' : 'WEB' })}
+            >
+              {renderMode === 'WEB' ? 'MODE // WEB' : 'MODE // OBS LOCAL'}
+            </button>
             <button style={{ ...softBtn, backgroundColor: 'rgba(244,195,32,0.15)', color: COLORS.yellow, border: `1px solid ${COLORS.yellow}`, padding: density === 'spacious' ? '0 14px' : '0 12px' }} onClick={fetchLatestReplay}>
               Fetch Latest
             </button>

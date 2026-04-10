@@ -31,6 +31,28 @@ const containerStyle = {
   fontFamily: '"HarmonyOS Sans SC", sans-serif'
 };
 
+const infoBarStyle = {
+  position: 'absolute',
+  top: '-2px',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  backgroundColor: COLORS.mainDark,
+  color: COLORS.white,
+  padding: '5px 15px',
+  fontSize: '14px',
+  fontWeight: '900',
+  letterSpacing: '2.2px',
+  zIndex: 100,
+  opacity: 0,
+  animation: 'hudFadeInDownCenter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+  borderLeft: `1px solid ${COLORS.lineStrong}`,
+  borderRight: `1px solid ${COLORS.lineStrong}`,
+  borderBottom: `1px solid ${COLORS.lineStrong}`,
+  textTransform: 'uppercase',
+  willChange: 'transform, opacity',
+  backfaceVisibility: 'hidden'
+};
+
 const teamBarLayout = {
   display: 'flex',
   justifyContent: 'space-between',
@@ -372,12 +394,16 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
 
   const isTournamentMode = matchData.uiMode === 'TOURNAMENT';
 
-  // 🌟 [间距与悬浮调控中心] 🌟
-  // 1. 中央 Logo 信息栏固定在屏幕正顶端 (Top: 0)
-  // 2. 队伍名、头像、分数等主体根据 Y-Offset 下沉
-  // 3. 左右两侧的地图/比分细条 (SubBar) 会自动在 顶部 与 下沉的主体 之间 垂直居中
+  // 🌟 [间距与悬浮自动居中调控中心] 🌟
+  // 核心逻辑：
+  // 1. 我们获取导播设定的 Y-Offset (appliedMarginTop)。
+  // 2. 这个 Offset 代表“队伍信息主体（Logo/名字/比分）”下沉的总距离。
+  // 3. 为了让地图细条(SubBar)和中央胶囊(CenterCapsule)恰好悬浮在 [屏幕顶端] 与 [队伍主体] 的中央：
+  //    我们将 SubBar 的 marginTop 设为 appliedMarginTop / 2。
+  //    我们将 SubBar 的 marginBottom 设为 appliedMarginTop / 2。
+  // 4. 由于中央胶囊的 top 值绑定了 subBarMarginTop，它们实现了绝对的顶部对齐。
   const dynamicLayout = useMemo(() => {
-    const defaultTournamentMarginTop = 45;
+    const defaultTournamentMarginTop = 46; 
     const defaultNormalMarginTop = 0;      
 
     const customTop = parseInt(matchData.hudMarginTop, 10);
@@ -385,20 +411,17 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
       ? customTop 
       : (isTournamentMode ? defaultTournamentMarginTop : defaultNormalMarginTop);
 
-    // 计算地图细条 (SubBar) 的垂直居中逻辑：
-    // appliedMarginTop 是顶部增加的空白高度。
-    // 将这个高度一分为二，一半作为 SubBar 的 marginTop，一半作为 marginBottom。
-    // 加上默认的 4px 基础间距。
-    const subBarMarginTop = Math.floor(appliedMarginTop / 2);
-    const subBarMarginBottom = Math.ceil(appliedMarginTop / 2) + 4;
+    // 将 Y-Offset 一分为二，完美实现中间细条和胶囊的悬浮居中
+    const halfTop = Math.floor(appliedMarginTop / 2);
+    const halfBottom = Math.ceil(appliedMarginTop / 2);
 
     return {
-      subBarMarginTop: `${subBarMarginTop}px`,
-      subBarMarginBottom: `${subBarMarginBottom}px`,
+      subBarMarginTop: `${halfTop}px`,
+      subBarMarginBottom: `${halfBottom}px`, // 充当与下方队伍主体的动态间距
+      centerCapsuleTop: `${halfTop}px`,      // 完美和 SubBar 顶部对齐！
       wrapperGap: isTournamentMode ? '88px' : '81px' 
     };
   }, [isTournamentMode, matchData.hudMarginTop]);
-
 
   const beginArmedRef = useRef(matchData.beginInfoEnabled);
   useEffect(() => {
@@ -707,12 +730,12 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
         <>
           <KeyPlayerCard show={showKeyPlayer} phase={keyPlayerPhase} data={keyPlayerData} matchData={matchData} />
 
-          {/* 🌟 中央赛事胶囊组件：死死锚定在屏幕顶端 (Top: 0) 🌟 */}
+          {/* 🌟 中央赛事胶囊组件：悬浮并与两侧 SubBar 严格顶部对齐 🌟 */}
           <div
             style={{
               position: 'absolute',
               left: '50%',
-              top: 0,
+              top: dynamicLayout.centerCapsuleTop, // 完美贴合两侧细条的高度
               transform: 'translateX(-50%)',
               display: 'flex',
               alignItems: 'stretch',
@@ -785,9 +808,9 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
           <div style={teamBarLayout}>
             {/* 左侧 Wrapper */}
             <div style={{ ...teamWrapperLeftStyle, gap: dynamicLayout.wrapperGap }}>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 
-                {/* 悬浮居中的 SubBar (地图比分栏) */}
+                {/* 地图比分细条 (SubBar)：根据 Offset 一分为二悬浮居中 */}
                 <div style={{
                   ...subBarStyle,
                   marginTop: dynamicLayout.subBarMarginTop,
@@ -802,7 +825,6 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
                   </div>
                 </div>
 
-                {/* 队伍名称、比分与状态主体 */}
                 <div style={teamGroupStyle}>
                   <div style={{ ...logoBlockStyle, backgroundColor: matchData.logoBgA }}>
                     <img src={safeLogoA} style={logoImgStyle} alt="logoA" />
@@ -839,9 +861,9 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
 
             {/* 右侧 Wrapper */}
             <div style={{ ...teamWrapperRightStyle, gap: dynamicLayout.wrapperGap }}>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 
-                {/* 悬浮居中的 SubBar (地图比分栏) */}
+                {/* 地图比分细条 (SubBar)：根据 Offset 一分为二悬浮居中 */}
                 <div style={{
                   ...subBarStyle,
                   marginTop: dynamicLayout.subBarMarginTop,
@@ -913,7 +935,6 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
                   <div style={yellowAccentRight}></div>
                 </div>
 
-                {/* 队伍名称、比分与状态主体 */}
                 <div style={{ ...teamGroupStyle, justifyContent: 'flex-end' }}>
                   <div style={scoreBoxStyle}>{matchData.scoreB}</div>
                   {rightSideTag && <div style={getSideTagStyle(rightSideTag, false)}>{rightSideTag}</div>}
