@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { COLORS, panelBase, inputStyle, actionBtn, outlineBtn } from '../../constants/styles';
 
 export default function FriesModal({ config, onClose }) {
-  const { isOpen, type = 'alert', title = 'SYSTEM MESSAGE', message = '', placeholder = '', isDanger = false, onConfirm } = config;
+  // 🚀 1. 在这里解构出 maxWidth 参数
+  const { isOpen, type = 'alert', title = 'SYSTEM MESSAGE', message = '', placeholder = '', isDanger = false, onConfirm, maxWidth } = config;
   
   const [inputValue, setInputValue] = useState('');
   
-  // 🚀 优化：使用 ref 来存储最新的输入值，避免键盘事件监听器因为输入值变化而被疯狂销毁重建
   const inputValueRef = useRef('');
   const inputRef = useRef(null);
 
@@ -14,12 +14,11 @@ export default function FriesModal({ config, onClose }) {
     inputValueRef.current = inputValue;
   }, [inputValue]);
 
-  // 每次打开弹窗时，清空输入框、自动聚焦，并注入全局屏蔽类名
   useEffect(() => {
     if (isOpen) {
       setInputValue('');
       inputValueRef.current = '';
-      document.body.classList.add('fc-modal-open'); // 🚀 通知快捷键中心：弹窗来了，闭嘴！
+      document.body.classList.add('fc-modal-open'); 
       
       if (type === 'prompt') {
         const timer = setTimeout(() => inputRef.current?.focus(), 50);
@@ -39,7 +38,6 @@ export default function FriesModal({ config, onClose }) {
       if (e.key === 'Escape') {
         onClose();
       } else if (e.key === 'Enter') {
-        // 使用 ref 拿最新值，完美摆脱依赖陷阱
         if (onConfirm) onConfirm(type === 'prompt' ? inputValueRef.current : true);
         onClose();
       }
@@ -47,7 +45,6 @@ export default function FriesModal({ config, onClose }) {
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    // 移除了 inputValue 的依赖！
   }, [isOpen, type, onConfirm, onClose]);
 
   if (!isOpen) return null;
@@ -69,12 +66,19 @@ export default function FriesModal({ config, onClose }) {
     >
       <style>{`
         @keyframes modalBackdropFade { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes modalPop { from { opacity: 0; transform: translateY(-8vh) scale(0.96); } to { opacity: 1; transform: translateY(-10vh) scale(1); } }
+        @keyframes modalPop { 
+  from { opacity: 0; transform: translateY(2vh) scale(0.96); } 
+  to { opacity: 1; transform: translateY(0) scale(1); } 
+}
       `}</style>
 
       <div 
         style={{ 
-          ...panelBase, width: '460px', maxWidth: '90%', padding: '0', 
+          ...panelBase, 
+          // 🚀 2. 动态读取传入的宽度，如果没有传就默认 460px。同时保留 maxWidth: '90%' 确保小屏幕不会撑爆
+          width: maxWidth || '460px', 
+          maxWidth: '90%', 
+          padding: '0', 
           border: `1px solid ${themeColor}`, boxShadow: `0 0 30px rgba(${isDanger ? '255,77,77' : '244,195,32'}, 0.15)`, 
           overflow: 'hidden', animation: 'modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards'
         }}

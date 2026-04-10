@@ -146,7 +146,7 @@ const TeamControlPanel = React.memo(({
 
             {!isUltra && (
               <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={logo} onChange={e => updateData(prev => ({ ...prev, [isA ? 'logoA' : 'logoB']: e.target.value }))}>
-                {LOGO_LIST.map(l => <option key={l.path} value={l.path}>{l.name}</option>)}
+                {LOGO_LIST.map((l, index) => <option key={`${l.path}-${index}`} value={l.path}>{l.name}</option>)}
               </select>
             )}
 
@@ -172,7 +172,7 @@ const TeamControlPanel = React.memo(({
 
               <Field label="LOGO" density={density}>
                 <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={logo} onChange={e => updateData(prev => ({ ...prev, [isA ? 'logoA' : 'logoB']: e.target.value }))}>
-                  {LOGO_LIST.map(l => <option key={l.path} value={l.path}>{l.name}</option>)}
+                  {LOGO_LIST.map((l, index) => <option key={`${l.path}-${index}`} value={l.path}>{l.name}</option>)}
                 </select>
               </Field>
 

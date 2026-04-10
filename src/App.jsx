@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 // Context / Hooks
 import { MatchContext } from './contexts/MatchContext';
-import { OBSProvider } from './contexts/OBSContext';
+import { OBSProvider, useOBS } from './contexts/OBSContext';
 import { useViewport } from './hooks/useViewport';
 import { useMatchState } from './hooks/useMatchState';
 import { useHistory } from './hooks/useHistory';
@@ -49,7 +49,6 @@ const getConsolePresetMeta = (value, viewportW = 0) => {
   return { label: 'AUTO · 1080P', width: null, desc: 'Auto-adapting to 1080P environments.', densityHint: 'compact' };
 };
 
-// 🚀 优化：使用对象映射表替换长长的 if-else，代码更干净查找更块
 const SceneComponentMap = {
   LIVE: MatchLiveHUD,
   COUNTDOWN: CountdownScene,
@@ -68,13 +67,16 @@ const renderSceneByKey = (sceneKey, matchData, isActive = false) => {
   return <SceneComponent matchData={matchData} isActive={isActive} />;
 };
 
-function App() {
+function MainApp() {
   const isOverlay = typeof window !== 'undefined' && window.location.hash === '#overlay';
 
   const { w, h, density, isDense, isUltra, isShort } = useViewport();
-  const { matchData, matchDataRef, videoProgress, updateData } = useMatchState();
-  const { history, setHistory, updateWithHistory, handleUndo } = useHistory(matchDataRef, updateData);
-  const { previewScene, setPreviewScene, previewSceneRef, renderScene, isTransitioning, takeScene } = useSceneController(matchData, matchDataRef, updateData, setHistory);
+  const { matchData, matchDataRef, videoProgress, updateData: originalUpdateData } = useMatchState();
+  const { history, setHistory, updateWithHistory: originalUpdateWithHistory, handleUndo: originalHandleUndo } = useHistory(matchDataRef, originalUpdateData);
+  const { previewScene, setPreviewScene, previewSceneRef, renderScene, isTransitioning, takeScene: originalTakeScene } = useSceneController(matchData, matchDataRef, originalUpdateData, setHistory);
+
+  // 🚀 引入我们刚写的广播和接收方法
+  const { obsStatus, obsConfig, connectOBS, broadcastState, onReceiveSync } = useOBS();
 
   const [activeTab, setActiveTab] = useState('LIVE');
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -84,7 +86,6 @@ function App() {
   const [consoleMode, setConsoleMode] = useState('easy'); 
   const [consoleResolution, setConsoleResolution] = useState('auto');
 
-  // 🚀 优化：不再使用独立 state，直接从 matchData 派生，杜绝状态脱节
   const outputResolution = matchData.outputMode === '4K' ? '3840x2160' : '1920x1080';
   const [proAccessCode, setProAccessCode] = useState('');
 
@@ -92,14 +93,77 @@ function App() {
   const closeModal = () => setModalConfig({ isOpen: false });
   const showModal = config => setModalConfig({ ...config, isOpen: true });
 
+// 1️⃣ 【Overlay 端专属逻辑】：打开就静默连上 OBS，并随时听指挥
+  useEffect(() => {
+    if (isOverlay) {
+      // 🚀 核心修复：从 URL 中抓取密码
+      const urlParams = new URLSearchParams(window.location.search);
+      const pwdFromUrl = urlParams.get('pwd');
+      
+      const connectUrl = obsConfig.url || 'ws://127.0.0.1:4455';
+      const connectPwd = pwdFromUrl || obsConfig.password || '';
+
+      console.log('Overlay attempting to connect with pwd:', connectPwd ? '***' : 'NONE');
+      connectOBS(connectUrl, connectPwd);
+      
+      // 注册接收器：当收到控制台发来的同步数据时，覆盖本地状态
+      onReceiveSync((remotePayload) => {
+        if (remotePayload.matchData) {
+          originalUpdateData(remotePayload.matchData);
+        }
+        if (remotePayload.globalScene && remotePayload.globalScene !== matchDataRef.current.globalScene) {
+          originalTakeScene(remotePayload.globalScene);
+        }
+      });
+    }
+  }, [isOverlay]); // 仅初始化一次
+
+  // 2️⃣ 【控制台端专属逻辑】：统一的状态同步发射器
+  const syncToOverlay = (newData, newScene) => {
+    if (obsStatus === 'connected' && !isOverlay) {
+      broadcastState({
+        matchData: newData,
+        globalScene: newScene || renderScene
+      });
+    }
+  };
+
+  // 拦截 updateData (比如改比分、换名字时触发)
+  const handleUpdateDataAndSync = (newData) => {
+    const resolvedData = typeof newData === 'function' ? newData(matchData) : newData;
+    originalUpdateData(resolvedData);
+    syncToOverlay(resolvedData);
+  };
+
+  // 拦截 updateWithHistory (比如各种快捷按钮触发)
+  const handleUpdateWithHistoryAndSync = (actionName, newData) => {
+    originalUpdateWithHistory(actionName, newData);
+    syncToOverlay(newData);
+  };
+
+  // 拦截 TakeScene (切场时触发)
+  const handleTakeSceneAndSync = (targetScene) => {
+    originalTakeScene(targetScene);
+    syncToOverlay(matchData, targetScene);
+  };
+
+  // 拦截 Undo (撤销时触发)
+  const handleUndoAndSync = () => {
+    originalHandleUndo();
+    // 稍微延迟一下等待 state 恢复，或者在真实的业务里你可以在 useHistory 内部做钩子，这里用 setTimeout 简单处理同步
+    setTimeout(() => {
+      syncToOverlay(matchDataRef.current);
+    }, 50);
+  };
+
   useKeyboardShortcuts({
     isUnlocked,
     presetModalTarget: null,
     setPresetModalTarget: () => {},
-    takeScene,
+    takeScene: handleTakeSceneAndSync, // 🚀 快捷键也走同步版本
     previewSceneRef,
     setActiveTab,
-    handleUndo
+    handleUndo: handleUndoAndSync
   });
 
   const consolePresetMeta = useMemo(() => getConsolePresetMeta(consoleResolution, w), [consoleResolution, w]);
@@ -144,7 +208,6 @@ function App() {
     COVER: 'BROADCAST COVER',
   };
 
-  // 🚀 优化：包裹 useMemo 防止每次 App 渲染都创建新对象导致下游画面全盘闪烁
   const silentMatchData = useMemo(() => ({
     ...matchData,
     autoBeginTrigger: 0,
@@ -161,7 +224,7 @@ function App() {
     renderSceneByKey(sceneKey, silentMatchData, sceneKey === 'LIVE');
 
   const syncOutputResolution = value => {
-    updateData({ ...matchData, outputMode: value === '3840x2160' ? '4K' : '1080P' });
+    handleUpdateDataAndSync({ ...matchData, outputMode: value === '3840x2160' ? '4K' : '1080P' });
   };
 
   const enterEasyMode = () => {
@@ -194,7 +257,6 @@ function App() {
     setAppScreen(APP_SCREENS.LOGIN);
   };
 
-  // 🚀 优化：加上 catch 处理，防止非 HTTPS 或浏览器权限拒绝导致应用崩溃
   const exportConfig = () => {
     navigator.clipboard.writeText(JSON.stringify(matchData))
       .then(() => showModal({ type: 'alert', title: 'EXPORT SUCCESS', message: 'All configurations successfully copied to clipboard.' }))
@@ -209,7 +271,8 @@ function App() {
       onConfirm: data => {
         if (!data) return;
         try {
-          updateData(JSON.parse(data));
+          const parsed = JSON.parse(data);
+          handleUpdateDataAndSync(parsed);
           showModal({ type: 'alert', title: 'IMPORT SUCCESS', message: 'Configuration imported successfully!' });
         } catch (e) {
           showModal({ type: 'alert', title: 'IMPORT FAILED', message: 'Invalid JSON format. Import failed.', isDanger: true });
@@ -219,7 +282,7 @@ function App() {
   };
 
   const handleSwapTeams = () => {
-    updateWithHistory('Swap Teams', {
+    handleUpdateWithHistoryAndSync('Swap Teams', {
       ...matchData,
       teamA: matchData.teamB,
       teamB: matchData.teamA,
@@ -260,7 +323,7 @@ function App() {
       isDanger: true,
       message: 'WARNING: Are you sure you want to reset all scores, maps, casters, and rosters?\nThis will clear all temporary match data! (Global Team DB will not be affected)',
       onConfirm: () =>
-        updateWithHistory('Nuclear Reset', {
+        handleUpdateWithHistoryAndSync('Nuclear Reset', {
           ...matchData,
           currentMap: 1,
           showBans: false,
@@ -318,115 +381,120 @@ function App() {
     );
   };
 
-  // 🚀 优化：缓存 Context Value，避免 App.jsx 内部小状态更新导致全组件强制重绘！
+  // 🚀 确保 Context 下发的是强化过的、带同步功能的拦截器
   const contextValue = useMemo(() => ({
     matchData,
-    updateData,
-    updateWithHistory,
+    updateData: handleUpdateDataAndSync,
+    updateWithHistory: handleUpdateWithHistoryAndSync,
     history,
-    handleUndo,
+    handleUndo: handleUndoAndSync,
     videoProgress,
     showModal,
     setPreviewScene
-  }), [matchData, updateData, updateWithHistory, history, handleUndo, videoProgress, showModal, setPreviewScene]);
+  }), [matchData, handleUpdateDataAndSync, handleUpdateWithHistoryAndSync, history, handleUndoAndSync, videoProgress, showModal, setPreviewScene]);
 
   return (
-    <OBSProvider>
-      <MatchContext.Provider value={contextValue}>
-        {isOverlay ? (
-          renderOverlayPage()
-        ) : appScreen === APP_SCREENS.INTRO ? (
-          <IntroSplashScreen
-            duration={2200}
-            onFinish={() => setAppScreen(APP_SCREENS.NOTICE)}
-          />
-        ) : appScreen === APP_SCREENS.NOTICE ? (
-          <NoticeScreen
-            density={uiDensity}
-            densityTokens={densityTokens}
-            isDense={isDense}
-            isUltra={isUltra}
-            blockGap={blockGap}
-            w={w}
-            h={h}
-            consolePresetMeta={consolePresetMeta}
-            outputResolution={outputResolution}
-            consoleMode={consoleMode}
-            onEnterSystem={() => setAppScreen(APP_SCREENS.LOGIN)}
-            onSetDefault1080={() => syncOutputResolution('1920x1080')}
-          />
-        ) : appScreen === APP_SCREENS.LOGIN ? (
-          <LoginModeScreen
-            density={uiDensity}
-            densityTokens={densityTokens}
-            isDense={isDense}
-            isUltra={isUltra}
-            blockGap={blockGap}
-            consoleResolution={consoleResolution}
-            setConsoleResolution={setConsoleResolution}
-            outputResolution={outputResolution}
-            onChangeOutputResolution={syncOutputResolution}
-            consolePresetMeta={consolePresetMeta}
-            w={w}
-            h={h}
-            proAccessCode={proAccessCode}
-            setProAccessCode={setProAccessCode}
-            onEnterBasicMode={enterEasyMode}
-            onEnterProMode={enterProMode}
-            onBackNotice={() => setAppScreen(APP_SCREENS.NOTICE)}
-          />
-        ) : (
-          <ConsoleWorkspace
-            density={uiDensity}
-            densityTokens={densityTokens}
-            isOverlay={isOverlay}
-            isDense={isDense}
-            isUltra={isUltra}
-            isShort={isShort}
-            pagePadding={pagePadding}
-            blockGap={blockGap}
-            sideColWidth={sideColWidth}
-            rightColWidth={rightColWidth}
-            showRightColumn={showRightColumn}
-            showEmbeddedRightPanels={showEmbeddedRightPanels}
-            topGridTemplate={topGridTemplate}
-            mainGridTemplate={mainGridTemplate}
-            monitorGridTemplate={monitorGridTemplate}
-            workspaceFrameStyle={workspaceFrameStyle}
-            matchData={matchData}
-            updateData={updateData}
-            history={history}
-            handleUndo={handleUndo}
-            previewScene={previewScene}
-            setPreviewScene={setPreviewScene}
-            renderScene={renderScene}
-            isTransitioning={isTransitioning}
-            takeScene={takeScene}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            availableTabs={availableTabs}
-            isUnlocked={isUnlocked}
-            isLogOpen={isLogOpen}
-            setIsLogOpen={setIsLogOpen}
-            handleUnlock={handleUnlock}
-            exportConfig={exportConfig}
-            importConfig={importConfig}
-            handleSwapTeams={handleSwapTeams}
-            handleReset={handleReset}
-            consolePresetMeta={consolePresetMeta}
-            outputResolution={outputResolution}
-            onChangeOutputResolution={syncOutputResolution}
-            renderMonitorScene={renderMonitorScene}
-            renderPreviewMonitorScene={renderPreviewMonitorScene}
-            renderProgramMonitorScene={renderProgramMonitorScene}
-            sceneLabelMap={sceneLabelMap}
-          />
-        )}
+    <MatchContext.Provider value={contextValue}>
+      {isOverlay ? (
+        renderOverlayPage()
+      ) : appScreen === APP_SCREENS.INTRO ? (
+        <IntroSplashScreen
+          duration={2200}
+          onFinish={() => setAppScreen(APP_SCREENS.NOTICE)}
+        />
+      ) : appScreen === APP_SCREENS.NOTICE ? (
+        <NoticeScreen
+          density={uiDensity}
+          densityTokens={densityTokens}
+          isDense={isDense}
+          isUltra={isUltra}
+          blockGap={blockGap}
+          w={w}
+          h={h}
+          consolePresetMeta={consolePresetMeta}
+          outputResolution={outputResolution}
+          consoleMode={consoleMode}
+          onEnterSystem={() => setAppScreen(APP_SCREENS.LOGIN)}
+          onSetDefault1080={() => syncOutputResolution('1920x1080')}
+        />
+      ) : appScreen === APP_SCREENS.LOGIN ? (
+        <LoginModeScreen
+          density={uiDensity}
+          densityTokens={densityTokens}
+          isDense={isDense}
+          isUltra={isUltra}
+          blockGap={blockGap}
+          consoleResolution={consoleResolution}
+          setConsoleResolution={setConsoleResolution}
+          outputResolution={outputResolution}
+          onChangeOutputResolution={syncOutputResolution}
+          consolePresetMeta={consolePresetMeta}
+          w={w}
+          h={h}
+          proAccessCode={proAccessCode}
+          setProAccessCode={setProAccessCode}
+          onEnterBasicMode={enterEasyMode}
+          onEnterProMode={enterProMode}
+          onBackNotice={() => setAppScreen(APP_SCREENS.NOTICE)}
+        />
+      ) : (
+        <ConsoleWorkspace
+          density={uiDensity}
+          densityTokens={densityTokens}
+          isOverlay={isOverlay}
+          isDense={isDense}
+          isUltra={isUltra}
+          isShort={isShort}
+          pagePadding={pagePadding}
+          blockGap={blockGap}
+          sideColWidth={sideColWidth}
+          rightColWidth={rightColWidth}
+          showRightColumn={showRightColumn}
+          showEmbeddedRightPanels={showEmbeddedRightPanels}
+          topGridTemplate={topGridTemplate}
+          mainGridTemplate={mainGridTemplate}
+          monitorGridTemplate={monitorGridTemplate}
+          workspaceFrameStyle={workspaceFrameStyle}
+          matchData={matchData}
+          updateData={handleUpdateDataAndSync}
+          history={history}
+          handleUndo={handleUndoAndSync}
+          previewScene={previewScene}
+          setPreviewScene={setPreviewScene}
+          renderScene={renderScene}
+          isTransitioning={isTransitioning}
+          takeScene={handleTakeSceneAndSync} // 🚀 TAKE 按钮拦截
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          availableTabs={availableTabs}
+          isUnlocked={isUnlocked}
+          isLogOpen={isLogOpen}
+          setIsLogOpen={setIsLogOpen}
+          handleUnlock={handleUnlock}
+          exportConfig={exportConfig}
+          importConfig={importConfig}
+          handleSwapTeams={handleSwapTeams}
+          handleReset={handleReset}
+          consolePresetMeta={consolePresetMeta}
+          outputResolution={outputResolution}
+          onChangeOutputResolution={syncOutputResolution}
+          renderMonitorScene={renderMonitorScene}
+          renderPreviewMonitorScene={renderPreviewMonitorScene}
+          renderProgramMonitorScene={renderProgramMonitorScene}
+          sceneLabelMap={sceneLabelMap}
+        />
+      )}
 
-        {!isOverlay && <FriesModal config={modalConfig} onClose={closeModal} />}
-      </MatchContext.Provider>
-    </OBSProvider>
+      {!isOverlay && <FriesModal config={modalConfig} onClose={closeModal} />}
+    </MatchContext.Provider>
   );
 }
 
-export default App;
+// 🚀 将原先单纯导出的 App 包裹上 OBS Provider
+export default function App() {
+  return (
+    <OBSProvider>
+      <MainApp />
+    </OBSProvider>
+  );
+}

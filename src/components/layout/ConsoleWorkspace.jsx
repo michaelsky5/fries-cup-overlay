@@ -26,6 +26,7 @@ import CountdownEditor from '../controls/CountdownEditor';
 import VideoEditor from '../controls/VideoEditor';
 import HighlightEditor from '../controls/HighlightEditor';
 import CoverEditor from '../controls/CoverEditor';
+import OBSConnector from '../controls/OBSConnector'; // 🚀 引入 OBS 连接面板
 
 import RightSidebar from './RightSidebar';
 import StingerTransition from '../scenes/StingerTransition';
@@ -79,7 +80,6 @@ function ConsoleWorkspace({
   renderProgramMonitorScene,
   sceneLabelMap
 }) {
-  // 优化：使用 useMemo 缓存 UI 对象，防止其在每次渲染时重建导致子组件 props 改变而击穿缓存
   const t = useMemo(() => densityTokens || {
     panelPadding: '12px',
     buttonPadding: '10px 12px',
@@ -163,7 +163,6 @@ function ConsoleWorkspace({
       <style>{`
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
         * { box-sizing: border-box; }
-        /* 隐藏数字输入框默认的上下箭头 */
         input[type="number"]::-webkit-inner-spin-button,
         input[type="number"]::-webkit-outer-spin-button {
           -webkit-appearance: none;
@@ -174,7 +173,6 @@ function ConsoleWorkspace({
         }
       `}</style>
 
-      {/* 修复：移回坐标原点，使用透明度而非负数坐标进行隐藏，防止现代浏览器离屏资源被强行回收导致截图空白 */}
       <div 
         style={{ 
           position: 'absolute', 
@@ -183,7 +181,7 @@ function ConsoleWorkspace({
           width: '1920px', 
           height: '1080px', 
           pointerEvents: 'none',
-          opacity: 0.001, // 确保它仍在浏览器的渲染管线中
+          opacity: 0.001,
           zIndex: -100,
           overflow: 'hidden'
         }}
@@ -214,6 +212,7 @@ function ConsoleWorkspace({
           minHeight: 0
         }}
       >
+        {/* ================= TOP NAVIGATION BAR ================= */}
         <div
           style={{
             minHeight: '44px',
@@ -248,21 +247,30 @@ function ConsoleWorkspace({
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            
+            {/* 🚀 OBS WebSocket 面板：调整到功能按钮左侧 */}
+            <OBSConnector />
+
+            {/* 优雅的视觉分割线 */}
+            <div style={{ width: '1px', height: '16px', backgroundColor: COLORS.lineStrong, margin: '0 4px' }} />
+
             <button
               onClick={handleUnlock}
               style={{
                 ...ui.outlineBtn,
                 borderColor: isUnlocked ? COLORS.red : COLORS.lineStrong,
                 color: isUnlocked ? COLORS.red : COLORS.softWhite,
-                cursor: 'pointer'
+                cursor: 'pointer',
+                height: '26px', // 统一高度
+                padding: '0 10px'
               }}
             >
               {isUnlocked ? 'EXIT PRO' : 'MODE SELECT'}
             </button>
 
-            <button style={{ ...ui.outlineBtn, cursor: 'pointer' }} onClick={exportConfig}>EXPORT CONFIG</button>
-            <button style={{ ...ui.outlineBtn, cursor: 'pointer' }} onClick={importConfig}>IMPORT CONFIG</button>
+            <button style={{ ...ui.outlineBtn, cursor: 'pointer', height: '26px', padding: '0 10px' }} onClick={exportConfig}>EXPORT CONFIG</button>
+            <button style={{ ...ui.outlineBtn, cursor: 'pointer', height: '26px', padding: '0 10px' }} onClick={importConfig}>IMPORT CONFIG</button>
 
             {isUnlocked && (
               <button
@@ -270,15 +278,19 @@ function ConsoleWorkspace({
                   ...ui.outlineBtn,
                   borderColor: isLogOpen ? COLORS.yellow : COLORS.lineStrong,
                   color: isLogOpen ? COLORS.yellow : COLORS.softWhite,
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  height: '26px',
+                  padding: '0 10px'
                 }}
                 onClick={() => setIsLogOpen(!isLogOpen)}
               >
                 {isLogOpen ? 'LOG ON' : 'LOG OFF'}
               </button>
             )}
+
           </div>
         </div>
+        {/* ======================================================= */}
 
         <div
           style={{
@@ -321,12 +333,7 @@ function ConsoleWorkspace({
                 style={{ height: '100%' }}
                 bodyStyle={{ padding: density === 'spacious' ? '10px 12px' : '8px 10px', height: '100%' }}
               >
-                <div
-                  style={{
-                    display: 'grid',
-                    gap: '8px'
-                  }}
-                >
+                <div style={{ display: 'grid', gap: '8px' }}>
                   <div
                     style={{
                       display: 'grid',
@@ -464,7 +471,6 @@ function ConsoleWorkspace({
                     </button>
                   </div>
 
-                  {/* ===== HUD Mode 和 Output Mode 调整行 ===== */}
                   <div
                     style={{
                       display: 'grid',
@@ -473,7 +479,6 @@ function ConsoleWorkspace({
                       alignItems: 'end'
                     }}
                   >
-                    {/* 1. Stinger Logo */}
                     <div style={{ minWidth: 0 }}>
                       <div
                         style={{
@@ -518,7 +523,6 @@ function ConsoleWorkspace({
                       </select>
                     </div>
 
-                    {/* 2. HUD Mode 切换 */}
                     <div style={{ minWidth: 0 }}>
                       <div
                         style={{
@@ -575,7 +579,6 @@ function ConsoleWorkspace({
                       </div>
                     </div>
 
-                    {/* 3. Margin Top Offset (上下堆叠调整) */}
                     <div style={{ minWidth: 0, opacity: matchData.uiMode === 'TOURNAMENT' ? 1 : 0.25, transition: 'opacity 0.25s ease' }}>
                       <div
                         style={{
@@ -602,10 +605,9 @@ function ConsoleWorkspace({
                           border: matchData.uiMode === 'TOURNAMENT' ? `1px solid ${COLORS.lineStrong}` : '1px dashed rgba(255,255,255,0.1)',
                           boxSizing: 'border-box',
                           borderRadius: '2px',
-                          paddingRight: '2px' // 给右侧控制柱留一点边距
+                          paddingRight: '2px'
                         }}
                       >
-                        {/* 左侧大字号数值 */}
                         <input
                           type="number"
                           disabled={matchData.uiMode !== 'TOURNAMENT'}
@@ -621,7 +623,7 @@ function ConsoleWorkspace({
                             padding: '0 0 0 6px',
                             fontSize: density === 'spacious' ? '13px' : '12px',
                             outline: 'none',
-                            fontFamily: '"HarmonyOS Sans SC", sans-serif' // 恢复默认字体体系
+                            fontFamily: '"HarmonyOS Sans SC", sans-serif'
                           }}
                           value={matchData.hudMarginTop ?? (matchData.uiMode === 'TOURNAMENT' ? 56 : 0)}
                           onChange={e => {
@@ -630,7 +632,6 @@ function ConsoleWorkspace({
                           }}
                         />
 
-                        {/* 右侧堆叠的上下调整按钮柱 */}
                         <div style={{ display: 'flex', flexDirection: 'column', height: '80%', flex: '0 0 16px', gap: '2px' }}>
                           <button
                             disabled={matchData.uiMode !== 'TOURNAMENT'}
@@ -688,7 +689,6 @@ function ConsoleWorkspace({
                       </div>
                     </div>
 
-                    {/* 4. Output Mode */}
                     <div style={{ minWidth: 0 }}>
                       <div
                         style={{
@@ -745,7 +745,6 @@ function ConsoleWorkspace({
                       </div>
                     </div>
 
-                    {/* 5. Current Editor */}
                     <div style={{ minWidth: 0 }}>
                       <div
                         style={{
@@ -790,7 +789,6 @@ function ConsoleWorkspace({
                       </div>
                     </div>
                   </div>
-                  {/* ================================================= */}
                 </div>
               </ShellPanel>
 
@@ -1095,5 +1093,4 @@ function ConsoleWorkspace({
   );
 }
 
-// 优化：增加 React.memo，只有 Props 改变时才触发工作区整体重渲染
 export default React.memo(ConsoleWorkspace);

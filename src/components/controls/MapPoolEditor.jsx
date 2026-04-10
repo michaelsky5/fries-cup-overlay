@@ -26,7 +26,12 @@ const DEFAULT_EVENT_MAP_POOL = {
 };
 
 const DEFAULT_ENABLED_MAP_TYPES = {
-  CONTROL: true, ESCORT: true, HYBRID: true, PUSH: true, FLASHPOINT: true, CLASH: false
+  CONTROL: true,
+  ESCORT: true,
+  HYBRID: true,
+  PUSH: true,
+  FLASHPOINT: true,
+  CLASH: false
 };
 
 const normalizeMapTypeKey = raw => {
@@ -43,8 +48,17 @@ const normalizeMapTypeKey = raw => {
 
 const dedupeList = list => Array.from(new Set((Array.isArray(list) ? list : []).filter(Boolean)));
 
-// 🚀 优化：抽离内联渲染组件，套上 React.memo 防止不必要的重绘
-const InlineSelect = React.memo(({ labelLines, value, onChange, children, selectStyle, density, rowGap, consoleSelectStyle, inlineLabelBoxStyle }) => (
+const InlineSelect = React.memo(({
+  labelLines,
+  value,
+  onChange,
+  children,
+  selectStyle,
+  density,
+  rowGap,
+  consoleSelectStyle,
+  inlineLabelBoxStyle
+}) => (
   <div style={{ display: 'grid', gridTemplateColumns: density === 'spacious' ? '96px minmax(0,1fr)' : '90px minmax(0,1fr)', gap: rowGap, alignItems: 'stretch', minWidth: 0 }}>
     <div style={inlineLabelBoxStyle}>
       {Array.isArray(labelLines) ? labelLines.map((line, idx) => <div key={idx}>{line}</div>) : <div>{labelLines}</div>}
@@ -66,8 +80,8 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
   const ultraGrid = isUltra;
   const rowGap = density === 'spacious' ? 10 : 8;
   const stepButtonHeight = density === 'spacious' ? '40px' : '36px';
+  const metaDisplayMode = String(matchData.mapMetaDisplayMode || 'RESULT').toUpperCase();
 
-  // 🚀 核心修复 1：将死板的字符串匹配升级为强壮的解析器，确保编辑器精确放出 7 个槽位！
   const formatLength = useMemo(() => {
     const fmt = String(matchData.matchFormat || 'BO3').toUpperCase();
     if (fmt.includes('7') || fmt.includes('FT4')) return 7;
@@ -76,7 +90,6 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
     return match ? parseInt(match[0], 10) : 3;
   }, [matchData.matchFormat]);
 
-  // 🚀 核心修复 2：为下拉菜单生成安全的对应值，防止因为格式偏差导致下拉框变空白
   const safeFormatSelect = formatLength === 7 ? 'BO7' : formatLength === 5 ? 'BO5' : 'BO3';
 
   const mapDataResolved = useMemo(() => {
@@ -86,22 +99,26 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
       if (!result[canonical]) result[canonical] = [];
       result[canonical] = dedupeList([...(result[canonical] || []), ...(Array.isArray(value) ? value : [])]);
     });
-    CANONICAL_MAP_TYPES.forEach(type => { if (!result[type]) result[type] = []; });
+    CANONICAL_MAP_TYPES.forEach(type => {
+      if (!result[type]) result[type] = [];
+    });
     return result;
   }, []);
 
   const enabledMapTypes = useMemo(() => {
     const raw = matchData.enabledMapTypes || {};
     const merged = { ...DEFAULT_ENABLED_MAP_TYPES };
-    Object.entries(raw).forEach(([key, value]) => { merged[normalizeMapTypeKey(key)] = value; });
+    Object.entries(raw).forEach(([key, value]) => {
+      merged[normalizeMapTypeKey(key)] = value;
+    });
     return merged;
   }, [matchData.enabledMapTypes]);
 
   const eventMapPool = useMemo(() => {
     const raw = matchData.eventMapPool || {};
     const merged = { ...DEFAULT_EVENT_MAP_POOL };
-    
-    Object.entries(raw).forEach(([key, value]) => { 
+
+    Object.entries(raw).forEach(([key, value]) => {
       const canonical = normalizeMapTypeKey(key);
       if (Array.isArray(value)) {
         const maxSlots = DEFAULT_EVENT_MAP_POOL[canonical]?.length || 3;
@@ -116,6 +133,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
         merged[type] = dedupeList(DEFAULT_EVENT_MAP_POOL[type] || mapDataResolved[type] || []);
       }
     });
+
     return merged;
   }, [matchData.eventMapPool, mapDataResolved]);
 
@@ -146,6 +164,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
       name: safeName,
       scoreA: raw.scoreA ?? 0,
       scoreB: raw.scoreB ?? 0,
+      picker: raw.picker || '',
       winner: raw.winner || ''
     };
   });
@@ -154,31 +173,68 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
     ...ui.softOutlineBtn,
     backgroundColor: active ? COLORS.yellow : 'transparent',
     color: active ? COLORS.black : COLORS.softWhite,
-    minHeight: stepButtonHeight, height: stepButtonHeight,
+    minHeight: stepButtonHeight,
+    height: stepButtonHeight,
     padding: density === 'spacious' ? '0 14px' : '0 12px',
     fontSize: density === 'spacious' ? '12px' : '11px',
-    fontWeight: 900, boxSizing: 'border-box'
+    fontWeight: 900,
+    boxSizing: 'border-box'
   });
 
   const stepBtnBase = {
-    minHeight: stepButtonHeight, height: stepButtonHeight, padding: 0,
+    minHeight: stepButtonHeight,
+    height: stepButtonHeight,
+    padding: 0,
     fontSize: density === 'spacious' ? '18px' : '16px',
-    fontWeight: 900, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box'
+    fontWeight: 900,
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxSizing: 'border-box'
   };
 
   const inlineLabelBoxStyle = {
-    minHeight: stepButtonHeight, height: stepButtonHeight, border: `1px solid ${COLORS.line}`,
-    background: 'rgba(255,255,255,0.02)', color: COLORS.faintWhite, fontSize: density === 'spacious' ? '10px' : '9px',
-    fontWeight: 900, letterSpacing: '1.1px', textTransform: 'uppercase', display: 'flex', flexDirection: 'column',
-    alignItems: 'center', justifyContent: 'center', lineHeight: 1, boxSizing: 'border-box', whiteSpace: 'nowrap', padding: '0 6px'
+    minHeight: stepButtonHeight,
+    height: stepButtonHeight,
+    border: `1px solid ${COLORS.line}`,
+    background: 'rgba(255,255,255,0.02)',
+    color: COLORS.faintWhite,
+    fontSize: density === 'spacious' ? '10px' : '9px',
+    fontWeight: 900,
+    letterSpacing: '1.1px',
+    textTransform: 'uppercase',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    lineHeight: 1,
+    boxSizing: 'border-box',
+    whiteSpace: 'nowrap',
+    padding: '0 6px'
   };
 
   const consoleSelectStyle = {
-    ...ui.select, minHeight: stepButtonHeight, height: stepButtonHeight, boxSizing: 'border-box', minWidth: 0, width: '100%',
-    paddingLeft: '14px', paddingRight: '40px', paddingTop: 0, paddingBottom: 0,
-    fontSize: density === 'spacious' ? '14px' : '13px', fontWeight: 800, lineHeight: 'normal',
-    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-    appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', outline: 'none'
+    ...ui.select,
+    minHeight: stepButtonHeight,
+    height: stepButtonHeight,
+    boxSizing: 'border-box',
+    minWidth: 0,
+    width: '100%',
+    paddingLeft: '14px',
+    paddingRight: '40px',
+    paddingTop: 0,
+    paddingBottom: 0,
+    fontSize: density === 'spacious' ? '14px' : '13px',
+    fontWeight: 800,
+    lineHeight: 'normal',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    MozAppearance: 'none',
+    outline: 'none'
   };
 
   const setCurrentMapSafe = nextMap => {
@@ -191,13 +247,19 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
       ...(currentLineup[i] || {}),
       ...(displayMaps[i] || {})
     }));
-    
+
     const prev = { ...newLineup[index] };
 
     if (key === 'type') {
       const nextType = normalizeMapTypeKey(value);
       const nextPool = getPoolMapsForType(nextType);
-      newLineup[index] = { ...prev, type: nextType, name: nextPool[0] || '', winner: prev.winner || '' };
+      newLineup[index] = {
+        ...prev,
+        type: nextType,
+        name: nextPool[0] || '',
+        picker: prev.picker || '',
+        winner: prev.winner || ''
+      };
     } else {
       newLineup[index] = { ...prev, [key]: value };
     }
@@ -211,7 +273,9 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
     nextPool[canonical][slotIndex] = mapName;
 
     const normalizedPool = {};
-    CANONICAL_MAP_TYPES.forEach(k => { normalizedPool[k] = nextPool[k] || []; });
+    CANONICAL_MAP_TYPES.forEach(k => {
+      normalizedPool[k] = nextPool[k] || [];
+    });
 
     const nextLineup = Array.from({ length: formatLength }).map((_, i) => {
       const map = { ...(currentLineup[i] || {}), ...(displayMaps[i] || {}) };
@@ -221,16 +285,29 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
       return { ...map, name: validNames.includes(map.name) ? map.name : (validNames[0] || '') };
     });
 
-    updateWithHistory(`Update ${canonical} pool slot ${slotIndex + 1}`, { ...matchData, eventMapPool: normalizedPool, mapLineup: nextLineup });
+    updateWithHistory(`Update ${canonical} pool slot ${slotIndex + 1}`, {
+      ...matchData,
+      eventMapPool: normalizedPool,
+      mapLineup: nextLineup
+    });
   };
 
   const toggleMapTypeEnabled = (type, enabled) => {
     const canonical = normalizeMapTypeKey(type);
-    updateWithHistory(`${enabled ? 'Enable' : 'Disable'} map type: ${canonical}`, { ...matchData, enabledMapTypes: { ...enabledMapTypes, [canonical]: enabled } });
+    updateWithHistory(`${enabled ? 'Enable' : 'Disable'} map type: ${canonical}`, {
+      ...matchData,
+      enabledMapTypes: { ...enabledMapTypes, [canonical]: enabled }
+    });
   };
 
   const winnerOptions = [
     <option key="" value="">No Result</option>,
+    <option key="A" value="A">{matchData.teamA || 'Team A'}</option>,
+    <option key="B" value="B">{matchData.teamB || 'Team B'}</option>
+  ];
+
+  const pickerOptions = [
+    <option key="" value="">No Picker</option>,
     <option key="A" value="A">{matchData.teamA || 'Team A'}</option>,
     <option key="B" value="B">{matchData.teamB || 'Team B'}</option>
   ];
@@ -243,13 +320,25 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
       <ShellPanel title="Global Map Settings" accent density={density}>
         <div style={{ display: 'grid', gap: rowGap + 2, height: '100%', alignContent: 'start' }}>
           <Field label="Event Info" density={density}>
-            <input style={{ ...ui.input, minHeight: stepButtonHeight, height: stepButtonHeight, boxSizing: 'border-box' }} value={matchData.info || ''} onChange={e => updateData({ ...matchData, info: e.target.value })} placeholder="Enter match or event info" />
+            <input
+              style={{ ...ui.input, minHeight: stepButtonHeight, height: stepButtonHeight, boxSizing: 'border-box' }}
+              value={matchData.info || ''}
+              onChange={e => updateData({ ...matchData, info: e.target.value })}
+              placeholder="Enter match or event info"
+            />
           </Field>
 
           <div style={{ display: 'grid', gridTemplateColumns: ultraGrid ? '1fr' : '1fr 1fr', gap: rowGap, alignItems: 'stretch' }}>
             <Field label="Match Format" density={density}>
-              {/* 🚀 核心修复 3：应用安全的 Format Select Value */}
-              <select style={consoleSelectStyle} value={safeFormatSelect} onChange={e => updateWithHistory(`Change Format to ${e.target.value}`, { ...matchData, matchFormat: e.target.value, currentMap: 1 })}>
+              <select
+                style={consoleSelectStyle}
+                value={safeFormatSelect}
+                onChange={e => updateWithHistory(`Change Format to ${e.target.value}`, {
+                  ...matchData,
+                  matchFormat: e.target.value,
+                  currentMap: 1
+                })}
+              >
                 <option value="BO3">BO3</option>
                 <option value="BO5">BO5</option>
                 <option value="BO7">BO7</option>
@@ -267,19 +356,125 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
             </Field>
           </div>
 
-          <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap + 2, alignContent: 'start', minHeight: density === 'spacious' ? '220px' : '200px' }}>
-            <div style={{ fontSize: '11px', color: COLORS.white, fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>Map Pool Output</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', backgroundColor: '#111', border: `1px solid ${COLORS.line}` }}>
-              <button style={{ border: 'none', cursor: 'pointer', minHeight: stepButtonHeight, height: stepButtonHeight, fontWeight: 900, fontSize: `${t.buttonFontSize}px`, padding: '0 10px', backgroundColor: (matchData.mapPoolDisplayMode || 'MATCH') === 'MATCH' ? COLORS.yellow : 'transparent', color: (matchData.mapPoolDisplayMode || 'MATCH') === 'MATCH' ? COLORS.black : COLORS.softWhite }} onClick={() => updateData({ ...matchData, mapPoolDisplayMode: 'MATCH' })}>Match Sequence</button>
-              <button style={{ border: 'none', cursor: 'pointer', minHeight: stepButtonHeight, height: stepButtonHeight, fontWeight: 900, fontSize: `${t.buttonFontSize}px`, padding: '0 10px', backgroundColor: matchData.mapPoolDisplayMode === 'OVERVIEW' ? COLORS.yellow : 'transparent', color: matchData.mapPoolDisplayMode === 'OVERVIEW' ? COLORS.black : COLORS.softWhite }} onClick={() => updateData({ ...matchData, mapPoolDisplayMode: 'OVERVIEW' })}>Full Pool</button>
+          <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap + 2, alignContent: 'start' }}>
+            <div style={{ fontSize: '11px', color: COLORS.white, fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
+              Top Status Content
             </div>
-            <TogglePill density={density} active={!!matchData.showOverviewCurrent} onClick={() => updateData({ ...matchData, showOverviewCurrent: !matchData.showOverviewCurrent })} onText="Highlight On" offText="Highlight Off" onColor={COLORS.yellow} offColor="#555" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', backgroundColor: '#111', border: `1px solid ${COLORS.line}` }}>
+              <button
+                style={{
+                  border: 'none',
+                  cursor: 'pointer',
+                  minHeight: stepButtonHeight,
+                  height: stepButtonHeight,
+                  fontWeight: 900,
+                  fontSize: `${t.buttonFontSize}px`,
+                  padding: '0 10px',
+                  backgroundColor: metaDisplayMode === 'CLEAN' ? COLORS.yellow : 'transparent',
+                  color: metaDisplayMode === 'CLEAN' ? COLORS.black : COLORS.softWhite
+                }}
+                onClick={() => updateData({ ...matchData, mapMetaDisplayMode: 'CLEAN' })}
+              >
+                Clean
+              </button>
+              <button
+                style={{
+                  border: 'none',
+                  cursor: 'pointer',
+                  minHeight: stepButtonHeight,
+                  height: stepButtonHeight,
+                  fontWeight: 900,
+                  fontSize: `${t.buttonFontSize}px`,
+                  padding: '0 10px',
+                  backgroundColor: metaDisplayMode === 'RESULT' ? COLORS.yellow : 'transparent',
+                  color: metaDisplayMode === 'RESULT' ? COLORS.black : COLORS.softWhite
+                }}
+                onClick={() => updateData({ ...matchData, mapMetaDisplayMode: 'RESULT' })}
+              >
+                Result
+              </button>
+              <button
+                style={{
+                  border: 'none',
+                  cursor: 'pointer',
+                  minHeight: stepButtonHeight,
+                  height: stepButtonHeight,
+                  fontWeight: 900,
+                  fontSize: `${t.buttonFontSize}px`,
+                  padding: '0 10px',
+                  backgroundColor: metaDisplayMode === 'FULL' ? COLORS.yellow : 'transparent',
+                  color: metaDisplayMode === 'FULL' ? COLORS.black : COLORS.softWhite
+                }}
+                onClick={() => updateData({ ...matchData, mapMetaDisplayMode: 'FULL' })}
+              >
+                Full
+              </button>
+            </div>
+          </div>
+
+          <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap + 2, alignContent: 'start', minHeight: density === 'spacious' ? '220px' : '200px' }}>
+            <div style={{ fontSize: '11px', color: COLORS.white, fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
+              Map Pool Output
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', backgroundColor: '#111', border: `1px solid ${COLORS.line}` }}>
+              <button
+                style={{
+                  border: 'none',
+                  cursor: 'pointer',
+                  minHeight: stepButtonHeight,
+                  height: stepButtonHeight,
+                  fontWeight: 900,
+                  fontSize: `${t.buttonFontSize}px`,
+                  padding: '0 10px',
+                  backgroundColor: (matchData.mapPoolDisplayMode || 'MATCH') === 'MATCH' ? COLORS.yellow : 'transparent',
+                  color: (matchData.mapPoolDisplayMode || 'MATCH') === 'MATCH' ? COLORS.black : COLORS.softWhite
+                }}
+                onClick={() => updateData({ ...matchData, mapPoolDisplayMode: 'MATCH' })}
+              >
+                Match Sequence
+              </button>
+              <button
+                style={{
+                  border: 'none',
+                  cursor: 'pointer',
+                  minHeight: stepButtonHeight,
+                  height: stepButtonHeight,
+                  fontWeight: 900,
+                  fontSize: `${t.buttonFontSize}px`,
+                  padding: '0 10px',
+                  backgroundColor: matchData.mapPoolDisplayMode === 'OVERVIEW' ? COLORS.yellow : 'transparent',
+                  color: matchData.mapPoolDisplayMode === 'OVERVIEW' ? COLORS.black : COLORS.softWhite
+                }}
+                onClick={() => updateData({ ...matchData, mapPoolDisplayMode: 'OVERVIEW' })}
+              >
+                Full Pool
+              </button>
+            </div>
+            <TogglePill
+              density={density}
+              active={!!matchData.showOverviewCurrent}
+              onClick={() => updateData({ ...matchData, showOverviewCurrent: !matchData.showOverviewCurrent })}
+              onText="Highlight On"
+              offText="Highlight Off"
+              onColor={COLORS.yellow}
+              offColor="#555"
+            />
             <SectionHint text="Overview mode can highlight the current map. Match Sequence follows the BO3 / BO5 / BO7 flow." density={density} />
           </div>
         </div>
       </ShellPanel>
 
-      <ShellPanel title="Map Data Editor" density={density} right={ <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}><button style={tabBtnStyle(mapEditTab === 'MATCH')} onClick={() => setMapEditTab('MATCH')}>Match Sequence</button><button style={tabBtnStyle(mapEditTab === 'OVERVIEW')} onClick={() => setMapEditTab('OVERVIEW')}>Full Pool</button></div> } accent>
+      <ShellPanel
+        title="Map Data Editor"
+        density={density}
+        right={
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button style={tabBtnStyle(mapEditTab === 'MATCH')} onClick={() => setMapEditTab('MATCH')}>Match Sequence</button>
+            <button style={tabBtnStyle(mapEditTab === 'OVERVIEW')} onClick={() => setMapEditTab('OVERVIEW')}>Full Pool</button>
+          </div>
+        }
+        accent
+      >
         {mapEditTab === 'MATCH' && (
           <div style={{ display: 'grid', gap: rowGap + 2 }}>
             {displayMaps.map((mapInfo, idx) => {
@@ -287,34 +482,139 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
               const mapNameOptions = getPoolMapsForType(mapInfo.type);
 
               return (
-                <div key={idx} style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gridTemplateColumns: ultraGrid ? '1fr' : isDense ? 'minmax(78px,auto) 1fr' : density === 'spacious' ? 'minmax(90px,auto) 1.55fr 1.85fr 1.2fr' : 'minmax(84px,auto) 1.45fr 1.75fr 1.15fr', gap: rowGap, alignItems: 'center', borderLeft: `3px solid ${isCurrent ? COLORS.yellow : 'transparent'}`, backgroundColor: isCurrent ? 'rgba(244,195,32,0.05)' : undefined, boxShadow: isCurrent ? 'inset 0 0 0 1px rgba(244,195,32,0.10)' : undefined }}>
+                <div
+                  key={idx}
+                  style={{
+                    ...panelBase,
+                    padding: t.panelPadding,
+                    display: 'grid',
+                    gridTemplateColumns: ultraGrid
+                      ? '1fr'
+                      : isDense
+                      ? 'minmax(78px,auto) 1fr'
+                      : density === 'spacious'
+                      ? 'minmax(90px,auto) 1.05fr 1.5fr 0.95fr 0.95fr'
+                      : 'minmax(84px,auto) 1fr 1.35fr 0.92fr 0.92fr',
+                    gap: rowGap,
+                    alignItems: 'center',
+                    borderLeft: `3px solid ${isCurrent ? COLORS.yellow : 'transparent'}`,
+                    backgroundColor: isCurrent ? 'rgba(244,195,32,0.05)' : undefined,
+                    boxShadow: isCurrent ? 'inset 0 0 0 1px rgba(244,195,32,0.10)' : undefined
+                  }}
+                >
                   <div style={{ paddingBottom: 0, minWidth: 0 }}>
-                    <div style={{ fontSize: density === 'spacious' ? '15px' : '14px', fontWeight: 900, color: isCurrent ? COLORS.yellow : COLORS.softWhite, letterSpacing: '0.06em' }}>MAP {idx + 1}</div>
-                    <div style={{ fontSize: '10px', fontWeight: 900, color: isCurrent ? COLORS.yellow : COLORS.faintWhite, marginTop: '4px', letterSpacing: '0.12em', textTransform: 'uppercase' }}>{isCurrent ? 'Current' : 'Ready'}</div>
+                    <div style={{ fontSize: density === 'spacious' ? '15px' : '14px', fontWeight: 900, color: isCurrent ? COLORS.yellow : COLORS.softWhite, letterSpacing: '0.06em' }}>
+                      MAP {idx + 1}
+                    </div>
+                    <div style={{ fontSize: '10px', fontWeight: 900, color: isCurrent ? COLORS.yellow : COLORS.faintWhite, marginTop: '4px', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                      {isCurrent ? 'Current' : 'Ready'}
+                    </div>
                   </div>
 
                   {ultraGrid ? (
-                    <div style={{ display: 'grid', gap: rowGap, gridTemplateColumns: '1.15fr 1.45fr 1.05fr', minWidth: 0 }}>
-                      <InlineSelect density={density} rowGap={rowGap} consoleSelectStyle={consoleSelectStyle} inlineLabelBoxStyle={inlineLabelBoxStyle} labelLines={['MAP', 'TYPE']} value={mapInfo.type} onChange={e => updateMap(idx, 'type', e.target.value)}>
-                        {CANONICAL_MAP_TYPES.filter(type => enabledMapTypes[type] !== false).map(type => <option key={type} value={type}>{MAP_TYPE_META[type]?.label || type}</option>)}
+                    <div style={{ display: 'grid', gap: rowGap, gridTemplateColumns: '1.05fr 1.35fr 1fr 1fr', minWidth: 0 }}>
+                      <InlineSelect
+                        density={density}
+                        rowGap={rowGap}
+                        consoleSelectStyle={consoleSelectStyle}
+                        inlineLabelBoxStyle={inlineLabelBoxStyle}
+                        labelLines={['MAP', 'TYPE']}
+                        value={mapInfo.type}
+                        onChange={e => updateMap(idx, 'type', e.target.value)}
+                      >
+                        {CANONICAL_MAP_TYPES.filter(type => enabledMapTypes[type] !== false).map(type => (
+                          <option key={type} value={type}>{MAP_TYPE_META[type]?.label || type}</option>
+                        ))}
                       </InlineSelect>
-                      <InlineSelect density={density} rowGap={rowGap} consoleSelectStyle={consoleSelectStyle} inlineLabelBoxStyle={inlineLabelBoxStyle} labelLines={['MAP', 'NAME']} value={mapInfo.name} onChange={e => updateMap(idx, 'name', e.target.value)}>
+
+                      <InlineSelect
+                        density={density}
+                        rowGap={rowGap}
+                        consoleSelectStyle={consoleSelectStyle}
+                        inlineLabelBoxStyle={inlineLabelBoxStyle}
+                        labelLines={['MAP', 'NAME']}
+                        value={mapInfo.name}
+                        onChange={e => updateMap(idx, 'name', e.target.value)}
+                      >
                         {mapNameOptions.map((name, i) => <option key={`${name}-${i}`} value={name}>{name}</option>)}
                       </InlineSelect>
-                      <InlineSelect density={density} rowGap={rowGap} consoleSelectStyle={consoleSelectStyle} inlineLabelBoxStyle={inlineLabelBoxStyle} labelLines={['WINNER']} value={mapInfo.winner || ''} onChange={e => updateMap(idx, 'winner', e.target.value)}>
+
+                      <InlineSelect
+                        density={density}
+                        rowGap={rowGap}
+                        consoleSelectStyle={consoleSelectStyle}
+                        inlineLabelBoxStyle={inlineLabelBoxStyle}
+                        labelLines={['PICK']}
+                        value={mapInfo.picker || ''}
+                        onChange={e => updateMap(idx, 'picker', e.target.value)}
+                      >
+                        {pickerOptions}
+                      </InlineSelect>
+
+                      <InlineSelect
+                        density={density}
+                        rowGap={rowGap}
+                        consoleSelectStyle={consoleSelectStyle}
+                        inlineLabelBoxStyle={inlineLabelBoxStyle}
+                        labelLines={['WINNER']}
+                        value={mapInfo.winner || ''}
+                        onChange={e => updateMap(idx, 'winner', e.target.value)}
+                      >
                         {winnerOptions}
                       </InlineSelect>
                     </div>
                   ) : (
                     <>
-                      <InlineSelect density={density} rowGap={rowGap} consoleSelectStyle={consoleSelectStyle} inlineLabelBoxStyle={inlineLabelBoxStyle} labelLines={['MAP', 'TYPE']} value={mapInfo.type} onChange={e => updateMap(idx, 'type', e.target.value)}>
-                        {CANONICAL_MAP_TYPES.filter(type => enabledMapTypes[type] !== false).map(type => <option key={type} value={type}>{MAP_TYPE_META[type]?.label || type}</option>)}
+                      <InlineSelect
+                        density={density}
+                        rowGap={rowGap}
+                        consoleSelectStyle={consoleSelectStyle}
+                        inlineLabelBoxStyle={inlineLabelBoxStyle}
+                        labelLines={['MAP', 'TYPE']}
+                        value={mapInfo.type}
+                        onChange={e => updateMap(idx, 'type', e.target.value)}
+                      >
+                        {CANONICAL_MAP_TYPES.filter(type => enabledMapTypes[type] !== false).map(type => (
+                          <option key={type} value={type}>{MAP_TYPE_META[type]?.label || type}</option>
+                        ))}
                       </InlineSelect>
-                      <InlineSelect density={density} rowGap={rowGap} consoleSelectStyle={consoleSelectStyle} inlineLabelBoxStyle={inlineLabelBoxStyle} labelLines={['MAP', 'NAME']} value={mapInfo.name} onChange={e => updateMap(idx, 'name', e.target.value)}>
+
+                      <InlineSelect
+                        density={density}
+                        rowGap={rowGap}
+                        consoleSelectStyle={consoleSelectStyle}
+                        inlineLabelBoxStyle={inlineLabelBoxStyle}
+                        labelLines={['MAP', 'NAME']}
+                        value={mapInfo.name}
+                        onChange={e => updateMap(idx, 'name', e.target.value)}
+                      >
                         {mapNameOptions.map((name, i) => <option key={`${name}-${i}`} value={name}>{name}</option>)}
                       </InlineSelect>
+
                       {!isDense && (
-                        <InlineSelect density={density} rowGap={rowGap} consoleSelectStyle={consoleSelectStyle} inlineLabelBoxStyle={inlineLabelBoxStyle} labelLines={['WINNER']} value={mapInfo.winner || ''} onChange={e => updateMap(idx, 'winner', e.target.value)}>
+                        <InlineSelect
+                          density={density}
+                          rowGap={rowGap}
+                          consoleSelectStyle={consoleSelectStyle}
+                          inlineLabelBoxStyle={inlineLabelBoxStyle}
+                          labelLines={['PICK']}
+                          value={mapInfo.picker || ''}
+                          onChange={e => updateMap(idx, 'picker', e.target.value)}
+                        >
+                          {pickerOptions}
+                        </InlineSelect>
+                      )}
+
+                      {!isDense && (
+                        <InlineSelect
+                          density={density}
+                          rowGap={rowGap}
+                          consoleSelectStyle={consoleSelectStyle}
+                          inlineLabelBoxStyle={inlineLabelBoxStyle}
+                          labelLines={['WINNER']}
+                          value={mapInfo.winner || ''}
+                          onChange={e => updateMap(idx, 'winner', e.target.value)}
+                        >
                           {winnerOptions}
                         </InlineSelect>
                       )}
@@ -322,8 +622,28 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                   )}
 
                   {!ultraGrid && isDense && (
-                    <div style={{ gridColumn: '1 / -1', display: 'grid', gap: rowGap }}>
-                      <InlineSelect density={density} rowGap={rowGap} consoleSelectStyle={consoleSelectStyle} inlineLabelBoxStyle={inlineLabelBoxStyle} labelLines={['WINNER']} value={mapInfo.winner || ''} onChange={e => updateMap(idx, 'winner', e.target.value)}>
+                    <div style={{ gridColumn: '1 / -1', display: 'grid', gap: rowGap, gridTemplateColumns: '1fr 1fr' }}>
+                      <InlineSelect
+                        density={density}
+                        rowGap={rowGap}
+                        consoleSelectStyle={consoleSelectStyle}
+                        inlineLabelBoxStyle={inlineLabelBoxStyle}
+                        labelLines={['PICK']}
+                        value={mapInfo.picker || ''}
+                        onChange={e => updateMap(idx, 'picker', e.target.value)}
+                      >
+                        {pickerOptions}
+                      </InlineSelect>
+
+                      <InlineSelect
+                        density={density}
+                        rowGap={rowGap}
+                        consoleSelectStyle={consoleSelectStyle}
+                        inlineLabelBoxStyle={inlineLabelBoxStyle}
+                        labelLines={['WINNER']}
+                        value={mapInfo.winner || ''}
+                        onChange={e => updateMap(idx, 'winner', e.target.value)}
+                      >
                         {winnerOptions}
                       </InlineSelect>
                     </div>
@@ -346,11 +666,21 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                   <div key={type} style={{ ...panelBase, padding: t.panelPadding, borderLeft: `3px solid ${COLORS.yellow}`, display: 'grid', gap: rowGap + 2, height: '100%', alignContent: 'start' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: rowGap, alignItems: 'start', paddingBottom: rowGap, borderBottom: `1px solid ${COLORS.line}` }}>
                       <div>
-                        <div style={{ color: COLORS.white, fontSize: density === 'spacious' ? '13px' : '12px', fontWeight: 900, lineHeight: 1.2, textTransform: 'uppercase' }}>{MAP_TYPE_META[type]?.label || type}</div>
-                        <div style={{ color: COLORS.faintWhite, fontSize: '10px', marginTop: '4px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{slotCount} Slots</div>
+                        <div style={{ color: COLORS.white, fontSize: density === 'spacious' ? '13px' : '12px', fontWeight: 900, lineHeight: 1.2, textTransform: 'uppercase' }}>
+                          {MAP_TYPE_META[type]?.label || type}
+                        </div>
+                        <div style={{ color: COLORS.faintWhite, fontSize: '10px', marginTop: '4px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                          {slotCount} Slots
+                        </div>
                       </div>
-                      <button style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, boxSizing: 'border-box' }} onClick={() => toggleMapTypeEnabled(type, false)}>Disable</button>
+                      <button
+                        style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, boxSizing: 'border-box' }}
+                        onClick={() => toggleMapTypeEnabled(type, false)}
+                      >
+                        Disable
+                      </button>
                     </div>
+
                     <div style={{ display: 'grid', gridTemplateColumns: slotCount <= 2 ? 'repeat(2, minmax(0,1fr))' : 'repeat(3, minmax(0,1fr))', gap: rowGap }}>
                       {slots.map((mapName, idx) => (
                         <select key={`${type}-${idx}`} style={consoleSelectStyle} value={mapName} onChange={e => updateEventPoolSlot(type, idx, e.target.value)}>
@@ -362,11 +692,18 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                 );
               })}
             </div>
+
             <div style={{ ...panelBase, padding: t.panelPadding, border: `1px dashed ${COLORS.lineStrong}`, display: 'grid', gap: rowGap }}>
-              <div style={{ color: COLORS.faintWhite, fontSize: '10px', fontWeight: 900, letterSpacing: '1.4px', textTransform: 'uppercase' }}>Disabled Map Types</div>
+              <div style={{ color: COLORS.faintWhite, fontSize: '10px', fontWeight: 900, letterSpacing: '1.4px', textTransform: 'uppercase' }}>
+                Disabled Map Types
+              </div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {disabledOverviewTypes.map(type => (
-                  <button key={type} style={{ ...ui.softOutlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, boxSizing: 'border-box' }} onClick={() => toggleMapTypeEnabled(type, true)}>
+                  <button
+                    key={type}
+                    style={{ ...ui.softOutlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, boxSizing: 'border-box' }}
+                    onClick={() => toggleMapTypeEnabled(type, true)}
+                  >
                     Enable {MAP_TYPE_META[type]?.label || type}
                   </button>
                 ))}

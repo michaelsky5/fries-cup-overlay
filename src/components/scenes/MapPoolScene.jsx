@@ -1,15 +1,37 @@
 import React, { useMemo } from 'react';
 
-const COLORS = { black: '#2a2a2a', yellow: '#f4c320', white: '#ffffff', darkGray: '#1a1a1a', dimGray: '#555555', panel: '#101010', panel2: '#161616', line: 'rgba(255,255,255,0.08)', lineStrong: 'rgba(255,255,255,0.18)', softWhite: 'rgba(255,255,255,0.72)', softYellow: 'rgba(244,195,32,0.18)', shadow: 'rgba(0,0,0,0.35)' };
-const UI = { outerFrame: `1px solid ${COLORS.lineStrong}`, innerFrame: `1px solid ${COLORS.line}`, hardShadow: '0 18px 40px rgba(0,0,0,0.28)', panelShadow: '0 10px 24px rgba(0,0,0,0.22)', yellowGlow: '0 0 0 1px rgba(244,195,32,0.16), 0 0 18px rgba(244,195,32,0.08)', insetLine: 'inset 0 0 0 1px rgba(255,255,255,0.04)', bevelInset: 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.35)' };
+const COLORS = {
+  black: '#2a2a2a',
+  yellow: '#f4c320',
+  white: '#ffffff',
+  darkGray: '#1a1a1a',
+  dimGray: '#555555',
+  panel: '#101010',
+  panel2: '#161616',
+  line: 'rgba(255,255,255,0.08)',
+  lineStrong: 'rgba(255,255,255,0.18)',
+  softWhite: 'rgba(255,255,255,0.72)',
+  softYellow: 'rgba(244,195,32,0.18)',
+  shadow: 'rgba(0,0,0,0.35)'
+};
+
+const UI = {
+  outerFrame: `1px solid ${COLORS.lineStrong}`,
+  innerFrame: `1px solid ${COLORS.line}`,
+  hardShadow: '0 18px 40px rgba(0,0,0,0.28)',
+  panelShadow: '0 10px 24px rgba(0,0,0,0.22)',
+  yellowGlow: '0 0 0 1px rgba(244,195,32,0.16), 0 0 18px rgba(244,195,32,0.08)',
+  insetLine: 'inset 0 0 0 1px rgba(255,255,255,0.04)',
+  bevelInset: 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.35)'
+};
 
 const FALLBACK_EVENT_MAP_POOL = {
-  "CONTROL": ["ILIOS", "LIJIANG TOWER", "BUSAN"],
-  "ESCORT": ["DORADO", "ROUTE 66", "HAVANA"],
-  "HYBRID": ["KING'S ROW", "EICHENWALDE", "BLIZZARD WORLD"],
-  "PUSH": ["COLOSSEO", "NEW QUEEN STREET"],
-  "FLASHPOINT": ["SURAVASA", "NEW JUNK CITY"],
-  "CLASH": ["HANAOKA", "THRONE OF ANUBIS"]
+  CONTROL: ['ILIOS', 'LIJIANG TOWER', 'BUSAN'],
+  ESCORT: ['DORADO', 'ROUTE 66', 'HAVANA'],
+  HYBRID: ["KING'S ROW", 'EICHENWALDE', 'BLIZZARD WORLD'],
+  PUSH: ['COLOSSEO', 'NEW QUEEN STREET'],
+  FLASHPOINT: ['SURAVASA', 'NEW JUNK CITY'],
+  CLASH: ['HANAOKA', 'THRONE OF ANUBIS']
 };
 
 const getMapImagePath = (typeRaw, nameRaw) => {
@@ -28,13 +50,50 @@ const getMapImagePath = (typeRaw, nameRaw) => {
   return `/assets/maps/${folder}/${formattedName}.jpg`;
 };
 
-const MapCard = React.memo(({ map, index, status, delay }) => {
+const getFallbackTeamShort = name =>
+  String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(v => v[0])
+    .join('')
+    .slice(0, 4)
+    .toUpperCase() || 'TBD';
+
+const getTeamTag = (side, teamShortA, teamShortB, teamA, teamB) => {
+  const normalized = String(side || '').trim().toUpperCase();
+  if (normalized === 'A') return String(teamShortA || getFallbackTeamShort(teamA)).toUpperCase();
+  if (normalized === 'B') return String(teamShortB || getFallbackTeamShort(teamB)).toUpperCase();
+  return '';
+};
+
+const MapCard = React.memo(({
+  map,
+  index,
+  status,
+  delay,
+  teamA,
+  teamB,
+  teamShortA,
+  teamShortB,
+  metaDisplayMode
+}) => {
   const imgPath = getMapImagePath(map.type, map.name);
-  const mapTypeShort = map.type.split(' ')[0];
+  const mapTypeShort = String(map.type || 'CONTROL').split(' ')[0];
 
   const isPlayed = status === 'PLAYED';
   const isNext = status === 'NEXT';
   const isTBD = status === 'TBD';
+
+  const winnerTag = getTeamTag(map.winnerSide || map.winner, teamShortA, teamShortB, teamA, teamB);
+  const pickerTag = getTeamTag(map.picker, teamShortA, teamShortB, teamA, teamB);
+
+  const showWinner = metaDisplayMode !== 'CLEAN' && isPlayed && !!winnerTag;
+  const showPicker = metaDisplayMode === 'FULL' && isNext && !!pickerTag;
+
+  const topLabel = showWinner ? `${winnerTag} WIN` : showPicker ? `${pickerTag} PICK` : isNext ? 'UP NEXT' : isPlayed ? 'COMPLETED' : 'TBD';
+  const topFontSize = showWinner || showPicker ? '18px' : '19px';
+  const topLetterSpacing = showWinner || showPicker ? '2.4px' : '3.2px';
 
   const frameColor = isNext ? COLORS.yellow : isPlayed ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.10)';
   const topBg = isNext ? COLORS.yellow : 'rgba(255,255,255,0.03)';
@@ -43,34 +102,162 @@ const MapCard = React.memo(({ map, index, status, delay }) => {
   const titleColor = isNext ? COLORS.black : isPlayed ? 'rgba(255,255,255,0.42)' : COLORS.white;
 
   return (
-    <div style={{ flex: 1, minWidth: 0, maxWidth: '280px', height: '650px', display: 'flex', flexDirection: 'column', opacity: 0, transform: 'translateY(100px)', position: 'relative', willChange: 'transform, opacity', animation: `slideUpBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${delay}s forwards` }}>
-      <div style={{ height: '42px', background: topBg, color: topColor, display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: '900', letterSpacing: '2.4px', fontSize: '12px', borderTop: `2px solid ${frameColor}`, borderLeft: `2px solid ${frameColor}`, borderRight: `2px solid ${frameColor}`, boxSizing: 'border-box', textTransform: 'uppercase', boxShadow: isNext ? UI.yellowGlow : 'none' }}>
-        {isNext ? 'UP NEXT' : isPlayed ? 'COMPLETED' : 'TBD'}
+    <div
+      style={{
+        flex: 1,
+        minWidth: 0,
+        maxWidth: '280px',
+        height: '650px',
+        display: 'flex',
+        flexDirection: 'column',
+        opacity: 0,
+        transform: 'translateY(100px)',
+        position: 'relative',
+        willChange: 'transform, opacity',
+        animation: `slideUpBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${delay}s forwards`
+      }}
+    >
+      <div
+        style={{
+          height: '42px',
+          background: topBg,
+          color: topColor,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          fontWeight: '900',
+          letterSpacing: topLetterSpacing,
+          fontSize: topFontSize,
+          borderTop: `2px solid ${frameColor}`,
+          borderLeft: `2px solid ${frameColor}`,
+          borderRight: `2px solid ${frameColor}`,
+          boxSizing: 'border-box',
+          textTransform: 'uppercase',
+          boxShadow: isNext ? UI.yellowGlow : 'none',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          padding: '0 12px'
+        }}
+      >
+        {topLabel}
       </div>
 
-      <div style={{ width: '100%', flex: 1, backgroundColor: '#000', borderLeft: `2px solid ${frameColor}`, borderRight: `2px solid ${frameColor}`, boxSizing: 'border-box', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 22px)', pointerEvents: 'none', zIndex: 2 }} />
+      <div
+        style={{
+          width: '100%',
+          flex: 1,
+          backgroundColor: '#000',
+          borderLeft: `2px solid ${frameColor}`,
+          borderRight: `2px solid ${frameColor}`,
+          boxSizing: 'border-box',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 22px)',
+            pointerEvents: 'none',
+            zIndex: 2
+          }}
+        />
         {isTBD || !map.name ? (
           <div style={{ width: '100%', height: '100%', background: 'linear-gradient(180deg, #171717 0%, #101010 100%)' }} />
         ) : (
-          <img src={imgPath} onError={e => { e.target.style.display = 'none'; }} alt={map.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', filter: isPlayed ? 'grayscale(100%) brightness(30%) contrast(105%)' : isNext ? 'contrast(112%) brightness(1.05)' : 'brightness(0.88) contrast(1.06)', transition: 'filter 0.5s' }} />
+          <img
+            src={imgPath}
+            onError={e => { e.target.style.display = 'none'; }}
+            alt={map.name}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center',
+              filter: isPlayed ? 'grayscale(100%) brightness(30%) contrast(105%)' : isNext ? 'contrast(112%) brightness(1.05)' : 'brightness(0.88) contrast(1.06)',
+              transition: 'filter 0.5s'
+            }}
+          />
         )}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', boxShadow: 'inset 0 0 90px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.04)' }} />
-        <div style={{ position: 'absolute', top: '18px', left: '18px', color: isTBD || !map.name ? 'rgba(255,255,255,0.03)' : isNext ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.11)', fontSize: '96px', fontWeight: '900', lineHeight: '0.8', letterSpacing: '-2px', zIndex: 3 }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: '18px',
+            left: '18px',
+            color: isTBD || !map.name ? 'rgba(255,255,255,0.03)' : isNext ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.11)',
+            fontSize: '96px',
+            fontWeight: '900',
+            lineHeight: '0.8',
+            letterSpacing: '-2px',
+            zIndex: 3
+          }}
+        >
           {index + 1}
         </div>
-        <div style={{ position: 'absolute', top: '18px', right: '18px', width: '20px', height: '20px', borderTop: `2px solid ${isNext ? COLORS.yellow : 'rgba(255,255,255,0.10)'}`, borderRight: `2px solid ${isNext ? COLORS.yellow : 'rgba(255,255,255,0.10)'}`, zIndex: 3, opacity: isTBD || !map.name ? 0.35 : 1 }} />
+        <div
+          style={{
+            position: 'absolute',
+            top: '18px',
+            right: '18px',
+            width: '20px',
+            height: '20px',
+            borderTop: `2px solid ${isNext ? COLORS.yellow : 'rgba(255,255,255,0.10)'}`,
+            borderRight: `2px solid ${isNext ? COLORS.yellow : 'rgba(255,255,255,0.10)'}`,
+            zIndex: 3,
+            opacity: isTBD || !map.name ? 0.35 : 1
+          }}
+        />
       </div>
 
-      <div style={{ height: '132px', background: bottomBg, borderBottom: `2px solid ${frameColor}`, borderLeft: `2px solid ${frameColor}`, borderRight: `2px solid ${frameColor}`, padding: '18px 20px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', overflow: 'hidden', boxShadow: isNext ? UI.yellowGlow : UI.insetLine }}>
+      <div
+        style={{
+          height: '132px',
+          background: bottomBg,
+          borderBottom: `2px solid ${frameColor}`,
+          borderLeft: `2px solid ${frameColor}`,
+          borderRight: `2px solid ${frameColor}`,
+          padding: '18px 20px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          position: 'relative',
+          overflow: 'hidden',
+          boxShadow: isNext ? UI.yellowGlow : UI.insetLine
+        }}
+      >
         {!isNext && <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 22px)', pointerEvents: 'none', opacity: 0.5 }} />}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', position: 'relative', zIndex: 1 }}>
           <div style={{ width: '8px', height: '8px', backgroundColor: isNext ? COLORS.black : isTBD || !map.name ? '#444' : COLORS.yellow, flexShrink: 0 }} />
-          <span style={{ fontSize: '11px', fontWeight: '900', color: isNext ? 'rgba(42,42,42,0.70)' : isTBD || !map.name ? '#777' : 'rgba(255,255,255,0.58)', letterSpacing: '2px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: '900',
+              color: isNext ? 'rgba(42,42,42,0.70)' : isTBD || !map.name ? '#777' : 'rgba(255,255,255,0.58)',
+              letterSpacing: '2px',
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap'
+            }}
+          >
             {isTBD || !map.name ? 'TBD' : `${mapTypeShort} // MAP ${index + 1}`}
           </span>
         </div>
-        <div style={{ fontSize: '24px', fontWeight: '900', color: isTBD || !map.name ? '#666' : titleColor, textTransform: 'uppercase', lineHeight: '1.08', letterSpacing: '0.6px', position: 'relative', zIndex: 1, wordBreak: 'break-word' }}>
+        <div
+          style={{
+            fontSize: '24px',
+            fontWeight: '900',
+            color: isTBD || !map.name ? '#666' : titleColor,
+            textTransform: 'uppercase',
+            lineHeight: '1.08',
+            letterSpacing: '0.6px',
+            position: 'relative',
+            zIndex: 1,
+            wordBreak: 'break-word'
+          }}
+        >
           {isTBD || !map.name ? 'TBD' : map.name}
         </div>
       </div>
@@ -85,7 +272,21 @@ const OverviewMapCard = React.memo(({ type, name, delay, isPlayed, isCurrent }) 
   const textColor = isCurrent ? COLORS.black : isPlayed ? 'rgba(255,255,255,0.42)' : COLORS.white;
 
   return (
-    <div style={{ flex: 1, width: '100%', border: `2px solid ${borderColor}`, backgroundColor: '#111', position: 'relative', overflow: 'hidden', opacity: 0, transform: 'translateY(30px)', willChange: 'transform, opacity', animation: `slideUpBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${delay}s forwards`, boxShadow: isCurrent ? '0 0 0 1px rgba(255,255,255,0.08), 0 0 22px rgba(255,255,255,0.10)' : isPlayed ? 'none' : `${UI.panelShadow}, ${UI.yellowGlow}` }}>
+    <div
+      style={{
+        flex: 1,
+        width: '100%',
+        border: `2px solid ${borderColor}`,
+        backgroundColor: '#111',
+        position: 'relative',
+        overflow: 'hidden',
+        opacity: 0,
+        transform: 'translateY(30px)',
+        willChange: 'transform, opacity',
+        animation: `slideUpBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${delay}s forwards`,
+        boxShadow: isCurrent ? '0 0 0 1px rgba(255,255,255,0.08), 0 0 22px rgba(255,255,255,0.10)' : isPlayed ? 'none' : `${UI.panelShadow}, ${UI.yellowGlow}`
+      }}
+    >
       {isCurrent && <div style={{ position: 'absolute', top: 0, right: 0, backgroundColor: COLORS.white, color: COLORS.black, padding: '4px 12px', fontSize: '11px', fontWeight: '900', zIndex: 10, letterSpacing: '1.2px', textTransform: 'uppercase' }}>UP NEXT</div>}
       <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 22px)', pointerEvents: 'none', zIndex: 2 }} />
       <img src={imgPath} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', filter: isPlayed ? 'grayscale(100%) brightness(26%)' : isCurrent ? 'contrast(112%) brightness(1.08)' : 'brightness(0.90) contrast(1.05)', transition: 'filter 0.5s, box-shadow 0.3s' }} onError={e => (e.target.style.display = 'none')} alt={name} />
@@ -102,8 +303,9 @@ const OverviewMapCard = React.memo(({ type, name, delay, isPlayed, isCurrent }) 
 
 export default function MapPoolScene({ matchData }) {
   const displayMode = matchData.mapPoolDisplayMode || 'MATCH';
+  const metaDisplayMode = String(matchData.mapMetaDisplayMode || 'RESULT').toUpperCase();
   const showOverviewCurrent = matchData.showOverviewCurrent || false;
-  
+
   const totalMaps = useMemo(() => {
     const fmt = String(matchData.matchFormat || 'BO3').toUpperCase();
     if (fmt.includes('7') || fmt.includes('FT4')) return 7;
@@ -112,55 +314,75 @@ export default function MapPoolScene({ matchData }) {
     return match ? parseInt(match[0], 10) : 3;
   }, [matchData.matchFormat]);
 
-  const currentMapIndex = matchData.currentMap - 1;
-  
-  // 🚀 核心修复：坚决不依赖 slice！强行用 Array.from 撑开数组容量到总局数
-  // 如果本地缺少该局的配置，就塞一个 TBD 骨架进去，确保页面一定渲染出所有的卡片
+  const currentMapIndex = useMemo(() => {
+    const raw = parseInt(matchData.currentMap, 10);
+    if (Number.isNaN(raw)) return 0;
+    return Math.max(0, Math.min(totalMaps - 1, raw - 1));
+  }, [matchData.currentMap, totalMaps]);
+
   const mapLineup = useMemo(() => {
-    return Array.from({ length: totalMaps }).map((_, i) => {
-      return matchData.mapLineup?.[i] || { type: 'CONTROL', name: '' };
-    });
+    return Array.from({ length: totalMaps }).map((_, i) => matchData.mapLineup?.[i] || { type: 'CONTROL', name: '', picker: '', winner: '' });
   }, [matchData.mapLineup, totalMaps]);
-  
+
   const playedMapNames = useMemo(() => mapLineup.slice(0, currentMapIndex).map(m => m.name), [mapLineup, currentMapIndex]);
   const currentMapName = mapLineup[currentMapIndex]?.name;
 
   const rawEventMapPool = matchData.eventMapPool || FALLBACK_EVENT_MAP_POOL;
 
   const enabledMapPool = useMemo(() => {
-    return Object.fromEntries(
-      Object.entries(rawEventMapPool).filter(
-        ([type]) => matchData.enabledMapTypes?.[type] !== false
-      )
-    );
+    return Object.fromEntries(Object.entries(rawEventMapPool).filter(([type]) => matchData.enabledMapTypes?.[type] !== false));
   }, [rawEventMapPool, matchData.enabledMapTypes]);
 
   return (
-    <div style={{ width: '1920px', height: '1080px', backgroundColor: COLORS.black, position: 'relative', overflow: 'hidden', fontFamily: '"HarmonyOS Sans SC", sans-serif', backgroundImage: `radial-gradient(circle at center, rgba(42,42,42,0.88) 0%, rgba(42,42,42,0.98) 100%)` }}>
+    <div
+      style={{
+        width: '1920px',
+        height: '1080px',
+        backgroundColor: COLORS.black,
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: '"HarmonyOS Sans SC", sans-serif',
+        backgroundImage: 'radial-gradient(circle at center, rgba(42,42,42,0.88) 0%, rgba(42,42,42,0.98) 100%)'
+      }}
+    >
       <style>{`
         @keyframes slideUpBounce {
           0% { opacity: 0; transform: translateY(100px); }
           100% { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(180deg, rgba(255,255,255,0.014) 1px, transparent 1px)', backgroundSize: '120px 120px, 120px 120px', opacity: 0.24 }} />
       <div style={{ position: 'absolute', left: '70px', top: '70px', width: '520px', height: '520px', border: '1px solid rgba(244,195,32,0.06)', transform: 'rotate(45deg)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', right: '-120px', bottom: '-120px', width: '460px', height: '460px', border: '1px solid rgba(255,255,255,0.03)', transform: 'rotate(45deg)', pointerEvents: 'none' }} />
 
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '44px', background: 'rgba(255,255,255,0.02)', borderBottom: `1px solid rgba(255,255,255,0.08)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px', boxSizing: 'border-box', backdropFilter: 'blur(4px)', zIndex: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><div style={{ width: '10px', height: '10px', background: COLORS.yellow, boxShadow: '0 0 12px rgba(244,195,32,0.28)' }} /><span style={{ fontSize: '12px', fontWeight: '900', letterSpacing: '2px', color: COLORS.softWhite }}>FCUP_MAP_INTERFACE</span></div>
-        <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '2px', color: 'rgba(255,255,255,0.38)' }}>{displayMode === 'MATCH' ? 'MATCH_SEQUENCE // STABLE' : 'MAP_POOL // STABLE'}</div>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '44px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px', boxSizing: 'border-box', backdropFilter: 'blur(4px)', zIndex: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '10px', height: '10px', background: COLORS.yellow, boxShadow: '0 0 12px rgba(244,195,32,0.28)' }} />
+          <span style={{ fontSize: '12px', fontWeight: '900', letterSpacing: '2px', color: COLORS.softWhite }}>FCUP_MAP_INTERFACE</span>
+        </div>
+        <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '2px', color: 'rgba(255,255,255,0.38)' }}>
+          {displayMode === 'MATCH' ? 'MATCH_SEQUENCE // STABLE' : 'MAP_POOL // STABLE'}
+        </div>
       </div>
 
       <div style={{ position: 'absolute', top: '60px', left: '80px', display: 'flex', flexDirection: 'column', animation: 'slideUpBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.1s forwards', opacity: 0, zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}><div style={{ width: '30px', height: '30px', backgroundColor: COLORS.yellow, boxShadow: '0 0 16px rgba(244,195,32,0.18)' }} /><span style={{ fontSize: '32px', fontWeight: '900', color: COLORS.white, letterSpacing: '4px', textTransform: 'uppercase' }}>FRIES CUP</span></div>
-        <span style={{ fontSize: '18px', fontWeight: '900', color: COLORS.yellow, marginTop: '8px', letterSpacing: '2px', textTransform: 'uppercase' }}>{displayMode === 'MATCH' ? matchData.info : 'OFFICIAL MAP POOL / 官方地图池'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div style={{ width: '30px', height: '30px', backgroundColor: COLORS.yellow, boxShadow: '0 0 16px rgba(244,195,32,0.18)' }} />
+          <span style={{ fontSize: '32px', fontWeight: '900', color: COLORS.white, letterSpacing: '4px', textTransform: 'uppercase' }}>FRIES CUP</span>
+        </div>
+        <span style={{ fontSize: '18px', fontWeight: '900', color: COLORS.yellow, marginTop: '8px', letterSpacing: '2px', textTransform: 'uppercase' }}>
+          {displayMode === 'MATCH' ? matchData.info : 'OFFICIAL MAP POOL / 官方地图池'}
+        </span>
       </div>
 
       {displayMode === 'MATCH' && (
         <div style={{ position: 'absolute', top: '60px', right: '80px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', animation: 'slideUpBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.2s forwards', opacity: 0, zIndex: 10 }}>
           <div style={{ fontSize: '12px', fontWeight: '900', color: 'rgba(255,255,255,0.62)', letterSpacing: '2px', marginBottom: '8px', textTransform: 'uppercase' }}>MATCH FORMAT</div>
-          <div style={{ background: 'rgba(255,255,255,0.04)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: '12px' }}><div style={{ width: '10px', height: '10px', background: COLORS.yellow }} /><span style={{ color: COLORS.white, fontSize: '30px', fontWeight: '900', letterSpacing: '2px' }}>{matchData.matchFormat}</span></div>
+          <div style={{ background: 'rgba(255,255,255,0.04)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '10px', height: '10px', background: COLORS.yellow }} />
+            <span style={{ color: COLORS.white, fontSize: '30px', fontWeight: '900', letterSpacing: '2px' }}>{matchData.matchFormat}</span>
+          </div>
         </div>
       )}
 
@@ -170,7 +392,21 @@ export default function MapPoolScene({ matchData }) {
             let status = 'TBD';
             if (i < currentMapIndex) status = 'PLAYED';
             if (i === currentMapIndex) status = 'NEXT';
-            return <MapCard key={i} map={map} index={i} status={status} delay={0.3 + i * 0.15} />;
+
+            return (
+              <MapCard
+                key={i}
+                map={map}
+                index={i}
+                status={status}
+                delay={0.3 + i * 0.15}
+                teamA={matchData.teamA}
+                teamB={matchData.teamB}
+                teamShortA={matchData.teamShortA}
+                teamShortB={matchData.teamShortB}
+                metaDisplayMode={metaDisplayMode}
+              />
+            );
           })}
         </div>
       )}
@@ -179,15 +415,21 @@ export default function MapPoolScene({ matchData }) {
         <div style={{ width: '100%', height: '100%', display: 'flex', gap: '28px', padding: '170px 80px 118px 80px', boxSizing: 'border-box' }}>
           {Object.entries(enabledMapPool).map(([typeRaw, maps], colIndex) => {
             const typeShort = typeRaw.split(' ')[0];
+
             return (
               <div key={typeRaw} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '18px' }}>
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
                   <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 22px)', pointerEvents: 'none', opacity: 0.4 }} />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative', zIndex: 1 }}><div style={{ width: '8px', height: '8px', background: COLORS.yellow }} /><span style={{ color: COLORS.yellow, fontSize: '12px', fontWeight: '900', letterSpacing: '2px', textTransform: 'uppercase' }}>{typeShort}</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative', zIndex: 1 }}>
+                    <div style={{ width: '8px', height: '8px', background: COLORS.yellow }} />
+                    <span style={{ color: COLORS.yellow, fontSize: '12px', fontWeight: '900', letterSpacing: '2px', textTransform: 'uppercase' }}>{typeShort}</span>
+                  </div>
                 </div>
+
                 {maps.map((mapName, rowIdx) => {
                   const isPlayed = playedMapNames.includes(mapName);
                   const isCurrent = showOverviewCurrent && mapName === currentMapName;
+
                   return (
                     <OverviewMapCard
                       key={mapName}

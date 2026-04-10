@@ -166,10 +166,12 @@ export default function LoginModeScreen({
           position: 'relative',
           zIndex: 1,
           minHeight: '100vh',
+          width: '100%',                  // 🚀 确保容器撑满屏幕宽度
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: isUltra ? '14px' : density === 'spacious' ? '32px' : '28px'
+          padding: isUltra ? '14px' : density === 'spacious' ? '32px' : '28px',
+          boxSizing: 'border-box'         // 🚀 核心关键：把 padding 算进 100vh 里，防止高度溢出导致中心点下移
         }}
       >
         <div

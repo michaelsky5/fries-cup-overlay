@@ -4,80 +4,89 @@ import OBSWebSocket from 'obs-websocket-js';
 const OBSContext = createContext();
 
 export function OBSProvider({ children }) {
-  // 🚀 修复 1：惰性初始化，防止 React 每次渲染都 new 出一个垃圾实例
   const obs = useRef(null);
   if (!obs.current) {
     obs.current = new OBSWebSocket();
   }
   
   const [obsStatus, setObsStatus] = useState('disconnected');
+  const [obsConfig, setObsConfig] = useState({ url: 'ws://127.0.0.1:4455', password: '' });
+  
+  // 🚀 新增：用来存放外部注册的监听函数
+  const syncCallback = useRef(null);
+
+  useEffect(() => {
+    const savedConfig = localStorage.getItem('fc_obs_config');
+    if (savedConfig) setObsConfig(JSON.parse(savedConfig));
+  }, []);
 
   useEffect(() => {
     const obsInstance = obs.current;
 
-    // 🚀 修复 2：监听底层真实断开事件，防止拔网线后的“假连接”状态
-    const handleConnectionClosed = () => {
-      console.warn('OBS WebSocket Disconnected!');
-      setObsStatus('disconnected');
-    };
-
-    const handleConnectionError = (err) => {
-      console.error('OBS WebSocket Error:', err);
-      setObsStatus('error');
+    const handleConnectionClosed = () => setObsStatus('disconnected');
+    const handleConnectionError = () => setObsStatus('error');
+    
+    // 🚀 新增：监听别人发来的广播消息
+    const handleCustomEvent = (event) => {
+      if (event.type === 'FCUP_SYNC_STATE' && syncCallback.current) {
+        syncCallback.current(event.payload);
+      }
     };
 
     obsInstance.on('ConnectionClosed', handleConnectionClosed);
     obsInstance.on('ConnectionError', handleConnectionError);
+    obsInstance.on('CustomEvent', handleCustomEvent); // 挂载监听
 
     return () => {
       obsInstance.off('ConnectionClosed', handleConnectionClosed);
       obsInstance.off('ConnectionError', handleConnectionError);
+      obsInstance.off('CustomEvent', handleCustomEvent);
       obsInstance.disconnect();
     };
   }, []);
 
-  const connectOBS = async (url = 'ws://127.0.0.1:4455', password = '') => {
+  const connectOBS = async (url, password) => {
     try {
       setObsStatus('connecting');
       await obs.current.connect(url, password);
       setObsStatus('connected');
-      console.log('OBS WebSocket Connected!');
+      const newConfig = { url, password };
+      setObsConfig(newConfig);
+      localStorage.setItem('fc_obs_config', JSON.stringify(newConfig));
     } catch (error) {
-      console.error('OBS Connection Error:', error);
       setObsStatus('error');
     }
   };
 
-  const saveReplay = async () => {
+  const disconnectOBS = async () => {
+    await obs.current.disconnect();
+    setObsStatus('disconnected');
+  };
+
+  // 🚀 新增：向全网广播你的状态（iPad 会调用这个）
+  const broadcastState = async (stateData) => {
     if (obsStatus !== 'connected') return;
     try {
-      await obs.current.call('SaveReplayBuffer');
-      console.log('Replay saved successfully');
-    } catch (error) {
-      console.error('Failed to save replay:', error);
+      await obs.current.call('BroadcastCustomEvent', {
+        eventData: {
+          type: 'FCUP_SYNC_STATE',
+          payload: stateData
+        }
+      });
+    } catch (err) {
+      console.error('广播状态失败', err);
     }
   };
 
-  // 🚀 修复 3：合并为一个通用的媒体播放遥控器
-  const playMedia = async (mediaSourceName, videoPath, sceneName) => {
-    if (obsStatus !== 'connected') return;
-    try {
-      await obs.current.call('SetInputSettings', {
-        inputName: mediaSourceName,
-        inputSettings: { local_file: videoPath, looping: false }
-      });
-      await obs.current.call('SetCurrentProgramScene', { sceneName: sceneName });
-      console.log(`Now playing: ${videoPath} on scene: ${sceneName}`);
-    } catch (error) {
-      console.error(`Failed to play media ${videoPath}:`, error);
-    }
+  // 🚀 新增：注册接收回调（Overlay 会调用这个）
+  const onReceiveSync = (callback) => {
+    syncCallback.current = callback;
   };
 
   return (
     <OBSContext.Provider value={{ 
-      obsStatus, connectOBS, saveReplay, 
-      playHighlight: playMedia, 
-      playVideo: playMedia 
+      obsStatus, obsConfig, connectOBS, disconnectOBS,
+      broadcastState, onReceiveSync
     }}>
       {children}
     </OBSContext.Provider>
