@@ -135,18 +135,21 @@ export default function CountdownScene({ matchData, updateData }) {
   const currentVideo = matchData.activeVideoPath || '';
   const playlist = matchData.videoPlaylist || [];
 
+  // 获取渲染模式
+  const renderMode = matchData.videoRenderMode || 'WEB';
+  const isOBSLocal = renderMode === 'OBS_LOCAL';
+
   const [timeLeft, setTimeLeft] = useState(0);
 
-  // 🚀 终极静音大法：判断当前窗口是不是 OBS 里的 Overlay
   const isOverlay = typeof window !== 'undefined' && window.location.hash === '#overlay';
   const forceMuted = !isOverlay || !!matchData.videoMuted;
 
   useEffect(() => {
-    if (videoRef.current && currentVideo) {
-      videoRef.current.muted = forceMuted; // 播放前强行上锁
+    if (!isOBSLocal && videoRef.current && currentVideo) {
+      videoRef.current.muted = forceMuted;
       videoRef.current.play().catch(err => console.warn('[FCUP_SYS] PiP Autoplay blocked:', err));
     }
-  }, [currentVideo, forceMuted]);
+  }, [currentVideo, forceMuted, isOBSLocal]);
 
   useEffect(() => {
     const timerId = setInterval(() => {
@@ -177,15 +180,42 @@ export default function CountdownScene({ matchData, updateData }) {
   const promoName = activeVideoItem ? activeVideoItem.name : 'PROMO';
   const isDenseRightPanel = upcomingMatches.length >= 4;
 
+  // 🚀 核心透明镂空逻辑
+  const isOBSLocalVideo = mode === 'VIDEO' && isOBSLocal;
+  const holeClipPath = 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 180px, 78px 180px, 78px 900px, 1358px 900px, 1358px 180px, 78px 180px, 0% 180px)';
+
   return (
-    <div style={{ width: '1920px', height: '1080px', background: COLORS.black, position: 'relative', overflow: 'hidden', fontFamily: '"HarmonyOS Sans SC", sans-serif', color: COLORS.white }}>
+    <div style={{ 
+      width: '1920px', 
+      height: '1080px', 
+      background: isOBSLocalVideo ? 'transparent' : COLORS.black, 
+      position: 'relative', 
+      overflow: 'hidden', 
+      fontFamily: '"HarmonyOS Sans SC", sans-serif', 
+      color: COLORS.white 
+    }}>
       <style>{`
         @keyframes slideInLeft { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes slideInRight { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.28; } }
       `}</style>
 
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(180deg, rgba(255,255,255,0.014) 1px, transparent 1px)', backgroundSize: '120px 120px, 120px 120px', opacity: 0.32 }} />
+      {/* 实底黑布遮挡，顺便挖出一个 1280x720 的洞 */}
+      {isOBSLocalVideo && (
+        <div style={{ position: 'absolute', inset: 0, backgroundColor: COLORS.black, clipPath: holeClipPath }} />
+      )}
+
+      {/* 背景点阵网格，如果是镂空模式也会一起挖洞 */}
+      <div style={{ 
+        position: 'absolute', 
+        inset: 0, 
+        pointerEvents: 'none', 
+        background: 'linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(180deg, rgba(255,255,255,0.014) 1px, transparent 1px)', 
+        backgroundSize: '120px 120px, 120px 120px', 
+        opacity: 0.32,
+        clipPath: isOBSLocalVideo ? holeClipPath : 'none'
+      }} />
+
       <div style={{ position: 'absolute', left: '70px', top: '70px', width: '520px', height: '520px', border: '1px solid rgba(244,195,32,0.07)', transform: 'rotate(45deg)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', right: '-120px', bottom: '-120px', width: '460px', height: '460px', border: '1px solid rgba(255,255,255,0.03)', transform: 'rotate(45deg)', pointerEvents: 'none' }} />
 
@@ -237,19 +267,21 @@ export default function CountdownScene({ matchData, updateData }) {
 
       {mode === 'VIDEO' && (
         <div style={{ display: 'flex', width: '100%', height: '100%', padding: '0 78px', boxSizing: 'border-box', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ width: '1280px', height: '720px', flexShrink: 0, border: `2px solid ${COLORS.yellow}`, background: '#000', position: 'relative', boxShadow: `${UI.hardShadow}, ${UI.yellowGlow}`, overflow: 'hidden' }}>
+          <div style={{ width: '1280px', height: '720px', flexShrink: 0, border: `2px solid ${COLORS.yellow}`, background: isOBSLocal ? 'transparent' : '#000', position: 'relative', boxShadow: `${UI.hardShadow}, ${UI.yellowGlow}`, overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 14, left: 14, width: 22, height: 22, borderTop: `2px solid ${COLORS.yellow}`, borderLeft: `2px solid ${COLORS.yellow}`, zIndex: 3 }} />
             <div style={{ position: 'absolute', top: 14, right: 14, width: 22, height: 22, borderTop: `2px solid ${COLORS.yellow}`, borderRight: `2px solid ${COLORS.yellow}`, zIndex: 3 }} />
             <div style={{ position: 'absolute', bottom: 14, left: 14, width: 22, height: 22, borderBottom: `2px solid ${COLORS.yellow}`, borderLeft: `2px solid ${COLORS.yellow}`, zIndex: 3 }} />
             <div style={{ position: 'absolute', bottom: 14, right: 14, width: 22, height: 22, borderBottom: `2px solid ${COLORS.yellow}`, borderRight: `2px solid ${COLORS.yellow}`, zIndex: 3 }} />
 
-            {currentVideo ? (
+            {isOBSLocal ? (
+              <div style={{ width: '100%', height: '100%', background: 'transparent' }} />
+            ) : currentVideo ? (
               <video 
-                key={currentVideo} // 🚀 终极修复：确保切视频时重置 DOM
+                key={currentVideo} 
                 ref={videoRef} 
                 src={currentVideo} 
                 autoPlay 
-                muted={forceMuted} // 🚀 使用强制静音标识
+                muted={forceMuted} 
                 playsInline
                 loop={!playlist || playlist.length <= 1} 
                 onEnded={handleVideoEnded} 
@@ -260,8 +292,14 @@ export default function CountdownScene({ matchData, updateData }) {
               <div style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'rgba(255,255,255,0.26)', fontSize: '24px', fontWeight: '900', letterSpacing: '4px', textTransform: 'uppercase' }}>Promo_Sys // Standby</div>
             )}
 
-            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', boxShadow: 'inset 0 0 80px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.04)' }} />
-            <div style={{ position: 'absolute', bottom: '22px', left: '22px', backgroundColor: COLORS.yellow, color: COLORS.black, padding: '7px 14px', fontWeight: '900', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1.4px', boxShadow: UI.yellowGlow }}>{promoName}</div>
+            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', boxShadow: 'inset 0 0 80px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.04)', zIndex: 4 }} />
+            
+            {/* 🚀 隐藏角标逻辑：如果是在 OBS 镂空垫片模式下，直接干掉这个角标 */}
+            {!isOBSLocalVideo && (
+              <div style={{ position: 'absolute', bottom: '22px', left: '22px', backgroundColor: COLORS.yellow, color: COLORS.black, padding: '7px 14px', fontWeight: '900', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1.4px', boxShadow: UI.yellowGlow, zIndex: 5 }}>
+                {promoName}
+              </div>
+            )}
           </div>
 
           <div style={{ width: '440px', display: 'flex', flexDirection: 'column', gap: isDenseRightPanel ? '16px' : '28px' }}>

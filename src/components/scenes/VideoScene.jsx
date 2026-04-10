@@ -9,10 +9,12 @@ export default function VideoScene({ matchData, updateData }) {
   const playlist = matchData.videoPlaylist || [];
   const globalActiveVideo = matchData.activeVideoPath || '';
 
-  // 🚀 核心修复 1：添加本地状态！让 OBS Overlay 即使没有写入权限也能自己切歌
+  // 核心切换逻辑：判断当前是 Web 渲染还是 OBS 本地渲染
+  const renderMode = matchData.videoRenderMode || 'WEB'; 
+  const isOBSLocal = renderMode === 'OBS_LOCAL';
+
   const [localVideoPath, setLocalVideoPath] = useState('');
 
-  // 🚀 核心修复 2：当控制台点击了“Play Now”强制切视频时，让本地状态同步跟上
   useEffect(() => {
     setLocalVideoPath(globalActiveVideo);
   }, [globalActiveVideo]);
@@ -23,18 +25,18 @@ export default function VideoScene({ matchData, updateData }) {
   const forceMuted = !isOverlay || !!matchData.videoMuted;
 
   useEffect(() => {
-    if (videoRef.current && currentVideo) {
+    // 只有在 Web 模式下才需要控制 video 实例
+    if (!isOBSLocal && videoRef.current && currentVideo) {
       videoRef.current.muted = forceMuted;
       videoRef.current.play().catch(err => {
         console.warn('[FCUP_SYS] Autoplay blocked by browser policy.', err);
       });
     }
-  }, [currentVideo, forceMuted]);
+  }, [currentVideo, forceMuted, isOBSLocal]);
 
   const handleVideoEnded = () => {
     if (!playlist || playlist.length === 0) return; 
 
-    // 🚀 核心修复 3：防死锁机制。如果列表只有1个视频，手动拉回进度条重新播！
     if (playlist.length === 1) {
       if (videoRef.current) {
         videoRef.current.currentTime = 0;
@@ -52,10 +54,8 @@ export default function VideoScene({ matchData, updateData }) {
     const nextVideo = playlist[nextIndex];
 
     if (updateData) {
-      // 如果是在控制台，走正常全局更新逻辑
       updateData({ ...matchData, activeVideoPath: nextVideo });
     } else {
-      // 🚀 核心修复 4：如果在 OBS 浏览器源里（无权限），直接修改本地状态切歌！
       setLocalVideoPath(nextVideo);
     }
   };
@@ -72,10 +72,21 @@ export default function VideoScene({ matchData, updateData }) {
   };
 
   return (
-    <div style={{ width: '1920px', height: '1080px', backgroundColor: '#000000', position: 'relative', overflow: 'hidden', fontFamily: '"HarmonyOS Sans SC", sans-serif' }}>
-      {currentVideo ? (
+    <div style={{ 
+      width: '1920px', 
+      height: '1080px', 
+      backgroundColor: isOBSLocal ? 'transparent' : '#000000', 
+      position: 'relative', 
+      overflow: 'hidden', 
+      fontFamily: '"HarmonyOS Sans SC", sans-serif' 
+    }}>
+      {isOBSLocal ? (
+        // OBS 本地模式：渲染完全透明的占位层，让底层的媒体源透过来
+        <div style={{ width: '100%', height: '100%', background: 'transparent' }} />
+      ) : currentVideo ? (
+        // Web 模式：正常渲染原有的视频播放器
         <video 
-          key={currentVideo} // 状态改变时强制刷新播放器
+          key={currentVideo} 
           ref={videoRef}
           src={currentVideo} 
           autoPlay 
@@ -91,6 +102,8 @@ export default function VideoScene({ matchData, updateData }) {
           VIDEO_SYS // STANDBY
         </div>
       )}
+      
+      {/* 角标不受模式影响，始终显示 */}
       <div style={{ position: 'absolute', bottom: '40px', right: '60px', display: 'flex', alignItems: 'center', gap: '10px', opacity: 0.3 }}>
         <div style={{ width: '15px', height: '15px', backgroundColor: COLORS.yellow }} />
         <span style={{ fontSize: '18px', fontWeight: '900', color: COLORS.white, letterSpacing: '2px' }}>FRIES CUP</span>

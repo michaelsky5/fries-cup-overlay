@@ -15,13 +15,15 @@ export default function VideoEditor({ density = 'standard', densityTokens, isDen
 
   const videoLibrary = Array.isArray(matchData.videoLibrary) ? matchData.videoLibrary : [];
   const videoPlaylist = Array.isArray(matchData.videoPlaylist) ? matchData.videoPlaylist : [];
+  
+  // 获取当前渲染模式，默认为 WEB
+  const renderMode = matchData.videoRenderMode || 'WEB';
 
   const controlInput = { ...ui.input, minHeight: rowH, height: rowH, boxSizing: 'border-box', paddingTop: 0, paddingBottom: 0, fontSize: density === 'spacious' ? '13px' : '12px' };
   const actionBtn = { ...ui.actionBtn, minHeight: rowH, height: rowH, boxSizing: 'border-box', fontWeight: 900 };
   const outlineBtn = { ...ui.outlineBtn, minHeight: rowH, height: rowH, boxSizing: 'border-box', fontWeight: 900 };
   const softBtn = { ...ui.btn, minHeight: rowH, height: rowH, boxSizing: 'border-box', fontWeight: 900 };
 
-  // 🚀 核心修复：还原为只更新路径，绝不强制切场景。你在倒计时，它就在倒计时里播！
   const handlePlayNow = async (path) => {
     updateData({ ...matchData, activeVideoPath: path });
   };
@@ -95,7 +97,7 @@ export default function VideoEditor({ density = 'standard', densityTokens, isDen
                     style={{ ...actionBtn, padding: '0 12px', backgroundColor: COLORS.yellow, color: COLORS.black }} 
                     onClick={() => updateData({ ...matchData, activeVideoPath: videoPlaylist[0] })}
                   >
-                    ▶ START QUEUE
+                    START QUEUE
                   </button>
                 )}
                 <div style={{ minHeight: rowH, height: rowH, minWidth: '52px', padding: '0 10px', border: `1px solid ${COLORS.line}`, background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.softWhite, fontWeight: 900, fontSize: '12px', boxSizing: 'border-box' }}>
@@ -126,8 +128,8 @@ export default function VideoEditor({ density = 'standard', densityTokens, isDen
                         <button style={{ ...actionBtn, backgroundColor: isActive ? '#6f5a12' : COLORS.yellow, color: isActive ? COLORS.softWhite : COLORS.black, padding: density === 'spacious' ? '0 12px' : '0 10px' }} onClick={() => handlePlayNow(path)}>
                           {isActive ? 'PLAYING' : 'PLAYNOW'}
                         </button>
-                        <button style={{ ...outlineBtn, padding: density === 'spacious' ? '0 10px' : '0 8px' }} onClick={() => movePlaylistItem(idx, -1)} disabled={idx === 0}>↑</button>
-                        <button style={{ ...outlineBtn, padding: density === 'spacious' ? '0 10px' : '0 8px' }} onClick={() => movePlaylistItem(idx, 1)} disabled={idx === videoPlaylist.length - 1}>↓</button>
+                        <button style={{ ...outlineBtn, padding: density === 'spacious' ? '0 10px' : '0 8px' }} onClick={() => movePlaylistItem(idx, -1)} disabled={idx === 0}>UP</button>
+                        <button style={{ ...outlineBtn, padding: density === 'spacious' ? '0 10px' : '0 8px' }} onClick={() => movePlaylistItem(idx, 1)} disabled={idx === videoPlaylist.length - 1}>DN</button>
                         <button style={{ ...outlineBtn, borderColor: COLORS.red, color: COLORS.red, padding: density === 'spacious' ? '0 12px' : '0 10px' }} onClick={() => removeFromPlaylist(idx)}>Remove</button>
                       </div>
                     </div>
@@ -140,7 +142,38 @@ export default function VideoEditor({ density = 'standard', densityTokens, isDen
         </div>
       </ShellPanel>
 
-      <ShellPanel title="Video Library" accent density={density} right={<button style={{ ...softBtn, backgroundColor: COLORS.blue, color: '#fff', padding: density === 'spacious' ? '0 14px' : '0 12px' }} onClick={addVideo}>+ Register</button>}>
+      <ShellPanel 
+        title="Video Library" 
+        accent 
+        density={density} 
+        right={
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              style={{ 
+                ...softBtn, 
+                backgroundColor: renderMode === 'OBS_LOCAL' ? COLORS.yellow : '#333333', 
+                color: renderMode === 'OBS_LOCAL' ? COLORS.black : COLORS.white, 
+                border: renderMode === 'OBS_LOCAL' ? `1px solid ${COLORS.yellow}` : '1px solid #555555',
+                padding: density === 'spacious' ? '0 14px' : '0 12px' 
+              }} 
+              onClick={() => updateData({ ...matchData, videoRenderMode: renderMode === 'WEB' ? 'OBS_LOCAL' : 'WEB' })}
+            >
+              {renderMode === 'WEB' ? 'MODE // WEB' : 'MODE // OBS LOCAL'}
+            </button>
+            <button 
+              style={{ 
+                ...softBtn, 
+                backgroundColor: COLORS.blue, 
+                color: '#ffffff', 
+                padding: density === 'spacious' ? '0 14px' : '0 12px' 
+              }} 
+              onClick={addVideo}
+            >
+              + Register
+            </button>
+          </div>
+        }
+      >
         <div style={{ display: 'grid', gridTemplateColumns: isDense ? '1fr' : '1fr 1fr', gap }}>
           {videoLibrary.map((v, i) => {
             const isInPlaylist = videoPlaylist.includes(v.path);
