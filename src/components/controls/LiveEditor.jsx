@@ -14,6 +14,7 @@ const TeamControlPanel = React.memo(({
   isA, isUltra, is1080Compact, density, ui, t, compactInputPad, controlRowHeight, stackGap, innerGap, tightGap, compactBtnPad, playerCols, subButtonHeight, livePanelBodyPadding
 }) => {
   const teamName = isA ? matchData.teamA : matchData.teamB;
+  const teamShort = isA ? matchData.teamShortA : matchData.teamShortB;
   const logo = isA ? matchData.logoA : matchData.logoB;
   const logoBg = isA ? matchData.logoBgA : matchData.logoBgB;
   const players = isA ? matchData.playersA : matchData.playersB;
@@ -23,6 +24,16 @@ const TeamControlPanel = React.memo(({
   const sideActive = isA ? attackSide === 'A' : attackSide === 'B';
   const banOrderLabel = isA ? (matchData.banOrderMode === 'B_FIRST' ? 'A SECOND' : 'A FIRST') : (matchData.banOrderMode === 'B_FIRST' ? 'B FIRST' : 'B SECOND');
   const banPanelOpacity = matchData.showBans ? 1 : 0.58;
+
+  const buildFallbackShort = name =>
+    String(name || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(v => v[0])
+      .join('')
+      .slice(0, 4)
+      .toUpperCase() || '';
 
   const loadTeamFromLibrary = (side, presetKey) => {
     if (!presetKey) return;
@@ -38,6 +49,7 @@ const TeamControlPanel = React.memo(({
     updateWithHistory(`Load team ${side}: ${preset.name}`, {
       ...matchData,
       [isA ? 'teamA' : 'teamB']: tData.teamName || preset.name,
+      [isA ? 'teamShortA' : 'teamShortB']: tData.teamShort || tData.shortName || buildFallbackShort(tData.teamName || preset.name),
       [isA ? 'logoA' : 'logoB']: finalLogo,
       [isA ? 'playersA' : 'playersB']: top5Players,
       [isA ? 'rosterPlayersA' : 'rosterPlayersB']: tData.players || [],
@@ -78,8 +90,8 @@ const TeamControlPanel = React.memo(({
 
             {!isUltra && (
               <button style={{ ...ui.actionBtn, padding: compactBtnPad || ui.actionBtn.padding, height: controlRowHeight, minHeight: controlRowHeight, fontSize: is1080Compact ? '11px' : undefined, fontWeight: '900', width: '100%', whiteSpace: 'nowrap' }} onClick={() => {
-                updateWithHistory(`Set Team ${side} as winner and TAKE`, { 
-                  ...matchData, globalScene: 'WINNER', winnerScene: { ...(matchData.winnerScene || {}), winner: side, title: 'WINNER' } 
+                updateWithHistory(`Set Team ${side} as winner and TAKE`, {
+                  ...matchData, globalScene: 'WINNER', winnerScene: { ...(matchData.winnerScene || {}), winner: side, title: 'WINNER' }
                 });
                 setPreviewScene?.('WINNER');
               }}>
@@ -96,8 +108,8 @@ const TeamControlPanel = React.memo(({
                 </button>
               )}
               <button style={{ ...ui.actionBtn, padding: compactBtnPad || ui.actionBtn.padding, height: controlRowHeight, minHeight: controlRowHeight, fontSize: is1080Compact ? '11px' : undefined, fontWeight: '900', width: '100%', whiteSpace: 'nowrap' }} onClick={() => {
-                updateWithHistory(`Set Team ${side} as winner and TAKE`, { 
-                  ...matchData, globalScene: 'WINNER', winnerScene: { ...(matchData.winnerScene || {}), winner: side, title: 'WINNER' } 
+                updateWithHistory(`Set Team ${side} as winner and TAKE`, {
+                  ...matchData, globalScene: 'WINNER', winnerScene: { ...(matchData.winnerScene || {}), winner: side, title: 'WINNER' }
                 });
                 setPreviewScene?.('WINNER');
               }}>
@@ -108,15 +120,30 @@ const TeamControlPanel = React.memo(({
         </div>
 
         <div style={{ display: 'grid', gap: '5px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: isUltra ? '1fr' : '1.4fr 1fr 96px', gap: innerGap, alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isUltra ? '1fr' : '1.2fr 88px 1fr 96px', gap: innerGap, alignItems: 'end' }}>
             <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>TEAM NAME</div>
+            {!isUltra && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>SHORT</div>}
             {!isUltra && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>LOGO</div>}
             {!isUltra && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>LOGO BG</div>}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: isUltra ? '1fr' : '1.4fr 1fr 96px', gap: innerGap, alignItems: 'center' }}>
-            <input style={{ ...ui.input, padding: compactInputPad, height: controlRowHeight, fontSize: is1080Compact ? '14px' : density === 'spacious' ? '17px' : '16px', fontWeight: '900' }} value={teamName} onChange={e => updateData(prev => ({ ...prev, [isA ? 'teamA' : 'teamB']: e.target.value }))} />
-            
+          <div style={{ display: 'grid', gridTemplateColumns: isUltra ? '1fr' : '1.2fr 88px 1fr 96px', gap: innerGap, alignItems: 'center' }}>
+            <input
+              style={{ ...ui.input, padding: compactInputPad, height: controlRowHeight, fontSize: is1080Compact ? '14px' : density === 'spacious' ? '17px' : '16px', fontWeight: '900' }}
+              value={teamName}
+              onChange={e => updateData(prev => ({ ...prev, [isA ? 'teamA' : 'teamB']: e.target.value }))}
+            />
+
+            {!isUltra && (
+              <input
+                style={{ ...ui.input, padding: compactInputPad, height: controlRowHeight, textTransform: 'uppercase', fontWeight: '900', textAlign: 'center' }}
+                value={teamShort || ''}
+                maxLength={4}
+                onChange={e => updateData(prev => ({ ...prev, [isA ? 'teamShortA' : 'teamShortB']: e.target.value.toUpperCase().slice(0, 4) }))}
+                placeholder="TAG"
+              />
+            )}
+
             {!isUltra && (
               <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={logo} onChange={e => updateData(prev => ({ ...prev, [isA ? 'logoA' : 'logoB']: e.target.value }))}>
                 {LOGO_LIST.map(l => <option key={l.path} value={l.path}>{l.name}</option>)}
@@ -132,12 +159,23 @@ const TeamControlPanel = React.memo(({
           </div>
 
           {isUltra && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 92px', gap: innerGap }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 92px', gap: innerGap }}>
+              <Field label="SHORT" density={density}>
+                <input
+                  style={{ ...ui.input, padding: compactInputPad, height: controlRowHeight, textTransform: 'uppercase', fontWeight: '900', textAlign: 'center' }}
+                  value={teamShort || ''}
+                  maxLength={4}
+                  onChange={e => updateData(prev => ({ ...prev, [isA ? 'teamShortA' : 'teamShortB']: e.target.value.toUpperCase().slice(0, 4) }))}
+                  placeholder="TAG"
+                />
+              </Field>
+
               <Field label="LOGO" density={density}>
                 <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={logo} onChange={e => updateData(prev => ({ ...prev, [isA ? 'logoA' : 'logoB']: e.target.value }))}>
                   {LOGO_LIST.map(l => <option key={l.path} value={l.path}>{l.name}</option>)}
                 </select>
               </Field>
+
               <Field label="LOGO BG" density={density}>
                 <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={logoBg} onChange={e => updateData(prev => ({ ...prev, [isA ? 'logoBgA' : 'logoBgB']: e.target.value }))}>
                   <option value={COLORS.mainDark}>DARK</option>
@@ -230,7 +268,7 @@ export default function LiveEditor({
     panelPadding: '12px', inputPadding: '8px 10px', inputFontSize: 12, buttonPadding: '8px 10px', buttonFontSize: 12, blockGap: 10
   };
   const ui = createEditorUi(densityTokens, density);
-  
+
   const is1080Compact = isShort || isDense || density === 'compact' || density === 'ultra';
   const library = matchData.rosterPresetLibrary || [];
 
@@ -295,13 +333,13 @@ export default function LiveEditor({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: rootGap }}>
       <div style={{ display: 'grid', gridTemplateColumns: liveMainTemplate, gap: liveMainGap, alignItems: 'stretch' }}>
-        
-        <TeamControlPanel 
+
+        <TeamControlPanel
           side="A" isA={true} matchData={matchData} updateData={updateData} updateWithHistory={updateWithHistory} setPreviewScene={setPreviewScene}
           selectedPreset={selectedPresetA} setSelectedPreset={setSelectedPresetA} library={library} showSideControl={showSideControl}
           attackSide={attackSide} sideLeftLabel={sideLeftLabel} sideRightLabel={sideRightLabel} toggleAttackDefense={toggleAttackDefense}
           banInfo={banA} getRosterOptionsForSide={getRosterOptionsForSide} isUltra={isUltra} is1080Compact={is1080Compact} density={density}
-          ui={ui} t={t} compactInputPad={compactInputPad} controlRowHeight={controlRowHeight} stackGap={stackGap} innerGap={innerGap} 
+          ui={ui} t={t} compactInputPad={compactInputPad} controlRowHeight={controlRowHeight} stackGap={stackGap} innerGap={innerGap}
           tightGap={tightGap} compactBtnPad={compactBtnPad} playerCols={playerCols} subButtonHeight={subButtonHeight} livePanelBodyPadding={livePanelBodyPadding}
         />
 
@@ -341,26 +379,25 @@ export default function LiveEditor({
 
                 <div>
                   <div style={sectionTitleStyle}>Live Triggers</div>
-                  {/* 🚀 删去手工按钮，恢复为 2x2 网格，仅作状态开关！ */}
                   <div style={{ marginTop: sectionTopGap, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: tightGap, width: '100%' }}>
-                    <button 
-                      style={{ 
-                        ...ui.outlineBtn, 
-                        backgroundColor: matchData.beginInfoEnabled ? COLORS.yellow : 'transparent', 
-                        color: matchData.beginInfoEnabled ? COLORS.black : COLORS.softWhite, 
-                        padding: compactBtnPad || ui.outlineBtn.padding, 
-                        minHeight: is1080Compact ? '38px' : '42px', 
-                        fontSize: is1080Compact ? '11px' : undefined 
-                      }} 
+                    <button
+                      style={{
+                        ...ui.outlineBtn,
+                        backgroundColor: matchData.beginInfoEnabled ? COLORS.yellow : 'transparent',
+                        color: matchData.beginInfoEnabled ? COLORS.black : COLORS.softWhite,
+                        padding: compactBtnPad || ui.outlineBtn.padding,
+                        minHeight: is1080Compact ? '38px' : '42px',
+                        fontSize: is1080Compact ? '11px' : undefined
+                      }}
                       onClick={() => updateWithHistory(matchData.beginInfoEnabled ? 'Disable Auto Begin' : 'Enable Auto Begin', { ...matchData, beginInfoEnabled: !matchData.beginInfoEnabled })}
                     >
                       AUTO BEGIN
                     </button>
-                    
+
                     <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '38px' : '42px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.showPlayers ? 'rgba(244,195,32,0.16)' : 'transparent', color: matchData.showPlayers ? COLORS.yellow : COLORS.softWhite, borderColor: matchData.showPlayers ? COLORS.yellow : 'rgba(255,255,255,0.14)', whiteSpace: 'nowrap' }} onClick={() => updateData(prev => ({ ...prev, showPlayers: !prev.showPlayers }))}>NAME INFO</button>
-                    
+
                     <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '38px' : '42px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.showBans ? 'rgba(255,77,77,0.16)' : 'transparent', color: matchData.showBans ? '#ff8f8f' : COLORS.softWhite, borderColor: matchData.showBans ? COLORS.banRed : 'rgba(255,255,255,0.14)', whiteSpace: 'nowrap' }} onClick={() => updateWithHistory(matchData.showBans ? 'Disable ban mode' : 'Enable ban mode', { ...matchData, showBans: !matchData.showBans, showBanPhase: !matchData.showBans ? matchData.showBanPhase : false })}>BAN MODE</button>
-                    
+
                     <button style={{ ...ui.btn, backgroundColor: 'rgba(255,77,77,0.92)', color: '#fff', padding: compactBtnPad || ui.btn.padding, minHeight: is1080Compact ? '38px' : '42px', fontSize: is1080Compact ? '11px' : undefined, border: `1px solid ${COLORS.banRed}`, whiteSpace: 'nowrap' }} onClick={() => updateWithHistory(matchData.showBanPhase ? 'Close ban phase' : 'Open ban phase', { ...matchData, showBanPhase: !matchData.showBanPhase, heroBanTriggerAt: !matchData.showBanPhase ? Date.now() : matchData.heroBanTriggerAt })}>
                       {matchData.showBanPhase ? 'CLOSE BAN' : 'BAN PHASE'}
                     </button>
@@ -371,12 +408,12 @@ export default function LiveEditor({
           </div>
         </ShellPanel>
 
-        <TeamControlPanel 
+        <TeamControlPanel
           side="B" isA={false} matchData={matchData} updateData={updateData} updateWithHistory={updateWithHistory} setPreviewScene={setPreviewScene}
           selectedPreset={selectedPresetB} setSelectedPreset={setSelectedPresetB} library={library} showSideControl={showSideControl}
           attackSide={attackSide} sideLeftLabel={sideLeftLabel} sideRightLabel={sideRightLabel} toggleAttackDefense={toggleAttackDefense}
           banInfo={banB} getRosterOptionsForSide={getRosterOptionsForSide} isUltra={isUltra} is1080Compact={is1080Compact} density={density}
-          ui={ui} t={t} compactInputPad={compactInputPad} controlRowHeight={controlRowHeight} stackGap={stackGap} innerGap={innerGap} 
+          ui={ui} t={t} compactInputPad={compactInputPad} controlRowHeight={controlRowHeight} stackGap={stackGap} innerGap={innerGap}
           tightGap={tightGap} compactBtnPad={compactBtnPad} playerCols={playerCols} subButtonHeight={subButtonHeight} livePanelBodyPadding={livePanelBodyPadding}
         />
       </div>

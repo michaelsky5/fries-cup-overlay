@@ -79,7 +79,7 @@ function ConsoleWorkspace({
   renderProgramMonitorScene,
   sceneLabelMap
 }) {
-  // 🚀 优化：使用 useMemo 缓存 UI 对象，防止其在每次渲染时重建导致子组件 props 改变而击穿缓存
+  // 优化：使用 useMemo 缓存 UI 对象，防止其在每次渲染时重建导致子组件 props 改变而击穿缓存
   const t = useMemo(() => densityTokens || {
     panelPadding: '12px',
     buttonPadding: '10px 12px',
@@ -163,9 +163,18 @@ function ConsoleWorkspace({
       <style>{`
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
         * { box-sizing: border-box; }
+        /* 隐藏数字输入框默认的上下箭头 */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input[type="number"] {
+          -moz-appearance: textfield;
+        }
       `}</style>
 
-      {/* 🚀 修复：移回坐标原点，使用透明度而非负数坐标进行隐藏，防止现代浏览器离屏资源被强行回收导致截图空白 */}
+      {/* 修复：移回坐标原点，使用透明度而非负数坐标进行隐藏，防止现代浏览器离屏资源被强行回收导致截图空白 */}
       <div 
         style={{ 
           position: 'absolute', 
@@ -455,29 +464,30 @@ function ConsoleWorkspace({
                     </button>
                   </div>
 
+                  {/* ===== HUD Mode 和 Output Mode 调整行 ===== */}
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: isUltra ? '1fr' : 'minmax(0,1fr) 132px 180px',
-                      gap: '8px',
+                      gridTemplateColumns: isUltra ? '1fr' : 'minmax(0,1.2fr) 110px 88px 110px 140px',
+                      gap: '10px',
                       alignItems: 'end'
                     }}
                   >
+                    {/* 1. Stinger Logo */}
                     <div style={{ minWidth: 0 }}>
                       <div
                         style={{
                           fontSize: '10px',
-                          color: COLORS.softWhite,
-                          marginBottom: '5px',
+                          color: COLORS.faintWhite,
+                          marginBottom: '6px',
                           fontWeight: '900',
-                          letterSpacing: '1.6px',
+                          letterSpacing: '1.2px',
                           textTransform: 'uppercase',
                           lineHeight: 1
                         }}
                       >
                         Stinger Logo
                       </div>
-
                       <select
                         style={{
                           ...ui.select,
@@ -489,14 +499,15 @@ function ConsoleWorkspace({
                           fontSize: density === 'spacious' ? '11px' : '11px',
                           fontWeight: '600',
                           letterSpacing: '0.2px',
-                          paddingLeft: '10px',
+                          paddingLeft: '12px',
                           paddingRight: '24px',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'clip',
                           appearance: 'none',
                           WebkitAppearance: 'none',
-                          MozAppearance: 'none'
+                          MozAppearance: 'none',
+                          backgroundColor: 'rgba(0,0,0,0.3)',
                         }}
                         value={matchData.stingerLogo || '/assets/logos/fc_logo.png'}
                         onChange={e => updateData({ ...matchData, stingerLogo: e.target.value })}
@@ -507,22 +518,192 @@ function ConsoleWorkspace({
                       </select>
                     </div>
 
+                    {/* 2. HUD Mode 切换 */}
                     <div style={{ minWidth: 0 }}>
                       <div
                         style={{
                           fontSize: '10px',
-                          color: COLORS.softWhite,
-                          marginBottom: '5px',
+                          color: COLORS.faintWhite,
+                          marginBottom: '6px',
                           fontWeight: '900',
-                          letterSpacing: '1.6px',
+                          letterSpacing: '1.2px',
+                          textTransform: 'uppercase',
+                          lineHeight: 1
+                        }}
+                      >
+                        HUD Mode
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+                        <button
+                          style={{
+                            ...ui.btn,
+                            minHeight: density === 'spacious' ? '38px' : '34px',
+                            height: density === 'spacious' ? '38px' : '34px',
+                            boxSizing: 'border-box',
+                            backgroundColor: matchData.uiMode !== 'TOURNAMENT' ? COLORS.yellow : '#111',
+                            color: matchData.uiMode !== 'TOURNAMENT' ? COLORS.black : COLORS.softWhite,
+                            border: matchData.uiMode !== 'TOURNAMENT' ? '1px solid transparent' : UI.outerFrame,
+                            cursor: 'pointer',
+                            fontWeight: '900',
+                            fontSize: density === 'spacious' ? '11px' : '10px',
+                            letterSpacing: '0.6px',
+                            padding: 0
+                          }}
+                          onClick={() => updateData({ ...matchData, uiMode: 'NORMAL', hudMarginTop: 0 })}
+                        >
+                          NORM
+                        </button>
+                        <button
+                          style={{
+                            ...ui.btn,
+                            minHeight: density === 'spacious' ? '38px' : '34px',
+                            height: density === 'spacious' ? '38px' : '34px',
+                            boxSizing: 'border-box',
+                            backgroundColor: matchData.uiMode === 'TOURNAMENT' ? COLORS.yellow : '#111',
+                            color: matchData.uiMode === 'TOURNAMENT' ? COLORS.black : COLORS.softWhite,
+                            border: matchData.uiMode === 'TOURNAMENT' ? '1px solid transparent' : UI.outerFrame,
+                            cursor: 'pointer',
+                            fontWeight: '900',
+                            fontSize: density === 'spacious' ? '11px' : '10px',
+                            letterSpacing: '0.6px',
+                            padding: 0
+                          }}
+                          onClick={() => updateData({ ...matchData, uiMode: 'TOURNAMENT', hudMarginTop: 56 })}
+                        >
+                          MATCH
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 3. Margin Top Offset (上下堆叠调整) */}
+                    <div style={{ minWidth: 0, opacity: matchData.uiMode === 'TOURNAMENT' ? 1 : 0.25, transition: 'opacity 0.25s ease' }}>
+                      <div
+                        style={{
+                          fontSize: '10px',
+                          color: COLORS.faintWhite,
+                          marginBottom: '6px',
+                          fontWeight: '900',
+                          letterSpacing: '1.2px',
+                          textTransform: 'uppercase',
+                          lineHeight: 1,
+                          textAlign: 'center'
+                        }}
+                      >
+                        Y-Offset
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          width: '100%',
+                          minHeight: density === 'spacious' ? '38px' : '34px',
+                          height: density === 'spacious' ? '38px' : '34px',
+                          backgroundColor: matchData.uiMode === 'TOURNAMENT' ? 'rgba(0,0,0,0.5)' : 'transparent',
+                          border: matchData.uiMode === 'TOURNAMENT' ? `1px solid ${COLORS.lineStrong}` : '1px dashed rgba(255,255,255,0.1)',
+                          boxSizing: 'border-box',
+                          borderRadius: '2px',
+                          paddingRight: '2px' // 给右侧控制柱留一点边距
+                        }}
+                      >
+                        {/* 左侧大字号数值 */}
+                        <input
+                          type="number"
+                          disabled={matchData.uiMode !== 'TOURNAMENT'}
+                          style={{
+                            flex: 1,
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            color: COLORS.yellow,
+                            fontWeight: '900',
+                            textAlign: 'center',
+                            padding: '0 0 0 6px',
+                            fontSize: density === 'spacious' ? '13px' : '12px',
+                            outline: 'none',
+                            fontFamily: '"HarmonyOS Sans SC", sans-serif' // 恢复默认字体体系
+                          }}
+                          value={matchData.hudMarginTop ?? (matchData.uiMode === 'TOURNAMENT' ? 56 : 0)}
+                          onChange={e => {
+                            const val = e.target.value;
+                            updateData({ ...matchData, hudMarginTop: val });
+                          }}
+                        />
+
+                        {/* 右侧堆叠的上下调整按钮柱 */}
+                        <div style={{ display: 'flex', flexDirection: 'column', height: '80%', flex: '0 0 16px', gap: '2px' }}>
+                          <button
+                            disabled={matchData.uiMode !== 'TOURNAMENT'}
+                            style={{
+                              flex: 1,
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              color: '#888',
+                              fontSize: '8px',
+                              cursor: matchData.uiMode === 'TOURNAMENT' ? 'pointer' : 'not-allowed',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: 0,
+                              lineHeight: 1,
+                              transition: 'color 0.2s'
+                            }}
+                            onMouseOver={e => e.currentTarget.style.color = COLORS.white}
+                            onMouseOut={e => e.currentTarget.style.color = '#888'}
+                            onClick={() => {
+                              const current = parseInt(matchData.hudMarginTop, 10);
+                              const val = isNaN(current) ? 56 : current;
+                              updateData({ ...matchData, hudMarginTop: val + 1 });
+                            }}
+                          >
+                            ▲
+                          </button>
+                          <button
+                            disabled={matchData.uiMode !== 'TOURNAMENT'}
+                            style={{
+                              flex: 1,
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              color: '#888',
+                              fontSize: '8px',
+                              cursor: matchData.uiMode === 'TOURNAMENT' ? 'pointer' : 'not-allowed',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: 0,
+                              lineHeight: 1,
+                              transition: 'color 0.2s'
+                            }}
+                            onMouseOver={e => e.currentTarget.style.color = COLORS.white}
+                            onMouseOut={e => e.currentTarget.style.color = '#888'}
+                            onClick={() => {
+                              const current = parseInt(matchData.hudMarginTop, 10);
+                              const val = isNaN(current) ? 56 : current;
+                              updateData({ ...matchData, hudMarginTop: val - 1 });
+                            }}
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. Output Mode */}
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: '10px',
+                          color: COLORS.faintWhite,
+                          marginBottom: '6px',
+                          fontWeight: '900',
+                          letterSpacing: '1.2px',
                           textTransform: 'uppercase',
                           lineHeight: 1
                         }}
                       >
                         Output Mode
                       </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
                         <button
                           style={{
                             ...ui.btn,
@@ -531,17 +712,17 @@ function ConsoleWorkspace({
                             boxSizing: 'border-box',
                             backgroundColor: outputResolution === '1920x1080' ? COLORS.yellow : '#111',
                             color: outputResolution === '1920x1080' ? COLORS.black : COLORS.softWhite,
-                            border: UI.outerFrame,
+                            border: outputResolution === '1920x1080' ? '1px solid transparent' : UI.outerFrame,
                             cursor: 'pointer',
                             fontWeight: '900',
                             fontSize: density === 'spacious' ? '11px' : '10px',
-                            letterSpacing: '0.6px'
+                            letterSpacing: '0.6px',
+                            padding: 0
                           }}
                           onClick={() => onChangeOutputResolution('1920x1080')}
                         >
                           1080P
                         </button>
-
                         <button
                           style={{
                             ...ui.btn,
@@ -550,11 +731,12 @@ function ConsoleWorkspace({
                             boxSizing: 'border-box',
                             backgroundColor: outputResolution === '3840x2160' ? COLORS.yellow : '#111',
                             color: outputResolution === '3840x2160' ? COLORS.black : COLORS.softWhite,
-                            border: UI.outerFrame,
+                            border: outputResolution === '3840x2160' ? '1px solid transparent' : UI.outerFrame,
                             cursor: 'pointer',
                             fontWeight: '900',
                             fontSize: density === 'spacious' ? '11px' : '10px',
-                            letterSpacing: '0.6px'
+                            letterSpacing: '0.6px',
+                            padding: 0
                           }}
                           onClick={() => onChangeOutputResolution('3840x2160')}
                         >
@@ -563,21 +745,21 @@ function ConsoleWorkspace({
                       </div>
                     </div>
 
+                    {/* 5. Current Editor */}
                     <div style={{ minWidth: 0 }}>
                       <div
                         style={{
                           fontSize: '10px',
-                          color: COLORS.softWhite,
-                          marginBottom: '5px',
+                          color: COLORS.faintWhite,
+                          marginBottom: '6px',
                           fontWeight: '900',
-                          letterSpacing: '1.6px',
+                          letterSpacing: '1.2px',
                           textTransform: 'uppercase',
                           lineHeight: 1
                         }}
                       >
                         Current Editor
                       </div>
-
                       <div
                         style={{
                           ...panelBase,
@@ -586,7 +768,9 @@ function ConsoleWorkspace({
                           height: density === 'spacious' ? '38px' : '34px',
                           display: 'flex',
                           alignItems: 'center',
-                          boxSizing: 'border-box'
+                          boxSizing: 'border-box',
+                          backgroundColor: 'rgba(0,0,0,0.3)',
+                          border: `1px solid ${COLORS.lineStrong}`
                         }}
                       >
                         <div
@@ -606,6 +790,7 @@ function ConsoleWorkspace({
                       </div>
                     </div>
                   </div>
+                  {/* ================================================= */}
                 </div>
               </ShellPanel>
 
@@ -910,5 +1095,5 @@ function ConsoleWorkspace({
   );
 }
 
-// 🚀 优化：增加 React.memo，只有 Props 改变时才触发工作区整体重渲染
+// 优化：增加 React.memo，只有 Props 改变时才触发工作区整体重渲染
 export default React.memo(ConsoleWorkspace);

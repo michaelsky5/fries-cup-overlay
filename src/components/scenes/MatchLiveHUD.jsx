@@ -5,61 +5,237 @@ import BanPhaseScene from './BanPhaseScene';
 import { needsAttackDefense } from '../../constants/gameData';
 
 const COLORS = {
-  mainDark: '#2a2a2a', yellow: '#f4c320', white: '#ffffff', black: '#000000',
-  banRed: '#ff4d4d', gray: '#aaaaaa', line: 'rgba(255,255,255,0.05)', lineStrong: 'rgba(255,255,255,0.10)'
+  mainDark: '#2a2a2a',
+  yellow: '#f4c320',
+  white: '#ffffff',
+  black: '#000000',
+  banRed: '#ff4d4d',
+  gray: '#aaaaaa',
+  line: 'rgba(255,255,255,0.05)',
+  lineStrong: 'rgba(255,255,255,0.10)'
 };
 
-const containerStyle = { width: '1920px', height: '1080px', backgroundColor: 'transparent', position: 'relative', fontFamily: '"HarmonyOS Sans SC", sans-serif' };
-
-const infoBarStyle = { 
-  position: 'absolute', top: '-2px', left: '50%', transform: 'translateX(-50%)', 
-  backgroundColor: COLORS.mainDark, color: COLORS.white, padding: '5px 15px', 
-  fontSize: '14px', fontWeight: '900', letterSpacing: '2.2px', zIndex: 100, 
-  opacity: 0, animation: 'hudFadeInDownCenter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards', 
-  borderLeft: `1px solid ${COLORS.lineStrong}`, borderRight: `1px solid ${COLORS.lineStrong}`, 
-  borderBottom: `1px solid ${COLORS.lineStrong}`, textTransform: 'uppercase',
-  willChange: 'transform, opacity', backfaceVisibility: 'hidden'
+const MODE_ICON_MAP = {
+  CONTROL: '/assets/modes/control.png',
+  ESCORT: '/assets/modes/escort.png',
+  FLASHPOINT: '/assets/modes/flashpoint.png',
+  HYBRID: '/assets/modes/hybrid.png',
+  PUSH: '/assets/modes/push.png'
 };
 
-const teamBarLayout = { display: 'flex', justifyContent: 'space-between', padding: '0px 42.5px' };
-
-const teamWrapperLeftStyle = { 
-  width: '525px', display: 'flex', flexDirection: 'column', gap: '81px', marginTop: '0px', 
-  opacity: 0, animation: 'hudSlideInLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards',
-  willChange: 'transform, opacity', backfaceVisibility: 'hidden'
+const containerStyle = {
+  width: '1920px',
+  height: '1080px',
+  backgroundColor: 'transparent',
+  position: 'relative',
+  fontFamily: '"HarmonyOS Sans SC", sans-serif'
 };
 
-const teamWrapperRightStyle = { 
-  width: '525px', display: 'flex', flexDirection: 'column', gap: '81px', marginTop: '0px', 
-  opacity: 0, animation: 'hudSlideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards',
-  willChange: 'transform, opacity', backfaceVisibility: 'hidden'
+const teamBarLayout = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  padding: '0px 42.5px'
 };
 
-const subBarStyle = { height: '20px', backgroundColor: 'rgba(26,26,26,0.94)', display: 'flex', width: '100%', borderTop: `1px solid ${COLORS.lineStrong}`, borderBottom: `1px solid ${COLORS.lineStrong}` };
+const teamWrapperLeftStyle = {
+  width: '525px',
+  display: 'flex',
+  flexDirection: 'column',
+  opacity: 0,
+  animation: 'hudSlideInLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards',
+  willChange: 'transform, opacity',
+  backfaceVisibility: 'hidden'
+};
+
+const teamWrapperRightStyle = {
+  width: '525px',
+  display: 'flex',
+  flexDirection: 'column',
+  opacity: 0,
+  animation: 'hudSlideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards',
+  willChange: 'transform, opacity',
+  backfaceVisibility: 'hidden'
+};
+
+const subBarStyle = {
+  height: '20px',
+  backgroundColor: 'rgba(26,26,26,0.94)',
+  display: 'flex',
+  width: '100%',
+  borderTop: `1px solid ${COLORS.lineStrong}`,
+  borderBottom: `1px solid ${COLORS.lineStrong}`
+};
+
 const yellowAccentLeft = { width: '4px', height: '100%', backgroundColor: COLORS.yellow };
 const yellowAccentRight = { width: '4px', height: '100%', backgroundColor: COLORS.yellow };
-const subBarContentStyle = { flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px' };
-const subBarTextHighlight = { color: COLORS.white, fontSize: '12px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' };
-const subBarTextNormal = { color: COLORS.gray, fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase' };
+
+const subBarContentStyle = {
+  flex: 1,
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '0 8px'
+};
+
+const subBarTextHighlight = {
+  color: COLORS.white,
+  fontSize: '12px',
+  fontWeight: '900',
+  letterSpacing: '1px',
+  textTransform: 'uppercase'
+};
+
+const subBarTextNormal = {
+  color: COLORS.gray,
+  fontSize: '12px',
+  fontWeight: 'bold',
+  letterSpacing: '1px',
+  textTransform: 'uppercase'
+};
+
 const teamGroupStyle = { display: 'flex', width: '100%', height: '45px', alignItems: 'center' };
-const logoBlockStyle = { width: '45px', height: '45px', display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 };
+
+const logoBlockStyle = {
+  width: '45px',
+  height: '45px',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  flexShrink: 0
+};
+
 const logoImgStyle = { width: '80%', height: '80%', objectFit: 'contain' };
-const banAreaStyle = { height: '45px', backgroundColor: COLORS.mainDark, display: 'flex', alignItems: 'center', padding: '0 5px', gap: '3px', flexShrink: 0 };
-const teamNameBlockStyle = { flex: 1, height: '45px', backgroundColor: COLORS.mainDark, color: COLORS.white, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '900', overflow: 'hidden', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.4px', position: 'relative' };
-const teamNameTextStyle = { maxWidth: 'calc(100% - 20px)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 10px' };
+
+const banAreaStyle = {
+  height: '45px',
+  backgroundColor: COLORS.mainDark,
+  display: 'flex',
+  alignItems: 'center',
+  padding: '0 5px',
+  gap: '3px',
+  flexShrink: 0
+};
+
+const teamNameBlockStyle = {
+  flex: 1,
+  height: '45px',
+  backgroundColor: COLORS.mainDark,
+  color: COLORS.white,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '20px',
+  fontWeight: '900',
+  overflow: 'hidden',
+  whiteSpace: 'nowrap',
+  textTransform: 'uppercase',
+  letterSpacing: '0.4px',
+  position: 'relative'
+};
+
+const teamNameTextStyle = {
+  maxWidth: 'calc(100% - 20px)',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  padding: '0 10px'
+};
 
 const getSideTagStyle = (tag, isLeft) => ({
-  height: '45px', padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.mainDark, color: tag === 'ATK' ? COLORS.yellow : COLORS.gray, fontSize: '13px', fontWeight: '900', letterSpacing: '1px', borderLeft: isLeft ? `1px solid ${COLORS.lineStrong}` : 'none', borderRight: !isLeft ? `1px solid ${COLORS.lineStrong}` : 'none', boxSizing: 'border-box', flexShrink: 0
+  height: '45px',
+  padding: '0 12px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: COLORS.mainDark,
+  color: tag === 'ATK' ? COLORS.yellow : COLORS.gray,
+  fontSize: '13px',
+  fontWeight: '900',
+  letterSpacing: '1px',
+  borderLeft: isLeft ? `1px solid ${COLORS.lineStrong}` : 'none',
+  borderRight: !isLeft ? `1px solid ${COLORS.lineStrong}` : 'none',
+  boxSizing: 'border-box',
+  flexShrink: 0
 });
 
-const scoreBoxStyle = { width: '45px', height: '45px', backgroundColor: COLORS.yellow, color: COLORS.black, display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '32px', fontWeight: '900', flexShrink: 0 };
+const scoreBoxStyle = {
+  width: '45px',
+  height: '45px',
+  backgroundColor: COLORS.yellow,
+  color: COLORS.black,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  fontSize: '32px',
+  fontWeight: '900',
+  flexShrink: 0
+};
+
 const playerListRowStyle = { display: 'flex', gap: '3px' };
-const playerSlotStyle = { width: '121px', height: '24px', backgroundColor: 'rgba(42,42,42,0.94)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '12px', fontWeight: '900', borderBottom: `2px solid ${COLORS.yellow}`, transition: 'color 0.3s', textTransform: 'uppercase', letterSpacing: '0.2px' };
-const subBadgeStyle = { fontSize: '9px', backgroundColor: COLORS.yellow, color: COLORS.black, padding: '1px 3px', marginRight: '4px', borderRadius: '2px', fontWeight: '900' };
-const commsUnderStyle = { backgroundColor: 'rgba(15,15,15,0.95)', color: COLORS.white, height: '18px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '10px', fontWeight: '900', marginTop: '2px', borderRadius: '2px', letterSpacing: '0.5px', textTransform: 'uppercase' };
+
+const playerSlotStyle = {
+  width: '121px',
+  height: '24px',
+  backgroundColor: 'rgba(42,42,42,0.94)',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  fontSize: '12px',
+  fontWeight: '900',
+  borderBottom: `2px solid ${COLORS.yellow}`,
+  transition: 'color 0.3s',
+  textTransform: 'uppercase',
+  letterSpacing: '0.2px'
+};
+
+const subBadgeStyle = {
+  fontSize: '9px',
+  backgroundColor: COLORS.yellow,
+  color: COLORS.black,
+  padding: '1px 3px',
+  marginRight: '4px',
+  borderRadius: '2px',
+  fontWeight: '900'
+};
+
+const commsUnderStyle = {
+  backgroundColor: 'rgba(15,15,15,0.95)',
+  color: COLORS.white,
+  height: '18px',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  fontSize: '10px',
+  fontWeight: '900',
+  marginTop: '2px',
+  borderRadius: '2px',
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase'
+};
+
 const banBoxContainer = { display: 'flex', height: '45px', gap: '2px' };
-const banImgStyle = { height: '45px', width: '45px', objectFit: 'cover', backgroundColor: '#111' };
-const banLabelStyle = { width: '14px', height: '45px', backgroundColor: COLORS.yellow, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', fontWeight: '900', color: COLORS.black, padding: '4px 0', boxSizing: 'border-box' };
+
+const banImgStyle = {
+  height: '45px',
+  width: '45px',
+  objectFit: 'cover',
+  backgroundColor: '#111'
+};
+
+const banLabelStyle = {
+  width: '14px',
+  height: '45px',
+  backgroundColor: COLORS.yellow,
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  fontSize: '9px',
+  fontWeight: '900',
+  color: COLORS.black,
+  padding: '4px 0',
+  boxSizing: 'border-box'
+};
 
 const normalizeText = v => String(v || '').trim().toLowerCase();
 
@@ -71,16 +247,28 @@ const normalizeRosterRole = role => {
   return v || 'damage';
 };
 
-const getModeKey = type => (type || '').split(' ')[0];
+const getModeKey = type => String(type || '').trim().split(' ')[0].toUpperCase();
+const getModeIconPath = type => MODE_ICON_MAP[getModeKey(type)] || '';
+
+const getFallbackTeamShort = name =>
+  String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(v => v[0])
+    .join('')
+    .slice(0, 4)
+    .toUpperCase() || 'TBD';
 
 const getKeyPlayerProfileFromRoster = (matchData, side, playerName) => {
   const roster = side === 'A' ? matchData.rosterPlayersA || [] : matchData.rosterPlayersB || [];
   const target = normalizeText(playerName);
-  const found = roster.find(p =>
-    normalizeText(p?.nickname) === target ||
-    normalizeText(p?.battleTag) === target ||
-    normalizeText(p?.name) === target ||
-    normalizeText(p?.id) === target
+  const found = roster.find(
+    p =>
+      normalizeText(p?.nickname) === target ||
+      normalizeText(p?.battleTag) === target ||
+      normalizeText(p?.name) === target ||
+      normalizeText(p?.id) === target
   );
   if (!found) return null;
   return {
@@ -115,23 +303,40 @@ const KeyPlayerCard = React.memo(({ show, phase, data, matchData }) => {
   const fallbackHeroImg = profile?.role && profile?.hero ? `/assets/heroes/${profile.role}/${profile.hero}.png` : '';
 
   return (
-    <div style={{
-      position: 'absolute', top: '500px', [isLeft ? 'left' : 'right']: '52px', width: '800px', height: '330px', zIndex: 340, pointerEvents: 'none', opacity: isEnter ? 1 : 0,
-      transform: isEnter ? 'translateX(0) scale(0.7)' : isLeft ? 'translateX(-240px) scale(0.7)' : 'translateX(240px) scale(0.7)',
-      transformOrigin: isLeft ? 'left center' : 'right center',
-      transition: 'transform 520ms cubic-bezier(0.16, 1, 0.3, 1), opacity 420ms ease',
-      willChange: 'transform, opacity', backfaceVisibility: 'hidden'
-    }}>
+    <div
+      style={{
+        position: 'absolute',
+        top: '500px',
+        [isLeft ? 'left' : 'right']: '52px',
+        width: '800px',
+        height: '330px',
+        zIndex: 340,
+        pointerEvents: 'none',
+        opacity: isEnter ? 1 : 0,
+        transform: isEnter ? 'translateX(0) scale(0.7)' : isLeft ? 'translateX(-240px) scale(0.7)' : 'translateX(240px) scale(0.7)',
+        transformOrigin: isLeft ? 'left center' : 'right center',
+        transition: 'transform 520ms cubic-bezier(0.16, 1, 0.3, 1), opacity 420ms ease',
+        willChange: 'transform, opacity',
+        backfaceVisibility: 'hidden'
+      }}
+    >
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: 'linear-gradient(180deg, rgba(14,14,14,0.94) 0%, rgba(6,6,6,0.99) 100%)', border: `1px solid ${COLORS.lineStrong}`, boxShadow: '0 32px 90px rgba(0,0,0,0.52)' }}>
         <div style={{ position: 'absolute', inset: '10px', border: `1px solid ${COLORS.line}`, pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '5px', background: COLORS.yellow }} />
         <div style={{ position: 'absolute', top: 0, [isLeft ? 'right' : 'left']: 0, width: 0, height: 0, borderTop: '120px solid rgba(244,195,32,0.96)', borderLeft: isLeft ? '120px solid transparent' : '0 solid transparent', borderRight: isLeft ? '0 solid transparent' : '120px solid transparent' }} />
         <div style={{ position: 'absolute', [isLeft ? 'left' : 'right']: '34px', top: '34px', width: '5px', height: '92px', background: COLORS.yellow }} />
         <div style={{ position: 'absolute', [isLeft ? 'left' : 'right']: '34px', top: '34px', width: '132px', height: '5px', background: COLORS.yellow }} />
-        
+
         <div style={{ position: 'absolute', top: 0, bottom: 0, [isLeft ? 'right' : 'left']: 0, width: '62%', overflow: 'hidden' }}>
           {heroImg ? (
-            <img src={heroImg} alt={data.name} onError={e => { if (fallbackHeroImg && e.currentTarget.src !== window.location.origin + fallbackHeroImg) { e.currentTarget.src = fallbackHeroImg; } }} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.82, filter: 'brightness(0.82) contrast(1.06) saturate(0.96)', transform: isLeft ? 'translateX(40px) scale(1.32)' : 'translateX(-40px) scale(1.32)' }} />
+            <img
+              src={heroImg}
+              alt={data.name}
+              onError={e => {
+                if (fallbackHeroImg && e.currentTarget.src !== window.location.origin + fallbackHeroImg) e.currentTarget.src = fallbackHeroImg;
+              }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.82, filter: 'brightness(0.82) contrast(1.06) saturate(0.96)', transform: isLeft ? 'translateX(40px) scale(1.32)' : 'translateX(-40px) scale(1.32)' }}
+            />
           ) : (
             <div style={{ width: '100%', height: '100%', background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.00) 100%)' }} />
           )}
@@ -163,9 +368,37 @@ const KeyPlayerCard = React.memo(({ show, phase, data, matchData }) => {
 
 export default function MatchLiveHUD({ matchData, isActive = false }) {
   const [runState, setRunState] = useState('IDLE');
-  
-  // 🚀 核心黑科技：识别当前是在 OBS 还是控制台！
   const isOverlay = typeof window !== 'undefined' && window.location.hash === '#overlay';
+
+  const isTournamentMode = matchData.uiMode === 'TOURNAMENT';
+
+  // 🌟 [间距与悬浮调控中心] 🌟
+  // 1. 中央 Logo 信息栏固定在屏幕正顶端 (Top: 0)
+  // 2. 队伍名、头像、分数等主体根据 Y-Offset 下沉
+  // 3. 左右两侧的地图/比分细条 (SubBar) 会自动在 顶部 与 下沉的主体 之间 垂直居中
+  const dynamicLayout = useMemo(() => {
+    const defaultTournamentMarginTop = 45;
+    const defaultNormalMarginTop = 0;      
+
+    const customTop = parseInt(matchData.hudMarginTop, 10);
+    const appliedMarginTop = !isNaN(customTop) 
+      ? customTop 
+      : (isTournamentMode ? defaultTournamentMarginTop : defaultNormalMarginTop);
+
+    // 计算地图细条 (SubBar) 的垂直居中逻辑：
+    // appliedMarginTop 是顶部增加的空白高度。
+    // 将这个高度一分为二，一半作为 SubBar 的 marginTop，一半作为 marginBottom。
+    // 加上默认的 4px 基础间距。
+    const subBarMarginTop = Math.floor(appliedMarginTop / 2);
+    const subBarMarginBottom = Math.ceil(appliedMarginTop / 2) + 4;
+
+    return {
+      subBarMarginTop: `${subBarMarginTop}px`,
+      subBarMarginBottom: `${subBarMarginBottom}px`,
+      wrapperGap: isTournamentMode ? '88px' : '81px' 
+    };
+  }, [isTournamentMode, matchData.hudMarginTop]);
+
 
   const beginArmedRef = useRef(matchData.beginInfoEnabled);
   useEffect(() => {
@@ -174,19 +407,13 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
 
   useEffect(() => {
     if (isActive) {
-      if (beginArmedRef.current) {
-        setRunState('INTRO'); 
-      } else {
-        setRunState('HUD'); 
-      }
+      if (beginArmedRef.current) setRunState('INTRO');
+      else setRunState('HUD');
     } else {
-      setRunState('IDLE'); 
+      setRunState('IDLE');
     }
   }, [isActive]);
 
-  // 🌟 解决预览变黑的终极派生状态：
-  // 在 OBS (Overlay) 中，IDLE 就是黑屏待命。
-  // 在控制台预览 (Preview) 中，为了方便你编辑，IDLE 强制视为 HUD 显示出来！
   const renderState = (runState === 'IDLE' && !isOverlay) ? 'HUD' : runState;
 
   const [tickerKey, setTickerKey] = useState(0);
@@ -204,7 +431,10 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
 
   const clearKeyPlayerTimers = () => {
     [keyPlayerTimerRef, keyPlayerExitTimerRef, keyPlayerEnterTimerRef].forEach(ref => {
-      if (ref.current) { clearTimeout(ref.current); ref.current = null; }
+      if (ref.current) {
+        clearTimeout(ref.current);
+        ref.current = null;
+      }
     });
   };
 
@@ -215,9 +445,7 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
 
   useEffect(() => {
     const next = matchData.heroBanTriggerAt || 0;
-    if (next && next !== banPhaseTrigger) {
-      setBanPhaseTrigger(next);
-    }
+    if (next && next !== banPhaseTrigger) setBanPhaseTrigger(next);
   }, [matchData.heroBanTriggerAt, banPhaseTrigger]);
 
   useEffect(() => {
@@ -229,6 +457,7 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
       keyPlayerArmedRef.current = false;
       return;
     }
+
     lastConsumedKeyTriggerRef.current = matchData.keyPlayerTriggerAt || 0;
     keyPlayerArmedRef.current = true;
   }, [isActive]);
@@ -269,24 +498,19 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
     }, 2300);
   }, [isActive, matchData.keyPlayerTriggerAt, matchData.keyPlayerSide, matchData.keyPlayerName, matchData.rosterPlayersA, matchData.rosterPlayersB]);
 
-  useEffect(() => {
-    return clearKeyPlayerTimers;
-  }, []);
+  useEffect(() => clearKeyPlayerTimers, []);
 
   const { safeLogoA, safeLogoB } = useMemo(() => ({
     safeLogoA: getValidLogo(matchData.logoA),
     safeLogoB: getValidLogo(matchData.logoB)
   }), [matchData.logoA, matchData.logoB]);
 
-  const pointsToWin = useMemo(() => 
-    Math.floor((parseInt(matchData.matchFormat.replace('BO', '')) || 3) / 2) + 1, 
-  [matchData.matchFormat]);
+  const totalMaps = useMemo(
+    () => parseInt(String(matchData.matchFormat || 'BO3').replace('BO', ''), 10) || 3,
+    [matchData.matchFormat]
+  );
 
-  const activeCastersText = useMemo(() => {
-    const castersArray = Array.isArray(matchData.casters) ? matchData.casters : [];
-    const validNames = castersArray.map(c => c.id).filter(Boolean);
-    return validNames.length > 0 ? validNames.join(' & ') : 'TBD';
-  }, [matchData.casters]);
+  const pointsToWin = useMemo(() => Math.floor(totalMaps / 2) + 1, [totalMaps]);
 
   const renderScoreDots = (score, align) => (
     <div style={{ display: 'flex', gap: '3px', margin: align === 'left' ? '0 10px 0 0' : '0 0 0 10px', flexDirection: align === 'left' ? 'row' : 'row-reverse' }}>
@@ -297,23 +521,140 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
   );
 
   const renderMapSequence = () => {
-    const totalMaps = parseInt(matchData.matchFormat.replace('BO', '')) || 3;
-    const currentMapIndex = matchData.currentMap - 1;
+    const currentMapIndex = Math.max(0, (matchData.currentMap || 1) - 1);
+    const teamShortA = String(matchData.teamShortA || getFallbackTeamShort(matchData.teamA)).toUpperCase();
+    const teamShortB = String(matchData.teamShortB || getFallbackTeamShort(matchData.teamB)).toUpperCase();
+    const isBo7Compact = totalMaps >= 7;
+
     return (
-      <div style={{ display: 'flex', alignItems: 'center', width: '100%', paddingLeft: '8px' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          width: '100%',
+          paddingLeft: '8px',
+          gap: isBo7Compact ? '4px' : 0
+        }}
+      >
         {Array.from({ length: totalMaps }).map((_, i) => {
-          const mapInfo = matchData.mapLineup[i];
+          const mapInfo = matchData.mapLineup?.[i];
           const isCurrent = i === currentMapIndex;
           const isFuture = i > currentMapIndex;
-          let displayText = 'TBD';
-          if (mapInfo && mapInfo.type) displayText = mapInfo.type.split(' ')[0];
+          const iconSrc = getModeIconPath(mapInfo?.type);
+          const winnerSide = String(mapInfo?.winnerSide || mapInfo?.winner || '').trim().toUpperCase();
+          const winnerTag = winnerSide === 'A' ? teamShortA : winnerSide === 'B' ? teamShortB : '';
+          const showWinner = !isFuture && !!winnerTag;
+
+          // BO3 / BO5：未来图继续显示 TBD
+          const showTbd = !isBo7Compact && (isFuture || !iconSrc);
+
+          // BO7：未来图不显示任何模式信息，只留空槽
+          const showBo7FuturePlaceholder = isBo7Compact && isFuture;
 
           return (
             <React.Fragment key={i}>
-              <span style={{ flex: 1, textAlign: 'center', color: isCurrent ? COLORS.yellow : isFuture ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.4)', fontSize: isCurrent ? '12px' : '11px', fontWeight: isCurrent ? '900' : 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                {isFuture ? 'TBD' : displayText}
-              </span>
-              {i < totalMaps - 1 && <span style={{ color: 'rgba(255,255,255,0.2)', margin: '0 2px', fontSize: '10px' }}>/</span>}
+              <div
+                style={{
+                  flex: 1,
+                  height: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: 0
+                }}
+              >
+                {showTbd ? (
+                  <span
+                    style={{
+                      color: isCurrent ? COLORS.yellow : isFuture ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.35)',
+                      fontSize: isCurrent ? '10px' : '9px',
+                      fontWeight: '900',
+                      letterSpacing: '0.6px',
+                      textTransform: 'uppercase'
+                    }}
+                  >
+                    TBD
+                  </span>
+                ) : showBo7FuturePlaceholder ? (
+                  <span
+                    style={{
+                      width: '10px',
+                      height: '2px',
+                      backgroundColor: 'rgba(255,255,255,0.10)',
+                      display: 'block',
+                      flexShrink: 0
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: isBo7Compact ? '3px' : '4px',
+                      minWidth: 0
+                    }}
+                  >
+                    {iconSrc ? (
+                      <img
+                        src={iconSrc}
+                        alt={getModeKey(mapInfo?.type)}
+                        style={{
+                          width: '12px',
+                          height: '12px',
+                          objectFit: 'contain',
+                          opacity: isCurrent ? 1 : 0.72,
+                          filter: isCurrent ? 'brightness(1.2)' : 'grayscale(1) brightness(1.45)',
+                          flexShrink: 0
+                        }}
+                        onError={e => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span
+                        style={{
+                          width: '10px',
+                          height: '2px',
+                          backgroundColor: 'rgba(255,255,255,0.10)',
+                          display: 'block',
+                          flexShrink: 0
+                        }}
+                      />
+                    )}
+
+                    {showWinner && (
+                      <>
+                        <span
+                          style={{
+                            width: '1px',
+                            height: isBo7Compact ? '7px' : '8px',
+                            backgroundColor: 'rgba(255,255,255,0.18)',
+                            flexShrink: 0
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: isBo7Compact ? '7px' : '8px',
+                            fontWeight: '900',
+                            letterSpacing: isBo7Compact ? '0.25px' : '0.35px',
+                            lineHeight: 1,
+                            color: COLORS.yellow,
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0
+                          }}
+                        >
+                          {winnerTag}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {!isBo7Compact && i < totalMaps - 1 && (
+                <span style={{ color: 'rgba(255,255,255,0.2)', margin: '0 2px', fontSize: '10px' }}>/</span>
+              )}
             </React.Fragment>
           );
         })}
@@ -321,19 +662,23 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
     );
   };
 
-  const currentMapIndex = Math.min(Math.max(0, matchData.currentMap - 1), 6);
-  const currentMapData = matchData.mapLineup[currentMapIndex] || matchData.mapLineup[0];
+  const currentMapIndex = Math.min(Math.max(0, (matchData.currentMap || 1) - 1), 6);
+  const currentMapData = matchData.mapLineup?.[currentMapIndex] || matchData.mapLineup?.[0] || {};
   const currentBanA = matchData.bansA?.[0] || 'tank/dva';
   const [roleA, heroA] = currentBanA.includes('/') ? currentBanA.split('/') : ['tank', currentBanA];
   const currentBanB = matchData.bansB?.[0] || 'damage/tracer';
   const [roleB, heroB] = currentBanB.includes('/') ? currentBanB.split('/') : ['damage', currentBanB];
 
   const currentMapModeKey = getModeKey(currentMapData?.type);
+  const currentMapNumberLabel = `MAP ${matchData.currentMap || 1}`;
+  const currentMapModeLabel = currentMapModeKey || 'TBD';
+  const currentMapNameLabel = currentMapData?.name || 'TBD';
+
   const showSideStatus = needsAttackDefense(currentMapModeKey);
   const attackSide = currentMapData?.attackSide || '';
 
-  const leftSideTag = (showSideStatus && attackSide) ? (attackSide === 'A' ? 'ATK' : 'DEF') : '';
-  const rightSideTag = (showSideStatus && attackSide) ? (attackSide === 'B' ? 'ATK' : 'DEF') : '';
+  const leftSideTag = showSideStatus && attackSide ? (attackSide === 'A' ? 'ATK' : 'DEF') : '';
+  const rightSideTag = showSideStatus && attackSide ? (attackSide === 'B' ? 'ATK' : 'DEF') : '';
 
   const handleTickerEnd = () => {
     if (matchData.tickerMode === 'ONCE') {
@@ -350,26 +695,104 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
         @keyframes tickerScroll { 0% { transform: translateX(1920px); } 100% { transform: translateX(-100%); } }
       `}</style>
 
-      {/* 🚀 阶段 1：入场动画 */}
       {renderState === 'INTRO' && (
-        <BeginInfoOverlay 
-          matchData={matchData} 
-          duration={3200} 
-          onFinish={() => setRunState('HUD')} 
+        <BeginInfoOverlay
+          matchData={matchData}
+          duration={3200}
+          onFinish={() => setRunState('HUD')}
         />
       )}
 
-      {/* 🚀 阶段 2：正常 HUD (同时处理预览状态的强行显示) */}
       {renderState === 'HUD' && !matchData.showBanPhase && (
         <>
           <KeyPlayerCard show={showKeyPlayer} phase={keyPlayerPhase} data={keyPlayerData} matchData={matchData} />
+
+          {/* 🌟 中央赛事胶囊组件：死死锚定在屏幕顶端 (Top: 0) 🌟 */}
+          <div
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: 0,
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              alignItems: 'stretch',
+              justifyContent: 'center',
+              zIndex: 100,
+              opacity: 0,
+              animation: 'hudFadeInDownCenter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              willChange: 'transform, opacity',
+              backfaceVisibility: 'hidden',
+              height: '32px'
+            }}
+          >
+            {/* 1. 左侧：赛事 Logo 块 */}
+            <div
+              style={{
+                width: '32px',
+                backgroundColor: COLORS.white,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                boxShadow: '2px 0 6px rgba(0,0,0,0.1)'
+              }}
+            >
+              <img
+                src={matchData.stingerLogo || '/assets/logos/fc_logo.png'}
+                alt="Tournament"
+                style={{ width: '90%', height: '90%', objectFit: 'contain' }}
+              />
+            </div>
+
+            {/* 2. 中间：赛事信息块 */}
+            <div
+              style={{
+                backgroundColor: COLORS.mainDark,
+                color: COLORS.white,
+                padding: '0 20px',
+                fontSize: '14px',
+                fontWeight: '900',
+                letterSpacing: '2.2px',
+                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                borderTop: `1px solid ${COLORS.lineStrong}`,
+                borderBottom: `1px solid ${COLORS.lineStrong}`,
+                borderLeft: `1px solid ${COLORS.lineStrong}`
+              }}
+            >
+              {matchData.info}
+            </div>
+
+            {/* 3. 右侧：赛制标签块 */}
+            <div
+              style={{
+                backgroundColor: COLORS.yellow,
+                color: COLORS.mainDark,
+                padding: '0 16px',
+                fontSize: '13px',
+                fontWeight: '900',
+                letterSpacing: '1px',
+                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                borderLeft: `1px solid ${COLORS.mainDark}`
+              }}
+            >
+              {matchData.matchFormat || 'TOURNAMENT'}
+            </div>
+          </div>
           
-          <div style={infoBarStyle}>{matchData.info}</div>
           <div style={teamBarLayout}>
-            {/* 左侧队伍 A */}
-            <div style={teamWrapperLeftStyle}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={subBarStyle}>
+            {/* 左侧 Wrapper */}
+            <div style={{ ...teamWrapperLeftStyle, gap: dynamicLayout.wrapperGap }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                
+                {/* 悬浮居中的 SubBar (地图比分栏) */}
+                <div style={{
+                  ...subBarStyle,
+                  marginTop: dynamicLayout.subBarMarginTop,
+                  marginBottom: dynamicLayout.subBarMarginBottom
+                }}>
                   <div style={yellowAccentLeft}></div>
                   <div style={subBarContentStyle}>
                     <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
@@ -379,6 +802,7 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
                   </div>
                 </div>
 
+                {/* 队伍名称、比分与状态主体 */}
                 <div style={teamGroupStyle}>
                   <div style={{ ...logoBlockStyle, backgroundColor: matchData.logoBgA }}>
                     <img src={safeLogoA} style={logoImgStyle} alt="logoA" />
@@ -389,11 +813,7 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
                   <div style={teamNameBlockStyle}>
                     <div style={teamNameTextStyle}>{matchData.teamA}</div>
                   </div>
-                  {leftSideTag && (
-                    <div style={getSideTagStyle(leftSideTag, true)}>
-                      {leftSideTag}
-                    </div>
-                  )}
+                  {leftSideTag && <div style={getSideTagStyle(leftSideTag, true)}>{leftSideTag}</div>}
                   <div style={scoreBoxStyle}>{matchData.scoreA}</div>
                 </div>
               </div>
@@ -417,30 +837,86 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
               )}
             </div>
 
-            {/* 右侧队伍 B */}
-            <div style={teamWrapperRightStyle}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={subBarStyle}>
-                  <div style={{ ...subBarContentStyle, justifyContent: 'space-between', width: '100%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={subBarTextHighlight}>MAP {matchData.currentMap}</span>
-                      <span style={subBarTextNormal}>{currentMapData.name}</span>
+            {/* 右侧 Wrapper */}
+            <div style={{ ...teamWrapperRightStyle, gap: dynamicLayout.wrapperGap }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                
+                {/* 悬浮居中的 SubBar (地图比分栏) */}
+                <div style={{
+                  ...subBarStyle,
+                  marginTop: dynamicLayout.subBarMarginTop,
+                  marginBottom: dynamicLayout.subBarMarginBottom
+                }}>
+                  <div style={{ ...subBarContentStyle, gap: '10px', width: '100%' }}>
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <div
+                        style={{
+                          minWidth: 0,
+                          textAlign: 'center',
+                          fontSize: '10px',
+                          fontWeight: '900',
+                          letterSpacing: '0.8px',
+                          textTransform: 'uppercase',
+                          color: COLORS.white
+                        }}
+                      >
+                        {currentMapNumberLabel}
+                      </div>
+
+                      <div
+                        style={{
+                          minWidth: 0,
+                          textAlign: 'center',
+                          fontSize: '10px',
+                          fontWeight: '900',
+                          letterSpacing: '0.8px',
+                          textTransform: 'uppercase',
+                          color: COLORS.yellow,
+                          borderLeft: `1px solid ${COLORS.line}`,
+                          borderRight: `1px solid ${COLORS.line}`,
+                          padding: '0 8px'
+                        }}
+                      >
+                        {currentMapModeLabel}
+                      </div>
+
+                      <div
+                        style={{
+                          minWidth: 0,
+                          textAlign: 'center',
+                          fontSize: '10px',
+                          fontWeight: '900',
+                          letterSpacing: '0.8px',
+                          textTransform: 'uppercase',
+                          color: COLORS.gray,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          padding: '0 8px'
+                        }}
+                        title={currentMapNameLabel}
+                      >
+                        {currentMapNameLabel}
+                      </div>
                     </div>
-                    <div style={{ flex: 1, textAlign: 'right', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                      <span style={subBarTextHighlight}>CASTERS: {activeCastersText}</span>
-                      {renderScoreDots(matchData.scoreB, 'right')}
-                    </div>
+
+                    {renderScoreDots(matchData.scoreB, 'right')}
                   </div>
                   <div style={yellowAccentRight}></div>
                 </div>
 
+                {/* 队伍名称、比分与状态主体 */}
                 <div style={{ ...teamGroupStyle, justifyContent: 'flex-end' }}>
                   <div style={scoreBoxStyle}>{matchData.scoreB}</div>
-                  {rightSideTag && (
-                    <div style={getSideTagStyle(rightSideTag, false)}>
-                      {rightSideTag}
-                    </div>
-                  )}
+                  {rightSideTag && <div style={getSideTagStyle(rightSideTag, false)}>{rightSideTag}</div>}
                   <div style={teamNameBlockStyle}>
                     <div style={teamNameTextStyle}>{matchData.teamB}</div>
                   </div>
@@ -473,19 +949,40 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
             </div>
           </div>
 
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, width: '100%', height: '36px', backgroundColor: COLORS.yellow,
-            display: 'flex', alignItems: 'center', overflow: 'hidden', zIndex: 200,
-            transform: localShowTicker ? 'translateY(0)' : 'translateY(100%)',
-            opacity: localShowTicker ? 1 : 0, 
-            transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
-            willChange: 'transform, opacity', backfaceVisibility: 'hidden'      
-          }}>
-            <div key={tickerKey} onAnimationEnd={handleTickerEnd} style={{
-              whiteSpace: 'nowrap', color: COLORS.black, fontSize: '16px', fontWeight: '900', letterSpacing: '1.8px',
-              animation: `tickerScroll 25s linear ${matchData.tickerMode === 'ONCE' ? '1 forwards' : 'infinite'}`, textTransform: 'uppercase',
-              willChange: 'transform', backfaceVisibility: 'hidden'  
-            }}>
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              width: '100%',
+              height: '36px',
+              backgroundColor: COLORS.yellow,
+              display: 'flex',
+              alignItems: 'center',
+              overflow: 'hidden',
+              zIndex: 200,
+              transform: localShowTicker ? 'translateY(0)' : 'translateY(100%)',
+              opacity: localShowTicker ? 1 : 0,
+              transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+              willChange: 'transform, opacity',
+              backfaceVisibility: 'hidden'
+            }}
+          >
+            <div
+              key={tickerKey}
+              onAnimationEnd={handleTickerEnd}
+              style={{
+                whiteSpace: 'nowrap',
+                color: COLORS.black,
+                fontSize: '16px',
+                fontWeight: '900',
+                letterSpacing: '1.8px',
+                animation: `tickerScroll 25s linear ${matchData.tickerMode === 'ONCE' ? '1 forwards' : 'infinite'}`,
+                textTransform: 'uppercase',
+                willChange: 'transform',
+                backfaceVisibility: 'hidden'
+              }}
+            >
               {matchData.tickerText || 'SPONSORS // THANK YOU FOR YOUR SUPPORT // JOIN THE OFFICIAL COMMUNITY FOR THE LATEST NEWS // SPONSORS // THANKS FOR WATCHING'}
             </div>
           </div>
