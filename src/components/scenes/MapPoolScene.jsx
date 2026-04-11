@@ -34,6 +34,8 @@ const FALLBACK_EVENT_MAP_POOL = {
   CLASH: ['HANAOKA', 'THRONE OF ANUBIS']
 };
 
+const dedupe = list => Array.from(new Set((Array.isArray(list) ? list : []).filter(Boolean)));
+
 const getMapImagePath = (typeRaw, nameRaw) => {
   if (!typeRaw || !nameRaw) return '';
   const folderStr = typeRaw.split(' ')[0];
@@ -67,6 +69,162 @@ const getTeamTag = (side, teamShortA, teamShortB, teamA, teamB) => {
   return '';
 };
 
+const parseBanEntry = entry => {
+  if (!entry) return { role: '', hero: '' };
+  const raw = Array.isArray(entry) ? entry[0] : entry;
+  const str = String(raw || '').trim().toLowerCase();
+  if (!str) return { role: '', hero: '' };
+  if (!str.includes('/')) return { role: '', hero: str === 'tbd' ? '' : str };
+  const [role, hero] = str.split('/');
+  return { role: role || '', hero: hero && hero !== 'tbd' ? hero : '' };
+};
+
+const getMapBanSource = (map, matchData, side) => {
+  const arrayKey = side === 'A' ? 'bansA' : 'bansB';
+  const singleKey = side === 'A' ? 'banA' : 'banB';
+
+  if (Array.isArray(map?.[arrayKey]) && map[arrayKey].length) return { entry: map[arrayKey][0], source: 'map' };
+  if (map?.[singleKey]) return { entry: map[singleKey], source: 'map' };
+  if (Array.isArray(matchData?.[arrayKey]) && matchData[arrayKey].length) return { entry: matchData[arrayKey][0], source: 'global' };
+  return { entry: '', source: 'none' };
+};
+
+const boolish = value => {
+  if (value === true || value === 1) return true;
+  const s = String(value || '').trim().toLowerCase();
+  return s === 'true' || s === '1' || s === 'yes' || s === 'on';
+};
+
+const shouldSwapVisualTeams = (map, matchData) => {
+  const explicitSwap = [
+    map?.swapSides,
+    map?.isSwapSides,
+    map?.swapTeams,
+    map?.flipSides,
+    map?.reverseSides,
+    matchData?.swapSides,
+    matchData?.isSwapSides,
+    matchData?.swapTeams,
+    matchData?.flipSides,
+    matchData?.reverseSides
+  ].some(boolish);
+
+  if (explicitSwap) return true;
+
+  const attackSide = String(map?.attackSide || matchData?.attackSide || '').trim().toUpperCase();
+  return attackSide === 'B';
+};
+
+const getHeroAssetCandidates = (role, hero) => {
+  const cleanRole = String(role || '').trim().toLowerCase();
+  const cleanHero = String(hero || '').trim().toLowerCase();
+  if (!cleanHero) return ['/assets/logos/OW.png'];
+
+  return dedupe([
+    cleanRole && `/assets/heroes/${cleanRole}/${cleanHero}.png`,
+    cleanRole && `/assets/roster/${cleanRole}/${cleanHero}.png`,
+    `/assets/heroes/${cleanHero}.png`,
+    `/assets/heroicons/${cleanHero}.png`,
+    '/assets/logos/OW.png'
+  ]);
+};
+
+const BanPortrait = React.memo(({ role, hero }) => {
+  const sources = useMemo(() => getHeroAssetCandidates(role, hero), [role, hero]);
+  const [srcIndex, setSrcIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    setSrcIndex(0);
+  }, [sources.join('|')]);
+
+  return (
+    <img
+      src={sources[srcIndex]}
+      alt={hero}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+      onError={() => {
+        if (srcIndex < sources.length - 1) setSrcIndex(prev => prev + 1);
+      }}
+    />
+  );
+});
+
+const BanChip = React.memo(({ orderLabel, hero, role, tag, align = 'left' }) => {
+  if (!hero) return null;
+  const isLeft = align === 'left';
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        bottom: '16px',
+        [isLeft ? 'left' : 'right']: '16px',
+        width: '68px',
+        display: 'grid',
+        gap: '5px',
+        zIndex: 6
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          width: '68px',
+          height: '68px',
+          border: `1px solid ${COLORS.lineStrong}`,
+          background: 'rgba(8,8,8,0.92)',
+          boxShadow: '0 12px 24px rgba(0,0,0,0.26)',
+          overflow: 'hidden'
+        }}
+      >
+        <BanPortrait role={role} hero={hero} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.00) 0%, rgba(0,0,0,0.18) 62%, rgba(0,0,0,0.42) 100%)' }} />
+
+        <div
+          style={{
+            position: 'absolute',
+            top: '0',
+            [isLeft ? 'left' : 'right']: '0',
+            minWidth: '32px',
+            height: '18px',
+            padding: '0 5px',
+            background: COLORS.yellow,
+            color: COLORS.black,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '9px',
+            fontWeight: '900',
+            letterSpacing: '0.8px',
+            lineHeight: 1,
+            textTransform: 'uppercase'
+          }}
+        >
+          {orderLabel}
+        </div>
+      </div>
+
+      <div
+        style={{
+          height: '20px',
+          border: `1px solid ${COLORS.line}`,
+          background: 'rgba(8,8,8,0.94)',
+          color: COLORS.white,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '9px',
+          fontWeight: '900',
+          letterSpacing: '1.1px',
+          textTransform: 'uppercase',
+          boxShadow: UI.insetLine
+        }}
+      >
+        {tag}
+      </div>
+    </div>
+  );
+});
+
 const MapCard = React.memo(({
   map,
   index,
@@ -76,7 +234,9 @@ const MapCard = React.memo(({
   teamB,
   teamShortA,
   teamShortB,
-  metaDisplayMode
+  metaDisplayMode,
+  banDisplayMode,
+  matchData
 }) => {
   const imgPath = getMapImagePath(map.type, map.name);
   const mapTypeShort = String(map.type || 'CONTROL').split(' ')[0];
@@ -100,6 +260,50 @@ const MapCard = React.memo(({
   const topColor = isNext ? COLORS.black : isPlayed ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.60)';
   const bottomBg = isNext ? COLORS.yellow : 'linear-gradient(180deg, rgba(18,18,18,0.98) 0%, rgba(12,12,12,0.98) 100%)';
   const titleColor = isNext ? COLORS.black : isPlayed ? 'rgba(255,255,255,0.42)' : COLORS.white;
+
+  const banA = getMapBanSource(map, matchData, 'A');
+  const banB = getMapBanSource(map, matchData, 'B');
+  const parsedBanA = parseBanEntry(banA.entry);
+  const parsedBanB = parseBanEntry(banB.entry);
+
+  const mapHasOwnBans =
+    (Array.isArray(map?.bansA) && map.bansA.length) ||
+    (Array.isArray(map?.bansB) && map.bansB.length) ||
+    !!map?.banA ||
+    !!map?.banB;
+
+  const showCurrentLiveBanFallback = isNext && !mapHasOwnBans && !!matchData.showBans;
+  const showBanPanel =
+    banDisplayMode !== 'HIDE' &&
+    !isTBD &&
+    !!map.name &&
+    (
+      (isPlayed && mapHasOwnBans) ||
+      (isNext && (mapHasOwnBans || showCurrentLiveBanFallback))
+    ) &&
+    (parsedBanA.hero || parsedBanB.hero);
+
+  const resolvedBanOrderMode = String(map?.banOrderMode || matchData.banOrderMode || 'A_FIRST').trim().toUpperCase();
+  const orderA = resolvedBanOrderMode === 'B_FIRST' ? '2ND' : '1ST';
+  const orderB = resolvedBanOrderMode === 'B_FIRST' ? '1ST' : '2ND';
+
+  const swapped = shouldSwapVisualTeams(map, matchData);
+  const leftTeamKey = swapped ? 'B' : 'A';
+  const rightTeamKey = swapped ? 'A' : 'B';
+
+  const leftBan = leftTeamKey === 'A' ? parsedBanA : parsedBanB;
+  const rightBan = rightTeamKey === 'A' ? parsedBanA : parsedBanB;
+
+  const leftTag = leftTeamKey === 'A'
+    ? String(teamShortA || getFallbackTeamShort(teamA)).toUpperCase()
+    : String(teamShortB || getFallbackTeamShort(teamB)).toUpperCase();
+
+  const rightTag = rightTeamKey === 'A'
+    ? String(teamShortA || getFallbackTeamShort(teamA)).toUpperCase()
+    : String(teamShortB || getFallbackTeamShort(teamB)).toUpperCase();
+
+  const leftOrder = leftTeamKey === 'A' ? orderA : orderB;
+  const rightOrder = rightTeamKey === 'A' ? orderA : orderB;
 
   return (
     <div
@@ -164,6 +368,7 @@ const MapCard = React.memo(({
             zIndex: 2
           }}
         />
+
         {isTBD || !map.name ? (
           <div style={{ width: '100%', height: '100%', background: 'linear-gradient(180deg, #171717 0%, #101010 100%)' }} />
         ) : (
@@ -181,7 +386,9 @@ const MapCard = React.memo(({
             }}
           />
         )}
+
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', boxShadow: 'inset 0 0 90px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.04)' }} />
+
         <div
           style={{
             position: 'absolute',
@@ -197,6 +404,7 @@ const MapCard = React.memo(({
         >
           {index + 1}
         </div>
+
         <div
           style={{
             position: 'absolute',
@@ -210,6 +418,25 @@ const MapCard = React.memo(({
             opacity: isTBD || !map.name ? 0.35 : 1
           }}
         />
+
+        {showBanPanel && (
+          <>
+            <BanChip
+              orderLabel={leftOrder}
+              hero={leftBan.hero}
+              role={leftBan.role}
+              tag={leftTag}
+              align="left"
+            />
+            <BanChip
+              orderLabel={rightOrder}
+              hero={rightBan.hero}
+              role={rightBan.role}
+              tag={rightTag}
+              align="right"
+            />
+          </>
+        )}
       </div>
 
       <div
@@ -230,6 +457,7 @@ const MapCard = React.memo(({
         }}
       >
         {!isNext && <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 22px)', pointerEvents: 'none', opacity: 0.5 }} />}
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', position: 'relative', zIndex: 1 }}>
           <div style={{ width: '8px', height: '8px', backgroundColor: isNext ? COLORS.black : isTBD || !map.name ? '#444' : COLORS.yellow, flexShrink: 0 }} />
           <span
@@ -245,6 +473,7 @@ const MapCard = React.memo(({
             {isTBD || !map.name ? 'TBD' : `${mapTypeShort} // MAP ${index + 1}`}
           </span>
         </div>
+
         <div
           style={{
             fontSize: '24px',
@@ -304,6 +533,7 @@ const OverviewMapCard = React.memo(({ type, name, delay, isPlayed, isCurrent }) 
 export default function MapPoolScene({ matchData }) {
   const displayMode = matchData.mapPoolDisplayMode || 'MATCH';
   const metaDisplayMode = String(matchData.mapMetaDisplayMode || 'RESULT').toUpperCase();
+  const banDisplayMode = String(matchData.mapBanDisplayMode || 'SHOW').toUpperCase();
   const showOverviewCurrent = matchData.showOverviewCurrent || false;
 
   const totalMaps = useMemo(() => {
@@ -405,6 +635,8 @@ export default function MapPoolScene({ matchData }) {
                 teamShortA={matchData.teamShortA}
                 teamShortB={matchData.teamShortB}
                 metaDisplayMode={metaDisplayMode}
+                banDisplayMode={banDisplayMode}
+                matchData={matchData}
               />
             );
           })}

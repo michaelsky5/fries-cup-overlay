@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { ShellPanel, Field, SectionHint, TogglePill } from '../common/SharedUI';
 import { COLORS, panelBase } from '../../constants/styles';
-import { MAP_DATA } from '../../constants/gameData';
+import { MAP_DATA, HERO_DATA } from '../../constants/gameData';
 import { createEditorUi } from '../../utils/editorUi';
 
 const CANONICAL_MAP_TYPES = ['CONTROL', 'ESCORT', 'HYBRID', 'PUSH', 'FLASHPOINT', 'CLASH'];
@@ -34,6 +34,8 @@ const DEFAULT_ENABLED_MAP_TYPES = {
   CLASH: false
 };
 
+const HERO_ROLE_OPTIONS = ['tank', 'damage', 'support'];
+
 const normalizeMapTypeKey = raw => {
   if (!raw) return 'CONTROL';
   const s = String(raw).trim().toUpperCase();
@@ -48,6 +50,20 @@ const normalizeMapTypeKey = raw => {
 
 const dedupeList = list => Array.from(new Set((Array.isArray(list) ? list : []).filter(Boolean)));
 
+const parseBanEntry = entry => {
+  const raw = Array.isArray(entry) ? entry[0] : entry;
+  const str = String(raw || '').trim().toLowerCase();
+  if (!str) return { role: 'damage', hero: 'tbd' };
+  if (!str.includes('/')) return { role: 'damage', hero: str || 'tbd' };
+  const [role, hero] = str.split('/');
+  return {
+    role: HERO_ROLE_OPTIONS.includes(role) ? role : 'damage',
+    hero: hero || 'tbd'
+  };
+};
+
+const buildBanEntry = (role, hero) => `${role || 'damage'}/${hero || 'tbd'}`;
+
 const InlineSelect = React.memo(({
   labelLines,
   value,
@@ -59,7 +75,7 @@ const InlineSelect = React.memo(({
   consoleSelectStyle,
   inlineLabelBoxStyle
 }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: density === 'spacious' ? '96px minmax(0,1fr)' : '90px minmax(0,1fr)', gap: rowGap, alignItems: 'stretch', minWidth: 0 }}>
+  <div style={{ display: 'grid', gridTemplateColumns: density === 'spacious' ? '72px minmax(0,1fr)' : '64px minmax(0,1fr)', gap: rowGap, alignItems: 'stretch', minWidth: 0 }}>
     <div style={inlineLabelBoxStyle}>
       {Array.isArray(labelLines) ? labelLines.map((line, idx) => <div key={idx}>{line}</div>) : <div>{labelLines}</div>}
     </div>
@@ -72,6 +88,7 @@ const InlineSelect = React.memo(({
 export default function MapPoolEditor({ density = 'standard', densityTokens, isDense = false, isUltra = false }) {
   const { matchData, updateData, updateWithHistory } = useMatchContext();
   const [mapEditTab, setMapEditTab] = useState('MATCH');
+  const [expandedBanIndex, setExpandedBanIndex] = useState(null);
 
   const t = densityTokens || { blockGap: 10, panelPadding: '12px 14px', buttonFontSize: 12, buttonPadding: '9px 12px' };
   const ui = createEditorUi(densityTokens, density);
@@ -81,6 +98,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
   const rowGap = density === 'spacious' ? 10 : 8;
   const stepButtonHeight = density === 'spacious' ? '40px' : '36px';
   const metaDisplayMode = String(matchData.mapMetaDisplayMode || 'RESULT').toUpperCase();
+  const banDisplayMode = String(matchData.mapBanDisplayMode || 'SHOW').toUpperCase();
 
   const formatLength = useMemo(() => {
     const fmt = String(matchData.matchFormat || 'BO3').toUpperCase();
@@ -165,7 +183,13 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
       scoreA: raw.scoreA ?? 0,
       scoreB: raw.scoreB ?? 0,
       picker: raw.picker || '',
-      winner: raw.winner || ''
+      winner: raw.winner || raw.winnerSide || '',
+      winnerSide: raw.winnerSide || raw.winner || '',
+      bansA: Array.isArray(raw.bansA) ? raw.bansA : [],
+      bansB: Array.isArray(raw.bansB) ? raw.bansB : [],
+      banOrderMode: raw.banOrderMode || 'A_FIRST',
+      attackSide: raw.attackSide || '',
+      swapSides: !!raw.swapSides
     };
   });
 
@@ -211,7 +235,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
     lineHeight: 1,
     boxSizing: 'border-box',
     whiteSpace: 'nowrap',
-    padding: '0 6px'
+    padding: '0 4px'
   };
 
   const consoleSelectStyle = {
@@ -221,8 +245,8 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
     boxSizing: 'border-box',
     minWidth: 0,
     width: '100%',
-    paddingLeft: '14px',
-    paddingRight: '40px',
+    paddingLeft: '10px',
+    paddingRight: '28px',
     paddingTop: 0,
     paddingBottom: 0,
     fontSize: density === 'spacious' ? '14px' : '13px',
@@ -236,6 +260,8 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
     MozAppearance: 'none',
     outline: 'none'
   };
+
+  const currentMapSafe = Math.max(1, Math.min(formatLength, Number(matchData.currentMap) || 1));
 
   const setCurrentMapSafe = nextMap => {
     const clamped = Math.max(1, Math.min(formatLength, nextMap));
@@ -258,13 +284,74 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
         type: nextType,
         name: nextPool[0] || '',
         picker: prev.picker || '',
-        winner: prev.winner || ''
+        winner: prev.winner || '',
+        winnerSide: prev.winnerSide || prev.winner || '',
+        bansA: Array.isArray(prev.bansA) ? [...prev.bansA] : [],
+        bansB: Array.isArray(prev.bansB) ? [...prev.bansB] : [],
+        banOrderMode: prev.banOrderMode || 'A_FIRST',
+        attackSide: prev.attackSide || '',
+        swapSides: !!prev.swapSides
       };
+    } else if (key === 'winner') {
+      newLineup[index] = { ...prev, winner: value, winnerSide: value };
     } else {
       newLineup[index] = { ...prev, [key]: value };
     }
 
     updateWithHistory(`Update Map ${index + 1} ${key}`, { ...matchData, mapLineup: newLineup });
+  };
+
+  const updateMapBanEntry = (index, side, role, hero) => {
+    const newLineup = Array.from({ length: formatLength }).map((_, i) => ({
+      ...(currentLineup[i] || {}),
+      ...(displayMaps[i] || {})
+    }));
+
+    const prev = { ...newLineup[index] };
+    const key = side === 'A' ? 'bansA' : 'bansB';
+
+    newLineup[index] = {
+      ...prev,
+      [key]: [buildBanEntry(role, hero)]
+    };
+
+    updateWithHistory(`Update Map ${index + 1} ${key}`, { ...matchData, mapLineup: newLineup });
+  };
+
+  const useLiveBansForMap = index => {
+    const newLineup = Array.from({ length: formatLength }).map((_, i) => ({
+      ...(currentLineup[i] || {}),
+      ...(displayMaps[i] || {})
+    }));
+
+    const prev = { ...newLineup[index] };
+
+    newLineup[index] = {
+      ...prev,
+      bansA: Array.isArray(matchData.bansA) ? [...matchData.bansA] : [],
+      bansB: Array.isArray(matchData.bansB) ? [...matchData.bansB] : [],
+      banOrderMode: matchData.banOrderMode || 'A_FIRST'
+    };
+
+    updateWithHistory(`Use live bans for Map ${index + 1}`, { ...matchData, mapLineup: newLineup });
+  };
+
+  const clearMapBans = index => {
+    const newLineup = Array.from({ length: formatLength }).map((_, i) => ({
+      ...(currentLineup[i] || {}),
+      ...(displayMaps[i] || {})
+    }));
+
+    const prev = { ...newLineup[index] };
+
+    newLineup[index] = {
+      ...prev,
+      bansA: [],
+      bansB: [],
+      banOrderMode: 'A_FIRST'
+    };
+
+    updateWithHistory(`Clear Map ${index + 1} bans`, { ...matchData, mapLineup: newLineup });
   };
 
   const updateEventPoolSlot = (type, slotIndex, mapName) => {
@@ -300,16 +387,23 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
     });
   };
 
-  const winnerOptions = [
-    <option key="" value="">No Result</option>,
-    <option key="A" value="A">{matchData.teamA || 'Team A'}</option>,
-    <option key="B" value="B">{matchData.teamB || 'Team B'}</option>
-  ];
+  // 优化点：生成「简称 - 全名」格式的选项文案
+  const buildTeamOptionLabel = (short, full, fallbackShort) => {
+    const s = (short || fallbackShort).toUpperCase();
+    const f = full || '';
+    return f ? `${s} - ${f}` : s;
+  };
 
   const pickerOptions = [
-    <option key="" value="">No Picker</option>,
-    <option key="A" value="A">{matchData.teamA || 'Team A'}</option>,
-    <option key="B" value="B">{matchData.teamB || 'Team B'}</option>
+    <option key="" value="">TBD</option>,
+    <option key="A" value="A">{buildTeamOptionLabel(matchData.teamShortA, matchData.teamA, 'TM A')}</option>,
+    <option key="B" value="B">{buildTeamOptionLabel(matchData.teamShortB, matchData.teamB, 'TM B')}</option>
+  ];
+
+  const winnerOptions = [
+    <option key="" value="">TBD</option>,
+    <option key="A" value="A">{buildTeamOptionLabel(matchData.teamShortA, matchData.teamA, 'TM A')}</option>,
+    <option key="B" value="B">{buildTeamOptionLabel(matchData.teamShortB, matchData.teamB, 'TM B')}</option>
   ];
 
   const activeOverviewTypes = CANONICAL_MAP_TYPES.filter(type => enabledMapTypes[type] !== false && eventMapPool[type]?.length);
@@ -347,11 +441,11 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
 
             <Field label="Current Map" density={density}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.35fr 1fr', gap: rowGap, alignItems: 'stretch' }}>
-                <button style={{ ...ui.outlineBtn, ...stepBtnBase }} onClick={() => setCurrentMapSafe((matchData.currentMap || 1) - 1)}>−</button>
+                <button style={{ ...ui.outlineBtn, ...stepBtnBase }} onClick={() => setCurrentMapSafe(currentMapSafe - 1)}>−</button>
                 <div style={{ ...ui.input, minHeight: stepButtonHeight, height: stepButtonHeight, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: COLORS.yellow, letterSpacing: '0.08em', textTransform: 'uppercase', boxSizing: 'border-box' }}>
-                  {matchData.currentMap || 1}
+                  {currentMapSafe}
                 </div>
-                <button style={{ ...ui.actionBtn, ...stepBtnBase }} onClick={() => setCurrentMapSafe((matchData.currentMap || 1) + 1)}>+</button>
+                <button style={{ ...ui.actionBtn, ...stepBtnBase }} onClick={() => setCurrentMapSafe(currentMapSafe + 1)}>+</button>
               </div>
             </Field>
           </div>
@@ -412,7 +506,47 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
             </div>
           </div>
 
-          <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap + 2, alignContent: 'start', minHeight: density === 'spacious' ? '220px' : '200px' }}>
+          <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap + 2, alignContent: 'start' }}>
+            <div style={{ fontSize: '11px', color: COLORS.white, fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
+              Ban Display
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', backgroundColor: '#111', border: `1px solid ${COLORS.line}` }}>
+              <button
+                style={{
+                  border: 'none',
+                  cursor: 'pointer',
+                  minHeight: stepButtonHeight,
+                  height: stepButtonHeight,
+                  fontWeight: 900,
+                  fontSize: `${t.buttonFontSize}px`,
+                  padding: '0 10px',
+                  backgroundColor: banDisplayMode === 'HIDE' ? COLORS.yellow : 'transparent',
+                  color: banDisplayMode === 'HIDE' ? COLORS.black : COLORS.softWhite
+                }}
+                onClick={() => updateData({ ...matchData, mapBanDisplayMode: 'HIDE' })}
+              >
+                Hide
+              </button>
+              <button
+                style={{
+                  border: 'none',
+                  cursor: 'pointer',
+                  minHeight: stepButtonHeight,
+                  height: stepButtonHeight,
+                  fontWeight: 900,
+                  fontSize: `${t.buttonFontSize}px`,
+                  padding: '0 10px',
+                  backgroundColor: banDisplayMode === 'SHOW' ? COLORS.yellow : 'transparent',
+                  color: banDisplayMode === 'SHOW' ? COLORS.black : COLORS.softWhite
+                }}
+                onClick={() => updateData({ ...matchData, mapBanDisplayMode: 'SHOW' })}
+              >
+                Show
+              </button>
+            </div>
+          </div>
+
+          <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap + 2, alignContent: 'start' }}>
             <div style={{ fontSize: '11px', color: COLORS.white, fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
               Map Pool Output
             </div>
@@ -459,7 +593,6 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
               onColor={COLORS.yellow}
               offColor="#555"
             />
-            <SectionHint text="Overview mode can highlight the current map. Match Sequence follows the BO3 / BO5 / BO7 flow." density={density} />
           </div>
         </div>
       </ShellPanel>
@@ -478,8 +611,18 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
         {mapEditTab === 'MATCH' && (
           <div style={{ display: 'grid', gap: rowGap + 2 }}>
             {displayMaps.map((mapInfo, idx) => {
-              const isCurrent = (matchData.currentMap || 1) === idx + 1;
+              const isCurrent = currentMapSafe === idx + 1;
               const mapNameOptions = getPoolMapsForType(mapInfo.type);
+              const isExpanded = expandedBanIndex === idx;
+
+              const parsedBanA = parseBanEntry(mapInfo.bansA?.[0]);
+              const parsedBanB = parseBanEntry(mapInfo.bansB?.[0]);
+
+              const banPanelGrid = ultraGrid
+                ? '1fr'
+                : compactGrid
+                ? '1fr'
+                : '1fr 1fr';
 
               return (
                 <div
@@ -488,110 +631,64 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                     ...panelBase,
                     padding: t.panelPadding,
                     display: 'grid',
-                    gridTemplateColumns: ultraGrid
-                      ? '1fr'
-                      : isDense
-                      ? 'minmax(78px,auto) 1fr'
-                      : density === 'spacious'
-                      ? 'minmax(90px,auto) 1.05fr 1.5fr 0.95fr 0.95fr'
-                      : 'minmax(84px,auto) 1fr 1.35fr 0.92fr 0.92fr',
                     gap: rowGap,
-                    alignItems: 'center',
                     borderLeft: `3px solid ${isCurrent ? COLORS.yellow : 'transparent'}`,
                     backgroundColor: isCurrent ? 'rgba(244,195,32,0.05)' : undefined,
                     boxShadow: isCurrent ? 'inset 0 0 0 1px rgba(244,195,32,0.10)' : undefined
                   }}
                 >
-                  <div style={{ paddingBottom: 0, minWidth: 0 }}>
-                    <div style={{ fontSize: density === 'spacious' ? '15px' : '14px', fontWeight: 900, color: isCurrent ? COLORS.yellow : COLORS.softWhite, letterSpacing: '0.06em' }}>
-                      MAP {idx + 1}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: ultraGrid
+                        ? '1fr'
+                        : isDense
+                        ? 'minmax(78px,auto) 1fr'
+                        : density === 'spacious'
+                        // 因为 "BAN" 变短了，所以给 Type 和 Name 留出了更多空间
+                        ? 'minmax(84px,auto) 1fr 1.6fr 0.95fr 0.95fr auto'
+                        : 'minmax(80px,auto) 1fr 1.6fr 0.95fr 0.95fr auto',
+                      gap: rowGap,
+                      alignItems: 'center'
+                    }}
+                  >
+                    <div style={{ paddingBottom: 0, minWidth: 0 }}>
+                      <div style={{ fontSize: density === 'spacious' ? '15px' : '14px', fontWeight: 900, color: isCurrent ? COLORS.yellow : COLORS.softWhite, letterSpacing: '0.06em' }}>
+                        MAP {idx + 1}
+                      </div>
+                      <div style={{ fontSize: '10px', fontWeight: 900, color: isCurrent ? COLORS.yellow : COLORS.faintWhite, marginTop: '4px', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                        {isCurrent ? 'Current' : 'Ready'}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '10px', fontWeight: 900, color: isCurrent ? COLORS.yellow : COLORS.faintWhite, marginTop: '4px', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                      {isCurrent ? 'Current' : 'Ready'}
-                    </div>
-                  </div>
 
-                  {ultraGrid ? (
-                    <div style={{ display: 'grid', gap: rowGap, gridTemplateColumns: '1.05fr 1.35fr 1fr 1fr', minWidth: 0 }}>
-                      <InlineSelect
-                        density={density}
-                        rowGap={rowGap}
-                        consoleSelectStyle={consoleSelectStyle}
-                        inlineLabelBoxStyle={inlineLabelBoxStyle}
-                        labelLines={['MAP', 'TYPE']}
-                        value={mapInfo.type}
-                        onChange={e => updateMap(idx, 'type', e.target.value)}
-                      >
-                        {CANONICAL_MAP_TYPES.filter(type => enabledMapTypes[type] !== false).map(type => (
-                          <option key={type} value={type}>{MAP_TYPE_META[type]?.label || type}</option>
-                        ))}
-                      </InlineSelect>
+                    {ultraGrid ? (
+                      <div style={{ display: 'grid', gap: rowGap, gridTemplateColumns: '1.05fr 1.35fr 1fr 1fr auto', minWidth: 0 }}>
+                        <InlineSelect
+                          density={density}
+                          rowGap={rowGap}
+                          consoleSelectStyle={consoleSelectStyle}
+                          inlineLabelBoxStyle={inlineLabelBoxStyle}
+                          labelLines={['MAP', 'TYPE']}
+                          value={mapInfo.type}
+                          onChange={e => updateMap(idx, 'type', e.target.value)}
+                        >
+                          {CANONICAL_MAP_TYPES.filter(type => enabledMapTypes[type] !== false).map(type => (
+                            <option key={type} value={type}>{MAP_TYPE_META[type]?.label || type}</option>
+                          ))}
+                        </InlineSelect>
 
-                      <InlineSelect
-                        density={density}
-                        rowGap={rowGap}
-                        consoleSelectStyle={consoleSelectStyle}
-                        inlineLabelBoxStyle={inlineLabelBoxStyle}
-                        labelLines={['MAP', 'NAME']}
-                        value={mapInfo.name}
-                        onChange={e => updateMap(idx, 'name', e.target.value)}
-                      >
-                        {mapNameOptions.map((name, i) => <option key={`${name}-${i}`} value={name}>{name}</option>)}
-                      </InlineSelect>
+                        <InlineSelect
+                          density={density}
+                          rowGap={rowGap}
+                          consoleSelectStyle={consoleSelectStyle}
+                          inlineLabelBoxStyle={inlineLabelBoxStyle}
+                          labelLines={['MAP', 'NAME']}
+                          value={mapInfo.name}
+                          onChange={e => updateMap(idx, 'name', e.target.value)}
+                        >
+                          {mapNameOptions.map((name, i) => <option key={`${name}-${i}`} value={name}>{name}</option>)}
+                        </InlineSelect>
 
-                      <InlineSelect
-                        density={density}
-                        rowGap={rowGap}
-                        consoleSelectStyle={consoleSelectStyle}
-                        inlineLabelBoxStyle={inlineLabelBoxStyle}
-                        labelLines={['PICK']}
-                        value={mapInfo.picker || ''}
-                        onChange={e => updateMap(idx, 'picker', e.target.value)}
-                      >
-                        {pickerOptions}
-                      </InlineSelect>
-
-                      <InlineSelect
-                        density={density}
-                        rowGap={rowGap}
-                        consoleSelectStyle={consoleSelectStyle}
-                        inlineLabelBoxStyle={inlineLabelBoxStyle}
-                        labelLines={['WINNER']}
-                        value={mapInfo.winner || ''}
-                        onChange={e => updateMap(idx, 'winner', e.target.value)}
-                      >
-                        {winnerOptions}
-                      </InlineSelect>
-                    </div>
-                  ) : (
-                    <>
-                      <InlineSelect
-                        density={density}
-                        rowGap={rowGap}
-                        consoleSelectStyle={consoleSelectStyle}
-                        inlineLabelBoxStyle={inlineLabelBoxStyle}
-                        labelLines={['MAP', 'TYPE']}
-                        value={mapInfo.type}
-                        onChange={e => updateMap(idx, 'type', e.target.value)}
-                      >
-                        {CANONICAL_MAP_TYPES.filter(type => enabledMapTypes[type] !== false).map(type => (
-                          <option key={type} value={type}>{MAP_TYPE_META[type]?.label || type}</option>
-                        ))}
-                      </InlineSelect>
-
-                      <InlineSelect
-                        density={density}
-                        rowGap={rowGap}
-                        consoleSelectStyle={consoleSelectStyle}
-                        inlineLabelBoxStyle={inlineLabelBoxStyle}
-                        labelLines={['MAP', 'NAME']}
-                        value={mapInfo.name}
-                        onChange={e => updateMap(idx, 'name', e.target.value)}
-                      >
-                        {mapNameOptions.map((name, i) => <option key={`${name}-${i}`} value={name}>{name}</option>)}
-                      </InlineSelect>
-
-                      {!isDense && (
                         <InlineSelect
                           density={density}
                           rowGap={rowGap}
@@ -603,9 +700,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                         >
                           {pickerOptions}
                         </InlineSelect>
-                      )}
 
-                      {!isDense && (
                         <InlineSelect
                           density={density}
                           rowGap={rowGap}
@@ -617,35 +712,218 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                         >
                           {winnerOptions}
                         </InlineSelect>
-                      )}
-                    </>
-                  )}
 
-                  {!ultraGrid && isDense && (
-                    <div style={{ gridColumn: '1 / -1', display: 'grid', gap: rowGap, gridTemplateColumns: '1fr 1fr' }}>
-                      <InlineSelect
-                        density={density}
-                        rowGap={rowGap}
-                        consoleSelectStyle={consoleSelectStyle}
-                        inlineLabelBoxStyle={inlineLabelBoxStyle}
-                        labelLines={['PICK']}
-                        value={mapInfo.picker || ''}
-                        onChange={e => updateMap(idx, 'picker', e.target.value)}
-                      >
-                        {pickerOptions}
-                      </InlineSelect>
+                        <button
+                          style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap' }}
+                          onClick={() => setExpandedBanIndex(isExpanded ? null : idx)}
+                        >
+                          {isExpanded ? 'CLOSE' : 'BAN'}
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <InlineSelect
+                          density={density}
+                          rowGap={rowGap}
+                          consoleSelectStyle={consoleSelectStyle}
+                          inlineLabelBoxStyle={inlineLabelBoxStyle}
+                          labelLines={['MAP', 'TYPE']}
+                          value={mapInfo.type}
+                          onChange={e => updateMap(idx, 'type', e.target.value)}
+                        >
+                          {CANONICAL_MAP_TYPES.filter(type => enabledMapTypes[type] !== false).map(type => (
+                            <option key={type} value={type}>{MAP_TYPE_META[type]?.label || type}</option>
+                          ))}
+                        </InlineSelect>
 
-                      <InlineSelect
-                        density={density}
-                        rowGap={rowGap}
-                        consoleSelectStyle={consoleSelectStyle}
-                        inlineLabelBoxStyle={inlineLabelBoxStyle}
-                        labelLines={['WINNER']}
-                        value={mapInfo.winner || ''}
-                        onChange={e => updateMap(idx, 'winner', e.target.value)}
-                      >
-                        {winnerOptions}
-                      </InlineSelect>
+                        <InlineSelect
+                          density={density}
+                          rowGap={rowGap}
+                          consoleSelectStyle={consoleSelectStyle}
+                          inlineLabelBoxStyle={inlineLabelBoxStyle}
+                          labelLines={['MAP', 'NAME']}
+                          value={mapInfo.name}
+                          onChange={e => updateMap(idx, 'name', e.target.value)}
+                        >
+                          {mapNameOptions.map((name, i) => <option key={`${name}-${i}`} value={name}>{name}</option>)}
+                        </InlineSelect>
+
+                        {!isDense && (
+                          <InlineSelect
+                            density={density}
+                            rowGap={rowGap}
+                            consoleSelectStyle={consoleSelectStyle}
+                            inlineLabelBoxStyle={inlineLabelBoxStyle}
+                            labelLines={['PICK']}
+                            value={mapInfo.picker || ''}
+                            onChange={e => updateMap(idx, 'picker', e.target.value)}
+                          >
+                            {pickerOptions}
+                          </InlineSelect>
+                        )}
+
+                        {!isDense && (
+                          <InlineSelect
+                            density={density}
+                            rowGap={rowGap}
+                            consoleSelectStyle={consoleSelectStyle}
+                            inlineLabelBoxStyle={inlineLabelBoxStyle}
+                            labelLines={['WINNER']}
+                            value={mapInfo.winner || ''}
+                            onChange={e => updateMap(idx, 'winner', e.target.value)}
+                          >
+                            {winnerOptions}
+                          </InlineSelect>
+                        )}
+
+                        {!isDense && (
+                          <button
+                            style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap' }}
+                            onClick={() => setExpandedBanIndex(isExpanded ? null : idx)}
+                          >
+                            {isExpanded ? 'CLOSE' : 'BAN'}
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    {!ultraGrid && isDense && (
+                      <div style={{ gridColumn: '1 / -1', display: 'grid', gap: rowGap, gridTemplateColumns: '1fr 1fr 1fr' }}>
+                        <InlineSelect
+                          density={density}
+                          rowGap={rowGap}
+                          consoleSelectStyle={consoleSelectStyle}
+                          inlineLabelBoxStyle={inlineLabelBoxStyle}
+                          labelLines={['PICK']}
+                          value={mapInfo.picker || ''}
+                          onChange={e => updateMap(idx, 'picker', e.target.value)}
+                        >
+                          {pickerOptions}
+                        </InlineSelect>
+
+                        <InlineSelect
+                          density={density}
+                          rowGap={rowGap}
+                          consoleSelectStyle={consoleSelectStyle}
+                          inlineLabelBoxStyle={inlineLabelBoxStyle}
+                          labelLines={['WINNER']}
+                          value={mapInfo.winner || ''}
+                          onChange={e => updateMap(idx, 'winner', e.target.value)}
+                        >
+                          {winnerOptions}
+                        </InlineSelect>
+
+                        <button
+                          style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap' }}
+                          onClick={() => setExpandedBanIndex(isExpanded ? null : idx)}
+                        >
+                          {isExpanded ? 'CLOSE' : 'BAN'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {isExpanded && (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gap: rowGap + 2,
+                        padding: density === 'spacious' ? '14px' : '12px',
+                        border: `1px solid ${COLORS.lineStrong}`,
+                        background: 'rgba(255,77,77,0.06)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: '11px', color: '#ff9a9a', fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
+                          MAP {idx + 1} BAN
+                        </div>
+                        
+                        {/* 优化点：把 Ban Order 和 Swap 全都变成快捷 Toggle 提到最上面一行 */}
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          <button
+                            style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap', color: mapInfo.banOrderMode === 'B_FIRST' ? '#a5a5a5' : COLORS.yellow, borderColor: mapInfo.banOrderMode === 'B_FIRST' ? 'rgba(255,255,255,0.14)' : COLORS.yellow }}
+                            onClick={() => updateMap(idx, 'banOrderMode', mapInfo.banOrderMode === 'B_FIRST' ? 'A_FIRST' : 'B_FIRST')}
+                            title="Toggle Ban Order"
+                          >
+                            ORDER: {mapInfo.banOrderMode === 'B_FIRST' ? 'B FIRST' : 'A FIRST'}
+                          </button>
+                          
+                          <button
+                            style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap', color: mapInfo.swapSides ? COLORS.yellow : '#a5a5a5', borderColor: mapInfo.swapSides ? COLORS.yellow : 'rgba(255,255,255,0.14)' }}
+                            onClick={() => updateMap(idx, 'swapSides', !mapInfo.swapSides)}
+                            title="Toggle Visual Side Swap"
+                          >
+                            SWAP: {mapInfo.swapSides ? 'ON' : 'OFF'}
+                          </button>
+
+                          <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.15)', margin: '0 2px' }} />
+
+                          <button
+                            style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap' }}
+                            onClick={() => useLiveBansForMap(idx)}
+                          >
+                            USE LIVE BANS
+                          </button>
+                          <button
+                            style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap', color: '#ff7d7d', borderColor: 'rgba(255,77,77,0.3)', backgroundColor: 'rgba(255,77,77,0.08)' }}
+                            onClick={() => clearMapBans(idx)}
+                          >
+                            CLEAR BANS
+                          </button>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: banPanelGrid, gap: rowGap + 2 }}>
+                        <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap }}>
+                          <div style={{ fontSize: '11px', color: COLORS.white, fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
+                            {matchData.teamShortA || matchData.teamA || 'TEAM A'} BAN
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: rowGap }}>
+                            <select
+                              style={consoleSelectStyle}
+                              value={parsedBanA.role}
+                              onChange={e => updateMapBanEntry(idx, 'A', e.target.value, 'tbd')}
+                            >
+                              {HERO_ROLE_OPTIONS.map(role => <option key={role} value={role}>{role.toUpperCase()}</option>)}
+                            </select>
+
+                            <select
+                              style={consoleSelectStyle}
+                              value={parsedBanA.hero}
+                              onChange={e => updateMapBanEntry(idx, 'A', parsedBanA.role, e.target.value)}
+                            >
+                              <option value="tbd">TBD</option>
+                              {(HERO_DATA?.[parsedBanA.role] || []).map(hero => <option key={hero} value={hero}>{hero}</option>)}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap }}>
+                          <div style={{ fontSize: '11px', color: COLORS.white, fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
+                            {matchData.teamShortB || matchData.teamB || 'TEAM B'} BAN
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: rowGap }}>
+                            <select
+                              style={consoleSelectStyle}
+                              value={parsedBanB.role}
+                              onChange={e => updateMapBanEntry(idx, 'B', e.target.value, 'tbd')}
+                            >
+                              {HERO_ROLE_OPTIONS.map(role => <option key={role} value={role}>{role.toUpperCase()}</option>)}
+                            </select>
+
+                            <select
+                              style={consoleSelectStyle}
+                              value={parsedBanB.hero}
+                              onChange={e => updateMapBanEntry(idx, 'B', parsedBanB.role, e.target.value)}
+                            >
+                              <option value="tbd">TBD</option>
+                              {(HERO_DATA?.[parsedBanB.role] || []).map(hero => <option key={hero} value={hero}>{hero}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

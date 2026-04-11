@@ -11,6 +11,7 @@ const TeamControlPanel = React.memo(({
   side, matchData, updateData, updateWithHistory, setPreviewScene,
   selectedPreset, setSelectedPreset, library, showSideControl, attackSide,
   sideLeftLabel, sideRightLabel, toggleAttackDefense, banInfo, getRosterOptionsForSide,
+  onSetMapWinner,
   isA, isUltra, is1080Compact, density, ui, t, compactInputPad, controlRowHeight, stackGap, innerGap, tightGap, compactBtnPad, playerCols, subButtonHeight, livePanelBodyPadding
 }) => {
   const teamName = isA ? matchData.teamA : matchData.teamB;
@@ -89,12 +90,10 @@ const TeamControlPanel = React.memo(({
             )}
 
             {!isUltra && (
-              <button style={{ ...ui.actionBtn, padding: compactBtnPad || ui.actionBtn.padding, height: controlRowHeight, minHeight: controlRowHeight, fontSize: is1080Compact ? '11px' : undefined, fontWeight: '900', width: '100%', whiteSpace: 'nowrap' }} onClick={() => {
-                updateWithHistory(`Set Team ${side} as winner and TAKE`, {
-                  ...matchData, globalScene: 'WINNER', winnerScene: { ...(matchData.winnerScene || {}), winner: side, title: 'WINNER' }
-                });
-                setPreviewScene?.('WINNER');
-              }}>
+              <button
+                style={{ ...ui.actionBtn, padding: compactBtnPad || ui.actionBtn.padding, height: controlRowHeight, minHeight: controlRowHeight, fontSize: is1080Compact ? '11px' : undefined, fontWeight: '900', width: '100%', whiteSpace: 'nowrap' }}
+                onClick={() => onSetMapWinner?.(side)}
+              >
                 {isA ? 'TEAM A WIN' : 'TEAM B WIN'}
               </button>
             )}
@@ -107,12 +106,10 @@ const TeamControlPanel = React.memo(({
                   {sideLabel}
                 </button>
               )}
-              <button style={{ ...ui.actionBtn, padding: compactBtnPad || ui.actionBtn.padding, height: controlRowHeight, minHeight: controlRowHeight, fontSize: is1080Compact ? '11px' : undefined, fontWeight: '900', width: '100%', whiteSpace: 'nowrap' }} onClick={() => {
-                updateWithHistory(`Set Team ${side} as winner and TAKE`, {
-                  ...matchData, globalScene: 'WINNER', winnerScene: { ...(matchData.winnerScene || {}), winner: side, title: 'WINNER' }
-                });
-                setPreviewScene?.('WINNER');
-              }}>
+              <button
+                style={{ ...ui.actionBtn, padding: compactBtnPad || ui.actionBtn.padding, height: controlRowHeight, minHeight: controlRowHeight, fontSize: is1080Compact ? '11px' : undefined, fontWeight: '900', width: '100%', whiteSpace: 'nowrap' }}
+                onClick={() => onSetMapWinner?.(side)}
+              >
                 {isA ? 'TEAM A WIN' : 'TEAM B WIN'}
               </button>
             </div>
@@ -201,6 +198,7 @@ const TeamControlPanel = React.memo(({
                 </select>
                 <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={banInfo.hero} onChange={e => updateData(prev => ({ ...prev, [isA ? 'bansA' : 'bansB']: [`${banInfo.role}/${e.target.value}`] }))}>
                   <option value="tbd">TBD</option>
+                  <option value="tbd">TBD</option>
                   {HERO_DATA[banInfo.role]?.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
               </>
@@ -274,6 +272,8 @@ export default function LiveEditor({
 
   const [selectedPresetA, setSelectedPresetA] = useState('');
   const [selectedPresetB, setSelectedPresetB] = useState('');
+  
+  const [resetConfirm, setResetConfirm] = useState(false);
 
   const livePanelBodyPadding = is1080Compact ? '10px 12px' : density === 'spacious' ? '14px 16px' : t.panelPadding;
   const rootGap = is1080Compact ? 8 : t.blockGap;
@@ -330,6 +330,84 @@ export default function LiveEditor({
       .map((p, idx) => ({ value: p.nickname, label: p.nickname, idx }));
   }, [matchData.rosterPlayersA, matchData.rosterPlayersB]);
 
+  const settleCurrentMapWinner = useCallback((winnerSide) => {
+    const nextWinner = winnerSide === 'B' ? 'B' : 'A';
+
+    const nextMapLineup = [...(matchData.mapLineup || [])];
+    while (nextMapLineup.length <= currentMapIdx) nextMapLineup.push({});
+
+    const prevMap = nextMapLineup[currentMapIdx] || {};
+
+    nextMapLineup[currentMapIdx] = {
+      ...prevMap,
+      winner: nextWinner,
+      winnerSide: nextWinner,
+      bansA: Array.isArray(matchData.bansA) ? [...matchData.bansA] : [],
+      bansB: Array.isArray(matchData.bansB) ? [...matchData.bansB] : [],
+      banOrderMode: matchData.banOrderMode || 'A_FIRST',
+      attackSide: prevMap.attackSide || currentMapData.attackSide || matchData.attackSide || ''
+    };
+
+    const nextScoreA = nextMapLineup.reduce((sum, m) => {
+      const side = String(m?.winnerSide || m?.winner || '').trim().toUpperCase();
+      return side === 'A' ? sum + 1 : sum;
+    }, 0);
+
+    const nextScoreB = nextMapLineup.reduce((sum, m) => {
+      const side = String(m?.winnerSide || m?.winner || '').trim().toUpperCase();
+      return side === 'B' ? sum + 1 : sum;
+    }, 0);
+
+    updateWithHistory(`Set Team ${nextWinner} as winner and TAKE`, {
+      ...matchData,
+      scoreA: nextScoreA,
+      scoreB: nextScoreB,
+      mapLineup: nextMapLineup,
+      globalScene: 'WINNER',
+      winnerScene: {
+        ...(matchData.winnerScene || {}),
+        winner: nextWinner,
+        title: 'WINNER'
+      }
+    });
+
+    setPreviewScene?.('WINNER');
+  }, [
+    matchData,
+    currentMapIdx,
+    currentMapData.attackSide,
+    updateWithHistory,
+    setPreviewScene
+  ]);
+
+  // 修改：彻底重置比赛（清空比分、地图结果、所有当期和历史的 Ban 位，并将 currentMap 切回 1）
+  const handleResetMatch = useCallback(() => {
+    if (!resetConfirm) {
+      setResetConfirm(true);
+      setTimeout(() => setResetConfirm(false), 3000);
+      return;
+    }
+
+    const clearedMapLineup = (matchData.mapLineup || []).map(m => ({
+      ...m,
+      winner: '',
+      winnerSide: '',
+      bansA: [],
+      bansB: []
+    }));
+    
+    updateWithHistory('Reset Match Scores and Map Data', {
+      ...matchData,
+      scoreA: 0,
+      scoreB: 0,
+      currentMap: 1, // 将地图切回第一张
+      mapLineup: clearedMapLineup,
+      bansA: [], 
+      bansB: []
+    });
+    setResetConfirm(false);
+  }, [matchData, updateWithHistory, resetConfirm]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: rootGap }}>
       <div style={{ display: 'grid', gridTemplateColumns: liveMainTemplate, gap: liveMainGap, alignItems: 'stretch' }}>
@@ -338,7 +416,7 @@ export default function LiveEditor({
           side="A" isA={true} matchData={matchData} updateData={updateData} updateWithHistory={updateWithHistory} setPreviewScene={setPreviewScene}
           selectedPreset={selectedPresetA} setSelectedPreset={setSelectedPresetA} library={library} showSideControl={showSideControl}
           attackSide={attackSide} sideLeftLabel={sideLeftLabel} sideRightLabel={sideRightLabel} toggleAttackDefense={toggleAttackDefense}
-          banInfo={banA} getRosterOptionsForSide={getRosterOptionsForSide} isUltra={isUltra} is1080Compact={is1080Compact} density={density}
+          banInfo={banA} getRosterOptionsForSide={getRosterOptionsForSide} onSetMapWinner={settleCurrentMapWinner} isUltra={isUltra} is1080Compact={is1080Compact} density={density}
           ui={ui} t={t} compactInputPad={compactInputPad} controlRowHeight={controlRowHeight} stackGap={stackGap} innerGap={innerGap}
           tightGap={tightGap} compactBtnPad={compactBtnPad} playerCols={playerCols} subButtonHeight={subButtonHeight} livePanelBodyPadding={livePanelBodyPadding}
         />
@@ -347,21 +425,40 @@ export default function LiveEditor({
           <div style={{ display: 'flex', flexDirection: 'column', gap: stackGap, height: '100%' }}>
             <div style={{ ...panelBase, padding: is1080Compact ? '10px' : t.panelPadding, borderTop: `2px solid ${COLORS.yellow}` }}>
               <div style={sectionTitleStyle}>Score Control</div>
-              <div style={{ marginTop: sectionTopGap, display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: innerGap }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: is1080Compact ? '24px' : density === 'spacious' ? '36px' : '32px', fontWeight: '900', color: COLORS.white, lineHeight: 1 }}>{matchData.scoreA}</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', marginTop: sectionTopGap }}>
-                    <button style={{ ...ui.outlineBtn, padding: is1080Compact ? '5px 0' : '7px 0', fontSize: is1080Compact ? '11px' : undefined }} onClick={() => updateWithHistory('TEAM A -1', { ...matchData, scoreA: Math.max(0, matchData.scoreA - 1) })}>-1</button>
-                    <button style={{ ...ui.actionBtn, padding: is1080Compact ? '5px 0' : '7px 0', fontSize: is1080Compact ? '11px' : undefined }} onClick={() => updateWithHistory('TEAM A +1', { ...matchData, scoreA: matchData.scoreA + 1 })}>+1</button>
-                  </div>
+              
+              <div style={{ marginTop: sectionTopGap, display: 'grid', gridTemplateColumns: '1fr auto 1fr', rowGap: sectionTopGap, columnGap: innerGap, alignItems: 'center' }}>
+                
+                <div style={{ textAlign: 'center', fontSize: is1080Compact ? '24px' : density === 'spacious' ? '36px' : '32px', fontWeight: '900', color: COLORS.white, lineHeight: 1 }}>{matchData.scoreA}</div>
+                <div style={{ textAlign: 'center', fontSize: is1080Compact ? '13px' : density === 'spacious' ? '16px' : '15px', fontWeight: '900', color: COLORS.yellow, letterSpacing: is1080Compact ? '1px' : '2px', lineHeight: 1 }}>VS</div>
+                <div style={{ textAlign: 'center', fontSize: is1080Compact ? '24px' : density === 'spacious' ? '36px' : '32px', fontWeight: '900', color: COLORS.white, lineHeight: 1 }}>{matchData.scoreB}</div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+                  <button style={{ ...ui.outlineBtn, padding: is1080Compact ? '5px 0' : '7px 0', fontSize: is1080Compact ? '11px' : undefined }} onClick={() => updateWithHistory('TEAM A -1', { ...matchData, scoreA: Math.max(0, matchData.scoreA - 1) })}>-1</button>
+                  <button style={{ ...ui.actionBtn, padding: is1080Compact ? '5px 0' : '7px 0', fontSize: is1080Compact ? '11px' : undefined }} onClick={() => updateWithHistory('TEAM A +1', { ...matchData, scoreA: matchData.scoreA + 1 })}>+1</button>
                 </div>
-                <div style={{ fontSize: is1080Compact ? '13px' : density === 'spacious' ? '16px' : '15px', fontWeight: '900', color: COLORS.yellow, letterSpacing: is1080Compact ? '1px' : '2px' }}>VS</div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: is1080Compact ? '24px' : density === 'spacious' ? '36px' : '32px', fontWeight: '900', color: COLORS.white, lineHeight: 1 }}>{matchData.scoreB}</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', marginTop: sectionTopGap }}>
-                    <button style={{ ...ui.outlineBtn, padding: is1080Compact ? '5px 0' : '7px 0', fontSize: is1080Compact ? '11px' : undefined }} onClick={() => updateWithHistory('TEAM B -1', { ...matchData, scoreB: Math.max(0, matchData.scoreB - 1) })}>-1</button>
-                    <button style={{ ...ui.actionBtn, padding: is1080Compact ? '5px 0' : '7px 0', fontSize: is1080Compact ? '11px' : undefined }} onClick={() => updateWithHistory('TEAM B +1', { ...matchData, scoreB: matchData.scoreB + 1 })}>+1</button>
-                  </div>
+                
+                <button 
+                  style={{ 
+                    ...ui.outlineBtn, 
+                    padding: is1080Compact ? '5px 10px' : '7px 14px', 
+                    fontSize: is1080Compact ? '10px' : '11px', 
+                    backgroundColor: resetConfirm ? 'rgba(255,77,77,0.92)' : 'rgba(255,77,77,0.08)', 
+                    color: resetConfirm ? '#fff' : '#ff7d7d', 
+                    border: '1px solid rgba(255,77,77,0.3)',
+                    fontWeight: '900',
+                    width: '100%',
+                    height: '100%',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s ease'
+                  }} 
+                  onClick={handleResetMatch}
+                >
+                  {resetConfirm ? 'SURE?' : 'RESET'}
+                </button>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+                  <button style={{ ...ui.outlineBtn, padding: is1080Compact ? '5px 0' : '7px 0', fontSize: is1080Compact ? '11px' : undefined }} onClick={() => updateWithHistory('TEAM B -1', { ...matchData, scoreB: Math.max(0, matchData.scoreB - 1) })}>-1</button>
+                  <button style={{ ...ui.actionBtn, padding: is1080Compact ? '5px 0' : '7px 0', fontSize: is1080Compact ? '11px' : undefined }} onClick={() => updateWithHistory('TEAM B +1', { ...matchData, scoreB: matchData.scoreB + 1 })}>+1</button>
                 </div>
               </div>
             </div>
@@ -412,7 +509,7 @@ export default function LiveEditor({
           side="B" isA={false} matchData={matchData} updateData={updateData} updateWithHistory={updateWithHistory} setPreviewScene={setPreviewScene}
           selectedPreset={selectedPresetB} setSelectedPreset={setSelectedPresetB} library={library} showSideControl={showSideControl}
           attackSide={attackSide} sideLeftLabel={sideLeftLabel} sideRightLabel={sideRightLabel} toggleAttackDefense={toggleAttackDefense}
-          banInfo={banB} getRosterOptionsForSide={getRosterOptionsForSide} isUltra={isUltra} is1080Compact={is1080Compact} density={density}
+          banInfo={banB} getRosterOptionsForSide={getRosterOptionsForSide} onSetMapWinner={settleCurrentMapWinner} isUltra={isUltra} is1080Compact={is1080Compact} density={density}
           ui={ui} t={t} compactInputPad={compactInputPad} controlRowHeight={controlRowHeight} stackGap={stackGap} innerGap={innerGap}
           tightGap={tightGap} compactBtnPad={compactBtnPad} playerCols={playerCols} subButtonHeight={subButtonHeight} livePanelBodyPadding={livePanelBodyPadding}
         />
