@@ -1,20 +1,70 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
-const COLORS = { black: '#2a2a2a', panel: '#2a2a2a', panel2: '#2a2a2a', yellow: '#f4c320', white: '#ffffff', red: '#ff4d4d', line: 'rgba(255,255,255,0.08)', lineStrong: 'rgba(255,255,255,0.18)', softWhite: 'rgba(255,255,255,0.62)', faintWhite: 'rgba(255,255,255,0.26)' };
-const UI = { outerFrame: `1px solid ${COLORS.lineStrong}`, panelShadow: '0 18px 40px rgba(0,0,0,0.28)', yellowGlow: '0 0 0 1px rgba(244,195,32,0.16), 0 0 18px rgba(244,195,32,0.08)', insetLine: 'inset 0 0 0 1px rgba(255,255,255,0.04)', bevelInset: 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.35)' };
+const COLORS = {
+  black: '#2a2a2a',
+  panel: '#2a2a2a',
+  panel2: '#2a2a2a',
+  yellow: '#f4c320',
+  white: '#ffffff',
+  red: '#ff4d4d',
+  blue: '#59a7ff',
+  line: 'rgba(255,255,255,0.08)',
+  lineStrong: 'rgba(255,255,255,0.18)',
+  softWhite: 'rgba(255,255,255,0.62)',
+  faintWhite: 'rgba(255,255,255,0.26)'
+};
+
+const UI = {
+  outerFrame: `1px solid ${COLORS.lineStrong}`,
+  panelShadow: '0 18px 40px rgba(0,0,0,0.28)',
+  yellowGlow: '0 0 0 1px rgba(244,195,32,0.16), 0 0 18px rgba(244,195,32,0.08)',
+  insetLine: 'inset 0 0 0 1px rgba(255,255,255,0.04)',
+  bevelInset: 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.35)'
+};
+
 const GLOBAL_FONT = '"HarmonyOS Sans SC", sans-serif';
-const containerStyle = { width: '1920px', height: '1080px', backgroundColor: COLORS.black, position: 'relative', fontFamily: GLOBAL_FONT, overflow: 'hidden' };
+const BASE_IMAGE_W = 1920;
+const BASE_IMAGE_H = 1080;
 
-const formatNumber = (v) => {
+const containerStyle = {
+  width: '1920px',
+  height: '1080px',
+  backgroundColor: COLORS.black,
+  position: 'relative',
+  fontFamily: GLOBAL_FONT,
+  overflow: 'hidden'
+};
+
+const formatNumber = v => {
   const n = Number(v || 0);
   return Number.isFinite(n) ? n.toLocaleString('en-US') : '0';
 };
 
-// 🚀 核心修复：更严格的数字解析，避免用户手滑打出 'NaN' 导致 CSS 计算直接崩溃
 const parseStat = v => {
   const n = Number(v);
-  return Number.isFinite(n) ? Math.max(0, n) : 0; 
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
 };
+
+const num = (value, fallback) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const scoreText = value => (value === '' || value === null || value === undefined ? '0' : String(value));
+
+const getDisplayTeamName = (shortName, fullName, fallback) => {
+  const shortText = String(shortName || '').trim();
+  const fullText = String(fullName || '').trim();
+  if (shortText) return shortText.toUpperCase();
+  if (fullText) return fullText.toUpperCase();
+  return fallback;
+};
+
+const splitInfoText = text =>
+  String(text || '')
+    .split('|')
+    .map(v => v.trim())
+    .filter(Boolean);
 
 const StatCompareRow = ({ label, a, b, delay }) => {
   const na = parseStat(a), nb = parseStat(b);
@@ -60,7 +110,7 @@ const StatCompareRow = ({ label, a, b, delay }) => {
   );
 };
 
-const TemplateStats = ({ matchData, statsData }) => {
+const TemplateStatsClassic = ({ matchData, statsData }) => {
   const vis = matchData.statsTemplateVisibility || {};
   const nameA = matchData.teamA || 'TEAM A';
   const nameB = matchData.teamB || 'TEAM B';
@@ -117,14 +167,248 @@ const TemplateStats = ({ matchData, statsData }) => {
   );
 };
 
-// 🚀 确保接收 isActive 属性
+// ==========================================
+// 修改后的 ImageStatsRowPRO 组件：彻底修复 Flex 溢出
+// ==========================================
+const ImageStatsRowPRO = ({
+  shortName,
+  logo,
+  logoBg,
+  score,
+  imageSrc,
+  cropX,
+  cropY,
+  cropScale,
+  dockWidth,
+  viewportWidth,
+  viewportHeight,
+  animationDelay = 0
+}) => {
+  const imageStyle = {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: `${BASE_IMAGE_W * cropScale}px`,
+    height: `${BASE_IMAGE_H * cropScale}px`,
+    transform: `translate(${-cropX * cropScale}px, ${-cropY * cropScale}px)`,
+    objectFit: 'none',
+    userSelect: 'none',
+    pointerEvents: 'none',
+    display: 'block'
+  };
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: `${dockWidth}px ${viewportWidth}px`,
+      height: `${viewportHeight}px`,
+      background: 'rgba(18,18,18,0.92)',
+      border: `1px solid ${COLORS.lineStrong}`,
+      boxShadow: `${UI.panelShadow}, ${UI.insetLine}`,
+      overflow: 'hidden',
+      position: 'relative',
+      opacity: 0,
+      animation: `proPanelIn 0.58s cubic-bezier(0.16, 1, 0.3, 1) ${animationDelay}s forwards`
+    }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 24px)', pointerEvents: 'none', opacity: 0.12 }} />
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: COLORS.yellow, zIndex: 3 }} />
+
+      {/* 左侧 Dock 面板 */}
+      <div style={{
+        height: '100%', 
+        borderRight: `1px solid ${COLORS.line}`,
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        zIndex: 1
+      }}>
+        {/* 上方黑色区域：填满无边框的自动缩放 Logo */}
+        <div style={{ 
+          flex: 1, 
+          position: 'relative',
+          background: COLORS.black, 
+        }}>
+          <div style={{
+            position: 'absolute',
+            inset: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <img 
+              src={logo} 
+              alt={shortName || 'TEAM'} 
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
+              onError={e => e.target.style.display = 'none'} 
+            />
+          </div>
+        </div>
+
+        {/* 下方黄色区域：包含队伍简称和比分 */}
+        <div style={{
+          height: '82px',
+          flexShrink: 0,
+          background: COLORS.yellow,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 24px',
+          borderTop: `1px solid rgba(0,0,0,0.1)`,
+          boxShadow: UI.bevelInset,
+          boxSizing: 'border-box'
+        }}>
+           <span style={{ 
+             fontSize: shortName && shortName.length > 4 ? '36px' : '44px', 
+             fontWeight: '900', 
+             color: COLORS.black, 
+             letterSpacing: '1px', 
+             textTransform: 'uppercase',
+             whiteSpace: 'nowrap',
+             overflow: 'hidden',
+             textOverflow: 'ellipsis',
+             maxWidth: '180px' 
+           }}>
+             {shortName}
+           </span>
+           <span style={{ 
+             fontSize: '58px', 
+             fontWeight: '900', 
+             color: COLORS.black, 
+             lineHeight: 1, 
+             fontVariantNumeric: 'tabular-nums' 
+           }}>
+             {scoreText(score)}
+           </span>
+        </div>
+      </div>
+
+      {/* 右侧：图片裁切区域 */}
+      <div style={{ position: 'relative', width: `${viewportWidth}px`, height: '100%', overflow: 'hidden', background: '#000', zIndex: 1 }}>
+        {imageSrc ? (
+          <img src={imageSrc} alt={`${shortName || 'TEAM'} crop`} style={imageStyle} onError={e => { e.target.src = '/assets/screenshots/placeholder.png'; }} />
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: COLORS.softWhite }}>
+            <span style={{ fontSize: '18px', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase', color: COLORS.yellow }}>No Image Source</span>
+            <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>statsImageTempUrl / statsImagePath</span>
+          </div>
+        )}
+        <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05), inset 0 0 80px rgba(0,0,0,0.12)', pointerEvents: 'none' }} />
+      </div>
+    </div>
+  );
+};
+
+const ImageStatsPRO = ({ matchData, statsImageSrc }) => {
+  const cropX = num(matchData.cropX, 460);
+  const cropW = num(matchData.cropW, 1000);
+  const cropH = num(matchData.cropH, 320);
+  const cropY1 = num(matchData.cropY1, 195);
+  const cropY2 = num(matchData.cropY2, 600);
+  const cropScale = num(matchData.cropScale, 100) / 100;
+
+  const dockWidth = 318;
+  const viewportWidth = Math.round(cropW * cropScale);
+  const viewportHeight = Math.round(cropH * cropScale);
+  const totalWidth = dockWidth + viewportWidth;
+  const colLabels = ['E', 'A', 'D', 'DMG', 'HEAL', 'MIT'];
+
+  const teamShortA = getDisplayTeamName(matchData.teamShortA, matchData.teamA, 'TEAM A');
+  const teamShortB = getDisplayTeamName(matchData.teamShortB, matchData.teamB, 'TEAM B');
+
+  const infoSegments = useMemo(() => {
+    const source = splitInfoText(matchData.info || matchData.infoSubtitle || '');
+    return source.length ? source : ['MATCH DATA', 'PRO IMAGE PANEL'];
+  }, [matchData.info, matchData.infoSubtitle]);
+
+  const labelAnchors = [507, 563, 620, 705, 803, 905].map(v => Math.round(v * cropScale));
+
+  return (
+    <div style={{ position: 'absolute', top: '102px', left: '50%', transform: 'translateX(-50%)', width: `${totalWidth}px`, display: 'flex', flexDirection: 'column', gap: '16px', zIndex: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'end', gap: '28px', paddingBottom: '14px', borderBottom: `1px solid ${COLORS.line}`, opacity: 0, animation: 'statsHeaderDrop 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '24px', height: '24px', backgroundColor: COLORS.yellow, boxShadow: '0 0 16px rgba(244,195,32,0.18)' }} />
+            <span style={{ fontSize: '30px', fontWeight: '900', color: COLORS.white, letterSpacing: '4px', textTransform: 'uppercase' }}>FRIES CUP</span>
+          </div>
+          <div style={{ width: '360px', height: '8px', background: `linear-gradient(90deg, ${COLORS.yellow} 0%, rgba(244,195,32,0.14) 100%)`, border: '1px solid rgba(244,195,32,0.16)', boxShadow: UI.yellowGlow }} />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', minWidth: 0 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', columnGap: '12px', rowGap: '6px', maxWidth: '720px' }}>
+            {infoSegments.map((item, index) => (
+              <React.Fragment key={`${item}-${index}`}>
+                {index > 0 && <span style={{ color: COLORS.faintWhite, fontSize: '13px', fontWeight: '900' }}>|</span>}
+                <span style={{ color: COLORS.white, fontSize: '14px', fontWeight: '900', letterSpacing: '1px', whiteSpace: 'nowrap' }}>{item}</span>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <ImageStatsRowPRO
+        shortName={teamShortA}
+        logo={matchData.logoA}
+        logoBg={matchData.logoBgA}
+        score={matchData.scoreA}
+        imageSrc={statsImageSrc}
+        cropX={cropX}
+        cropY={cropY1}
+        cropScale={cropScale}
+        dockWidth={dockWidth}
+        viewportWidth={viewportWidth}
+        viewportHeight={viewportHeight}
+        animationDelay={0.08}
+      />
+
+      <div style={{ display: 'grid', gridTemplateColumns: `${dockWidth}px ${viewportWidth}px`, alignItems: 'center', height: '20px', opacity: 0, animation: 'proStripIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.14s forwards' }}>
+        <div />
+        <div style={{ position: 'relative', height: '100%' }}>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: '1px', background: 'rgba(255,255,255,0.06)', transform: 'translateY(-50%)' }} />
+          {colLabels.map((label, index) => (
+            <div
+              key={label}
+              style={{
+                position: 'absolute',
+                left: `${labelAnchors[index]}px`,
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                minWidth: label === 'DMG' ? '44px' : label === 'MIT' ? '34px' : label === 'HEAL' ? '46px' : '26px',
+                textAlign: 'center',
+                background: COLORS.black,
+                padding: '0 6px'
+              }}
+            >
+              <span style={{ fontSize: '12px', fontWeight: '900', color: COLORS.yellow, letterSpacing: '2px', textTransform: 'uppercase' }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <ImageStatsRowPRO
+        shortName={teamShortB}
+        logo={matchData.logoB}
+        logoBg={matchData.logoBgB}
+        score={matchData.scoreB}
+        imageSrc={statsImageSrc}
+        cropX={cropX}
+        cropY={cropY2}
+        cropScale={cropScale}
+        dockWidth={dockWidth}
+        viewportWidth={viewportWidth}
+        viewportHeight={viewportHeight}
+        animationDelay={0.18}
+      />
+    </div>
+  );
+};
+
 export default function StatsScene({ matchData, isActive = false }) {
   const statsData = matchData.statsTemplateData || {};
   const statsMode = matchData.statsMode || 'TEMPLATE';
+  const statsTheme = matchData.statsTheme || 'CLASSIC';
   const statsImageSrc = matchData.statsImageTempUrl || matchData.statsImagePath || '/assets/screenshots/placeholder.png';
   const [techTime, setTechTime] = useState('');
 
-  // 🚀 核心修复：只有组件真正在播的时候，才跑时间定时器，释放 OBS 空转后台算力！
   useEffect(() => {
     if (!isActive) return;
     const timer = setInterval(() => {
@@ -140,6 +424,8 @@ export default function StatsScene({ matchData, isActive = false }) {
         @keyframes statsRowSlideIn { 0% { opacity: 0; transform: translateY(18px); } 100% { opacity: 1; transform: translateY(0); } }
         @keyframes statsHeaderDrop { 0% { opacity: 0; transform: translateY(-22px); } 100% { opacity: 1; transform: translateY(0); } }
         @keyframes imageFrameExpand { 0% { opacity: 0; transform: scale(0.985); } 100% { opacity: 1; transform: scale(1); } }
+        @keyframes proPanelIn { 0% { opacity: 0; transform: translateY(16px); } 100% { opacity: 1; transform: translateY(0); } }
+        @keyframes proStripIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
       `}</style>
 
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(180deg, rgba(255,255,255,0.014) 1px, transparent 1px)', backgroundSize: '120px 120px, 120px 120px', opacity: 0.24 }} />
@@ -166,12 +452,17 @@ export default function StatsScene({ matchData, isActive = false }) {
           </div>
 
           <div style={{ position: 'absolute', top: '96px', left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <TemplateStats matchData={matchData} statsData={statsData} />
+            {/* Template 模式下直接无条件渲染 Classic */}
+            <TemplateStatsClassic matchData={matchData} statsData={statsData} />
           </div>
         </>
       )}
 
-      {statsMode === 'IMAGE' && (
+      {statsMode === 'IMAGE' && statsTheme === 'PRO' && (
+        <ImageStatsPRO matchData={matchData} statsImageSrc={statsImageSrc} />
+      )}
+
+      {statsMode === 'IMAGE' && statsTheme !== 'PRO' && (
         <div style={{ position: 'absolute', top: '92px', left: '50%', transform: 'translateX(-50%)', width: '1568px', height: '882px', zIndex: 10 }}>
           <div style={{ width: '100%', height: '100%', background: COLORS.black, border: `2px solid ${COLORS.yellow}`, boxShadow: `${UI.panelShadow}, ${UI.yellowGlow}`, opacity: 0, willChange: 'opacity, transform', animation: 'imageFrameExpand 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards', overflow: 'hidden', position: 'relative' }}>
             <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 22px)', pointerEvents: 'none', opacity: 0.10 }} />
@@ -198,7 +489,7 @@ export default function StatsScene({ matchData, isActive = false }) {
       <div style={{ position: 'absolute', bottom: '60px', left: '80px', right: '80px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', color: 'rgba(255,255,255,0.26)', fontSize: '11px', fontWeight: '900', letterSpacing: '1.8px', fontVariantNumeric: 'tabular-nums', textTransform: 'uppercase' }}>
         <div>FCUP_DATA_CORE // STATS_RENDER_ACTIVE</div>
         <div style={{ display: 'flex', gap: '40px' }}>
-          <span>Mode: {statsMode}</span>
+          <span>Theme: {statsTheme} | Mode: {statsMode}</span>
           <span style={{ color: COLORS.yellow, opacity: 0.9 }}>TC: {techTime || '--:--:--'}</span>
         </div>
       </div>
