@@ -1,4 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
+// 🚀 引入 i18n
+import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { ShellPanel, Field } from '../common/SharedUI';
 import { COLORS, panelBase } from '../../constants/styles';
@@ -9,7 +11,8 @@ import { createEditorUi } from '../../utils/editorUi';
 
 const CasterRow = React.memo(({
   caster, idx, rowH, gap, t, ui, density, isUltra, isDense, compactInput, slotTitleStyle, metaLabelStyle,
-  removeCaster, updateCasterField, handleCasterAvatarUpload, clearCasterAvatar, renderAvatarThumb
+  removeCaster, updateCasterField, handleCasterAvatarUpload, clearCasterAvatar, renderAvatarThumb,
+  tr // 🚀 接收翻译函数
 }) => {
   return (
     <div
@@ -34,8 +37,8 @@ const CasterRow = React.memo(({
         }}
       >
         <div style={{ minWidth: 0 }}>
-          <div style={slotTitleStyle}>Caster {idx + 1}</div>
-          <div style={{ ...metaLabelStyle, marginTop: '4px' }}>Broadcast Slot</div>
+          <div style={slotTitleStyle}>{tr('casterEditor.caster', { num: idx + 1 })}</div>
+          <div style={{ ...metaLabelStyle, marginTop: '4px' }}>{tr('casterEditor.broadcastSlot')}</div>
         </div>
 
         <button
@@ -52,7 +55,7 @@ const CasterRow = React.memo(({
           }}
           onClick={() => removeCaster(idx)}
         >
-          Remove
+          {tr('casterEditor.remove')}
         </button>
       </div>
 
@@ -64,36 +67,35 @@ const CasterRow = React.memo(({
             gap: gap
           }}
         >
-          <Field label="Display Name" density={density}>
+          <Field label={tr('casterEditor.displayName')} density={density}>
             <input
               style={compactInput}
               value={caster.id || ''}
               onChange={e => updateCasterField(idx, 'id', e.target.value)}
-              placeholder="e.g. Commentator"
+              placeholder={tr('casterEditor.placeholderName')}
             />
           </Field>
 
-          <Field label="Role Title" density={density}>
+          <Field label={tr('casterEditor.roleTitle')} density={density}>
             <input
               style={compactInput}
               value={caster.title || ''}
               onChange={e => updateCasterField(idx, 'title', e.target.value)}
-              placeholder="e.g. Commentator"
+              placeholder={tr('casterEditor.placeholderName')}
             />
           </Field>
         </div>
 
-        <Field label="Social Handle" density={density}>
+        <Field label={tr('casterEditor.socialHandle')} density={density}>
           <input
             style={compactInput}
             value={caster.social || ''}
             onChange={e => updateCasterField(idx, 'social', e.target.value)}
-            placeholder="e.g. @Ghost_Official"
+            placeholder={tr('casterEditor.placeholderSocial')}
           />
         </Field>
 
-        {/* 🚀 核心替换：把单纯的显示变成“路径输入框 + 上传按钮”双擎驱动 */}
-        <Field label="Avatar Path or Upload" density={density}>
+        <Field label={tr('casterEditor.avatarPath')} density={density}>
           {isUltra ? (
             <>
               <div
@@ -137,7 +139,7 @@ const CasterRow = React.memo(({
                     width: '100%'
                   }}
                 >
-                  Upload Image
+                  {tr('casterEditor.uploadImage')}
                   <input
                     type="file"
                     accept="image/*"
@@ -158,7 +160,7 @@ const CasterRow = React.memo(({
                     }}
                     onClick={() => clearCasterAvatar(idx)}
                   >
-                    Clear
+                    {tr('casterEditor.clear')}
                   </button>
                 )}
               </div>
@@ -197,7 +199,7 @@ const CasterRow = React.memo(({
                   padding: density === 'spacious' ? '0 16px' : '0 12px'
                 }}
               >
-                Upload
+                {tr('casterEditor.upload')}
                 <input
                   type="file"
                   accept="image/*"
@@ -218,7 +220,7 @@ const CasterRow = React.memo(({
                   }}
                   onClick={() => clearCasterAvatar(idx)}
                 >
-                  Clear
+                  {tr('casterEditor.clear')}
                 </button>
               )}
             </div>
@@ -235,6 +237,9 @@ export default function CasterEditor({
   isDense = false,
   isUltra = false
 }) {
+  // 🚀 初始化翻译钩子
+  const { t: tr } = useTranslation();
+
   const { matchData, updateData } = useMatchContext();
   const casters = Array.isArray(matchData.casters) ? matchData.casters : [];
 
@@ -279,7 +284,7 @@ export default function CasterEditor({
   };
 
   const addCaster = () => {
-    if (casters.length >= 4) return alert('You can add up to 4 casters only.');
+    if (casters.length >= 4) return alert(tr('casterEditor.maxWarning'));
     updateData({
       ...matchData,
       casters: [
@@ -296,10 +301,9 @@ export default function CasterEditor({
   };
 
   const removeCaster = useCallback((idx) => {
-    if (casters.length <= 1) return alert('At least 1 caster must remain.');
+    if (casters.length <= 1) return alert(tr('casterEditor.minWarning'));
     
     const casterToRemove = casters[idx];
-    // 清理可能存在的本地 Blob 内存泄漏
     if (casterToRemove?.avatar && casterToRemove.avatar.startsWith('blob:')) {
       URL.revokeObjectURL(casterToRemove.avatar);
     }
@@ -307,7 +311,7 @@ export default function CasterEditor({
     const next = [...casters];
     next.splice(idx, 1);
     updateData({ ...matchData, casters: next });
-  }, [casters, matchData, updateData]);
+  }, [casters, matchData, updateData, tr]);
 
   const updateCasterField = useCallback((idx, key, value) => {
     const next = [...casters];
@@ -318,10 +322,8 @@ export default function CasterEditor({
   const handleCasterAvatarUpload = useCallback(async (idx, e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) return alert('Please upload an image file.');
+    if (!file.type.startsWith('image/')) return alert(tr('casterEditor.imageWarning'));
     
-    // 如果你没有引入 imageHelper 的 base64 压缩，这部分会走原本的 blob 逻辑。
-    // 因为你现在更倾向于手填绝对路径，点 Upload 的备用逻辑就可以保持为 blob 或 base64。
     const oldAvatar = casters[idx]?.avatar;
     if (oldAvatar && oldAvatar.startsWith('blob:')) {
       URL.revokeObjectURL(oldAvatar);
@@ -331,7 +333,7 @@ export default function CasterEditor({
     updateCasterField(idx, 'avatar', objectUrl);
     
     e.target.value = '';
-  }, [casters, updateCasterField]);
+  }, [casters, updateCasterField, tr]);
 
   const clearCasterAvatar = useCallback((idx) => {
     const oldAvatar = casters[idx]?.avatar;
@@ -358,7 +360,6 @@ export default function CasterEditor({
             src={caster.avatar}
             alt="avatar"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            // 加入 onError 保护，如果填错路径显示默认图标
             onError={(e) => {
                const fb = '/assets/logos/OW.png';
                if (!e.target.src.includes(fb)) e.target.src = fb;
@@ -395,7 +396,7 @@ export default function CasterEditor({
   return (
     <div style={{ display: 'grid', gap: t.blockGap }}>
       <ShellPanel
-        title="Caster Editor"
+        title={tr('casterEditor.title')}
         accent
         density={density}
         bodyStyle={{ padding: t.panelPaddingLg }}
@@ -427,6 +428,7 @@ export default function CasterEditor({
               handleCasterAvatarUpload={handleCasterAvatarUpload}
               clearCasterAvatar={clearCasterAvatar}
               renderAvatarThumb={renderAvatarThumb}
+              tr={tr} // 🚀 传入翻译函数
             />
           ))}
         </div>
@@ -443,7 +445,7 @@ export default function CasterEditor({
             }}
             onClick={addCaster}
           >
-            + Add Caster ({casters.length}/4)
+            {tr('casterEditor.addCaster', { count: casters.length, max: 4 })}
           </button>
         </div>
       </ShellPanel>

@@ -1,4 +1,6 @@
 import React from 'react';
+// 🚀 引入 i18n
+import { useTranslation } from 'react-i18next';
 import { COLORS, UI } from '../../constants/styles';
 import { LOGO_LIST } from '../../constants/logos';
 import { createEditorUi } from '../../utils/editorUi';
@@ -85,49 +87,49 @@ function ensureLogoValue(currentValue) {
   return exists ? raw : raw;
 }
 
-function CoverModePanel({ coverMode, setField, ui, density }) {
+function CoverModePanel({ coverMode, setField, ui, density, tr }) {
   return (
     <ShellPanel
-      title="Cover Mode"
+      title={tr('coverEditor.coverMode')}
       accent
       density={density}
       bodyStyle={{ padding: density === 'spacious' ? '14px' : '12px' }}
     >
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <ToggleBtn active={coverMode === 'GENERIC'} onClick={() => setField('coverMode', 'GENERIC')} ui={ui}>
-          Generic
+          {tr('coverEditor.generic')}
         </ToggleBtn>
         <ToggleBtn active={coverMode === 'MATCH'} onClick={() => setField('coverMode', 'MATCH')} ui={ui}>
-          Match
+          {tr('coverEditor.match')}
         </ToggleBtn>
       </div>
     </ShellPanel>
   );
 }
 
-function BrandingPanel({ matchData, setField, ui, density }) {
+function BrandingPanel({ matchData, setField, ui, density, tr }) {
   return (
     <ShellPanel
-      title="Branding"
+      title={tr('coverEditor.branding')}
       accent
       density={density}
       bodyStyle={{ padding: density === 'spacious' ? '14px' : '12px' }}
     >
       <div style={{ display: 'grid', gap: '12px' }}>
         <div style={rowStyle}>
-          <Field label="Main Title">
+          <Field label={tr('coverEditor.mainTitle')}>
             <TextInput value={matchData.titleMain} onChange={v => setField('titleMain', v)} placeholder="FRIES CUP" ui={ui} />
           </Field>
-          <Field label="Year">
+          <Field label={tr('coverEditor.year')}>
             <TextInput value={matchData.topLeftYear} onChange={v => setField('topLeftYear', v)} placeholder="2026" ui={ui} />
           </Field>
         </div>
 
         <div style={rowStyle}>
-          <Field label="Sub Title EN">
+          <Field label={tr('coverEditor.subTitleEn')}>
             <TextInput value={matchData.titleSubEn} onChange={v => setField('titleSubEn', v)} placeholder="ACADEMY" ui={ui} />
           </Field>
-          <Field label="Sub Title CN">
+          <Field label={tr('coverEditor.subTitleCn')}>
             <TextInput value={matchData.titleSubCn} onChange={v => setField('titleSubCn', v)} placeholder="薯条杯学院赛" ui={ui} />
           </Field>
         </div>
@@ -136,17 +138,17 @@ function BrandingPanel({ matchData, setField, ui, density }) {
   );
 }
 
-function GenericPanel({ matchData, setField, ui, density }) {
+function GenericPanel({ matchData, setField, ui, density, tr }) {
   return (
     <ShellPanel
-      title="Generic Cover"
+      title={tr('coverEditor.genericCover')}
       accent
       density={density}
       bodyStyle={{ padding: density === 'spacious' ? '14px' : '12px' }}
     >
       <div style={{ display: 'grid', gap: '12px' }}>
         <div style={rowStyle}>
-          <Field label="Phase Main EN">
+          <Field label={tr('coverEditor.phaseMainEn')}>
             <TextInput
               value={matchData.phaseMainEn}
               onChange={v => setField('phaseMainEn', v)}
@@ -154,7 +156,7 @@ function GenericPanel({ matchData, setField, ui, density }) {
               ui={ui}
             />
           </Field>
-          <Field label="Phase Main CN">
+          <Field label={tr('coverEditor.phaseMainCn')}>
             <TextInput
               value={matchData.phaseMainCn}
               onChange={v => setField('phaseMainCn', v)}
@@ -165,7 +167,7 @@ function GenericPanel({ matchData, setField, ui, density }) {
         </div>
 
         <div style={rowStyle}>
-          <Field label="Caster Label EN">
+          <Field label={tr('coverEditor.casterLabelEn')}>
             <TextInput
               value={matchData.coverCasterLabelEn}
               onChange={v => setField('coverCasterLabelEn', v)}
@@ -173,7 +175,7 @@ function GenericPanel({ matchData, setField, ui, density }) {
               ui={ui}
             />
           </Field>
-          <Field label="Caster Label CN">
+          <Field label={tr('coverEditor.casterLabelCn')}>
             <TextInput
               value={matchData.coverCasterLabelCn}
               onChange={v => setField('coverCasterLabelCn', v)}
@@ -184,7 +186,7 @@ function GenericPanel({ matchData, setField, ui, density }) {
         </div>
 
         <div style={rowStyle}>
-          <Field label="Admin Label EN">
+          <Field label={tr('coverEditor.adminLabelEn')}>
             <TextInput
               value={matchData.coverAdminLabelEn}
               onChange={v => setField('coverAdminLabelEn', v)}
@@ -192,7 +194,7 @@ function GenericPanel({ matchData, setField, ui, density }) {
               ui={ui}
             />
           </Field>
-          <Field label="Admin Label CN">
+          <Field label={tr('coverEditor.adminLabelCn')}>
             <TextInput
               value={matchData.coverAdminLabelCn}
               onChange={v => setField('coverAdminLabelCn', v)}
@@ -203,7 +205,7 @@ function GenericPanel({ matchData, setField, ui, density }) {
         </div>
 
         <div style={rowStyle}>
-          <Field label="Cover Casters">
+          <Field label={tr('coverEditor.coverCasters')}>
             <TextInput
               value={matchData.coverCasters}
               onChange={v => setField('coverCasters', v)}
@@ -211,7 +213,7 @@ function GenericPanel({ matchData, setField, ui, density }) {
               ui={ui}
             />
           </Field>
-          <Field label="Cover Admins">
+          <Field label={tr('coverEditor.coverAdmins')}>
             <TextInput
               value={matchData.coverAdmins}
               onChange={v => setField('coverAdmins', v)}
@@ -225,7 +227,7 @@ function GenericPanel({ matchData, setField, ui, density }) {
   );
 }
 
-function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions }) {
+function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions, tr }) {
   const applyTeamPreset = (side, presetKey) => {
     const preset = teamOptions.find(t => t.key === presetKey);
     const rawLogo = preset?.logoPath || '';
@@ -251,20 +253,20 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions 
 
   return (
     <ShellPanel
-      title="Match Cover"
+      title={tr('coverEditor.matchCover')}
       accent
       density={density}
       bodyStyle={{ padding: density === 'spacious' ? '14px' : '12px' }}
     >
       <div style={{ display: 'grid', gap: '12px' }}>
         <div style={rowStyle}>
-          <Field label="Preset for Team A">
+          <Field label={tr('coverEditor.presetTeamA')}>
             <SelectInput
               value={matchData.coverTeamPresetA || ''}
               onChange={v => applyTeamPreset('A', v)}
               ui={ui}
             >
-              <option value="">Select Team A Preset</option>
+              <option value="">{tr('coverEditor.selectPresetA')}</option>
               {teamOptions.map(option => (
                 <option key={`A-${option.key}`} value={option.key}>
                   {option.label}
@@ -273,13 +275,13 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions 
             </SelectInput>
           </Field>
 
-          <Field label="Preset for Team B">
+          <Field label={tr('coverEditor.presetTeamB')}>
             <SelectInput
               value={matchData.coverTeamPresetB || ''}
               onChange={v => applyTeamPreset('B', v)}
               ui={ui}
             >
-              <option value="">Select Team B Preset</option>
+              <option value="">{tr('coverEditor.selectPresetB')}</option>
               {teamOptions.map(option => (
                 <option key={`B-${option.key}`} value={option.key}>
                   {option.label}
@@ -290,21 +292,21 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions 
         </div>
 
         <div style={rowStyle}>
-          <Field label="Team A">
+          <Field label={tr('coverEditor.teamA')}>
             <TextInput value={matchData.teamA} onChange={v => setField('teamA', v)} placeholder="TEAM A" ui={ui} />
           </Field>
-          <Field label="Team B">
+          <Field label={tr('coverEditor.teamB')}>
             <TextInput value={matchData.teamB} onChange={v => setField('teamB', v)} placeholder="TEAM B" ui={ui} />
           </Field>
         </div>
 
         <div style={rowStyle}>
-          <Field label="Logo A">
+          <Field label={tr('coverEditor.logoA')}>
             <SelectInput value={logoAValue} onChange={v => setField('logoA', v)} ui={ui}>
               {!LOGO_LIST.some(l => l.path === logoAValue) && logoAValue ? (
                 <option value={logoAValue}>{logoAValue}</option>
               ) : null}
-              <option value="">Select Logo A</option>
+              <option value="">{tr('coverEditor.selectLogoA')}</option>
               {LOGO_LIST.map(l => (
                 <option key={`logo-a-${l.path}`} value={l.path}>
                   {l.name}
@@ -313,12 +315,12 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions 
             </SelectInput>
           </Field>
 
-          <Field label="Logo B">
+          <Field label={tr('coverEditor.logoB')}>
             <SelectInput value={logoBValue} onChange={v => setField('logoB', v)} ui={ui}>
               {!LOGO_LIST.some(l => l.path === logoBValue) && logoBValue ? (
                 <option value={logoBValue}>{logoBValue}</option>
               ) : null}
-              <option value="">Select Logo B</option>
+              <option value="">{tr('coverEditor.selectLogoB')}</option>
               {LOGO_LIST.map(l => (
                 <option key={`logo-b-${l.path}`} value={l.path}>
                   {l.name}
@@ -329,28 +331,28 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions 
         </div>
 
         <div style={rowStyle}>
-          <Field label="Round">
+          <Field label={tr('coverEditor.round')}>
             <TextInput value={matchData.roundLabel} onChange={v => setField('roundLabel', v)} placeholder="ROUND 01" ui={ui} />
           </Field>
-          <Field label="Stage">
+          <Field label={tr('coverEditor.stage')}>
             <TextInput value={matchData.matchStage} onChange={v => setField('matchStage', v)} placeholder="OPEN QUALIFIER" ui={ui} />
           </Field>
         </div>
 
         <div style={rowStyle}>
-          <Field label="Time">
+          <Field label={tr('coverEditor.time')}>
             <TextInput value={matchData.matchTime} onChange={v => setField('matchTime', v)} placeholder="19:30 CST" ui={ui} />
           </Field>
-          <Field label="Format">
+          <Field label={tr('coverEditor.format')}>
             <TextInput value={matchData.matchFormat} onChange={v => setField('matchFormat', v)} placeholder="BO3" ui={ui} />
           </Field>
         </div>
 
         <div style={rowStyle}>
-          <Field label="Caster Label">
+          <Field label={tr('coverEditor.casterLabel')}>
             <TextInput value={matchData.casterLabel} onChange={v => setField('casterLabel', v)} placeholder="CASTER" ui={ui} />
           </Field>
-          <Field label="Caster Names">
+          <Field label={tr('coverEditor.casterNames')}>
             <TextInput value={matchData.casterNames} onChange={v => setField('casterNames', v)} placeholder="A / B" ui={ui} />
           </Field>
         </div>
@@ -359,8 +361,8 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions 
           density={density}
           text={
             teamOptions.length
-              ? '选择队伍预设后会自动带入队名和 logo。LOGO 也可以单独从已有 LOGO_LIST 中下拉选择。'
-              : '当前没有可用队伍预设。请先在 TEAM DB 导入 rosterPresetLibrary，或在默认数据里配置 teamPresets。'
+              ? tr('coverEditor.teamPresetHint')
+              : tr('coverEditor.noPresetHint')
           }
         />
       </div>
@@ -374,10 +376,12 @@ export default function CoverEditor({
   matchData,
   updateData,
   blockGap = 12,
-  // 👇 接收外部传进来的导出函数和状态
   onExport,      
   isExporting    
 }) {
+  // 🚀 初始化翻译钩子
+  const { t: tr } = useTranslation();
+
   const ui = createEditorUi(densityTokens, density);
   const coverMode = (matchData.coverMode || 'GENERIC').toUpperCase();
   const setField = (key, value) => updateData({ ...matchData, [key]: value });
@@ -395,10 +399,10 @@ export default function CoverEditor({
     >
       {/* 左列：通用设置 + 导出按钮 */}
       <div style={{ display: 'grid', gap: blockGap }}>
-        <CoverModePanel coverMode={coverMode} setField={setField} ui={ui} density={density} />
-        <BrandingPanel matchData={matchData} setField={setField} ui={ui} density={density} />
+        <CoverModePanel coverMode={coverMode} setField={setField} ui={ui} density={density} tr={tr} />
+        <BrandingPanel matchData={matchData} setField={setField} ui={ui} density={density} tr={tr} />
 
-        {/* 👇 新增的导出按钮 */}
+        {/* 导出按钮 */}
         {onExport && (
           <button
             onClick={onExport}
@@ -419,14 +423,14 @@ export default function CoverEditor({
               transition: 'all 0.2s ease'
             }}
           >
-            {isExporting ? 'GENERATING...' : 'EXPORT COVER IMAGE'}
+            {isExporting ? tr('coverEditor.generating') : tr('coverEditor.exportBtn')}
           </button>
         )}
       </div>
 
       {/* 右列：对应模式的详细表单 */}
       {coverMode === 'GENERIC' ? (
-        <GenericPanel matchData={matchData} setField={setField} ui={ui} density={density} />
+        <GenericPanel matchData={matchData} setField={setField} ui={ui} density={density} tr={tr} />
       ) : (
         <MatchPanel
           matchData={matchData}
@@ -435,6 +439,7 @@ export default function CoverEditor({
           ui={ui}
           density={density}
           teamOptions={teamOptions}
+          tr={tr}
         />
       )}
     </div>

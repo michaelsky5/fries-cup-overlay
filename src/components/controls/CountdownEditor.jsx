@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+// 🚀 引入 i18n
+import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { COLORS, UI, panelBase } from '../../constants/styles';
 import { LOGO_LIST } from '../../constants/logos';
@@ -11,6 +13,9 @@ export default function CountdownEditor({
   density = 'standard',
   densityTokens
 }) {
+  // 🚀 初始化翻译钩子
+  const { t: tr } = useTranslation();
+
   // 🌟 引入 updateWithHistory 保护核心操作
   const { matchData, updateData, updateWithHistory } = useMatchContext();
 
@@ -104,7 +109,7 @@ export default function CountdownEditor({
 
   const addUpcomingMatch = () => {
     const currentList = matchData.upcomingMatches || [];
-    if (currentList.length >= 4) return alert('You can add up to 4 upcoming matches.');
+    if (currentList.length >= 4) return alert(tr('countdownEditor.maxWarning'));
     
     updateWithHistory('Add Upcoming Match', {
       ...matchData,
@@ -157,36 +162,36 @@ export default function CountdownEditor({
         alignItems: 'stretch'
       }}
     >
-      <ShellPanel title="Countdown Text & Timer" accent density={density}>
+      <ShellPanel title={tr('countdownEditor.titleTimer')} accent density={density}>
         <div style={{ display: 'grid', gap }}>
-          <Field label="Main Title" density={density}>
+          <Field label={tr('countdownEditor.mainTitle')} density={density}>
             <input
               style={controlInput}
               value={matchData.infoCupName || ''}
               onChange={e => updateData({ ...matchData, infoCupName: e.target.value })}
-              placeholder="e.g. FRIES CUP"
+              placeholder={tr('countdownEditor.placeholderMain')}
             />
           </Field>
 
-          <Field label="Subtitle" density={density}>
+          <Field label={tr('countdownEditor.subtitle')} density={density}>
             <input
               style={controlInput}
               value={matchData.infoSubtitle || ''}
               onChange={e => updateData({ ...matchData, infoSubtitle: e.target.value })}
-              placeholder="e.g. OPEN QUALIFIER // ROUND 1"
+              placeholder={tr('countdownEditor.placeholderSub')}
             />
           </Field>
 
-          <Field label="Bottom Status" density={density}>
+          <Field label={tr('countdownEditor.bottomStatus')} density={density}>
             <input
               style={controlInput}
               value={matchData.matchStageDescription || ''}
               onChange={e => updateData({ ...matchData, matchStageDescription: e.target.value })}
-              placeholder="e.g. STREAM STARTING SOON"
+              placeholder={tr('countdownEditor.placeholderStatus')}
             />
           </Field>
 
-          <Field label="Screen Mode" density={density}>
+          <Field label={tr('countdownEditor.screenMode')} density={density}>
             <div
               style={{
                 display: 'grid',
@@ -208,7 +213,7 @@ export default function CountdownEditor({
                 }}
                 onClick={() => updateData({ ...matchData, countdownMode: 'FULL' })}
               >
-                Full
+                {tr('countdownEditor.modeFull')}
               </button>
 
               <button
@@ -224,7 +229,7 @@ export default function CountdownEditor({
                 }}
                 onClick={() => updateData({ ...matchData, countdownMode: 'VIDEO' })}
               >
-                Video
+                {tr('countdownEditor.modeVideo')}
               </button>
             </div>
           </Field>
@@ -236,7 +241,7 @@ export default function CountdownEditor({
               gap
             }}
           >
-            <Field label="Minutes" density={density}>
+            <Field label={tr('countdownEditor.minutes')} density={density}>
               <input
                 type="number"
                 min="0"
@@ -246,7 +251,7 @@ export default function CountdownEditor({
               />
             </Field>
 
-            <Field label="Seconds" density={density}>
+            <Field label={tr('countdownEditor.seconds')} density={density}>
               <input
                 type="number"
                 min="0"
@@ -262,20 +267,20 @@ export default function CountdownEditor({
             style={{ ...actionBtn, backgroundColor: COLORS.yellow, color: COLORS.black }}
             onClick={applyCountdownTime}
           >
-            Apply & Reset Countdown
+            {tr('countdownEditor.applyReset')}
           </button>
         </div>
       </ShellPanel>
 
       <ShellPanel
-        title="Schedule Board Editor"
+        title={tr('countdownEditor.titleSchedule')}
         density={density}
         right={
           <button
             style={{ ...actionBtn, backgroundColor: COLORS.yellow, color: COLORS.black, padding: density === 'spacious' ? '0 14px' : '0 12px' }}
             onClick={addUpcomingMatch}
           >
-            + Add Match
+            {tr('countdownEditor.addMatch')}
           </button>
         }
         accent
@@ -320,7 +325,7 @@ export default function CountdownEditor({
                       textTransform: 'uppercase'
                     }}
                   >
-                    Match {i + 1}
+                    {tr('countdownEditor.matchNum', { num: i + 1 })}
                   </div>
                   <div
                     style={{
@@ -332,7 +337,7 @@ export default function CountdownEditor({
                       marginTop: '4px'
                     }}
                   >
-                    Schedule Slot
+                    {tr('countdownEditor.scheduleSlot')}
                   </div>
                 </div>
 
@@ -340,7 +345,7 @@ export default function CountdownEditor({
                   style={{ ...softOutlineBtn, borderColor: '#c0392b', color: '#c0392b', padding: density === 'spacious' ? '0 12px' : '0 10px' }}
                   onClick={() => removeUpcomingMatch(i)}
                 >
-                  Remove
+                  {tr('countdownEditor.remove')}
                 </button>
               </div>
 
@@ -351,25 +356,25 @@ export default function CountdownEditor({
                   gap
                 }}
               >
-                <Field label="Time" density={density}>
+                <Field label={tr('countdownEditor.time')} density={density}>
                   <input
                     style={controlInput}
                     value={m.time || ''}
                     onChange={e => setUpcomingMatchField(i, 'time', e.target.value)}
-                    placeholder="19:30"
+                    placeholder={tr('countdownEditor.placeholderTime')}
                   />
                 </Field>
 
-                <Field label="Stage" density={density}>
+                <Field label={tr('countdownEditor.stage')} density={density}>
                   <input
                     style={controlInput}
                     value={m.stage || ''}
                     onChange={e => setUpcomingMatchField(i, 'stage', e.target.value)}
-                    placeholder="OPEN QUALIFIER"
+                    placeholder={tr('countdownEditor.placeholderStage')}
                   />
                 </Field>
 
-                <Field label="Score A" density={density}>
+                <Field label={tr('countdownEditor.scoreA')} density={density}>
                   <input
                     style={{ ...controlInput, textAlign: 'center', fontWeight: 900 }}
                     value={m.scoreA ?? ''}
@@ -378,7 +383,7 @@ export default function CountdownEditor({
                   />
                 </Field>
 
-                <Field label="Score B" density={density}>
+                <Field label={tr('countdownEditor.scoreB')} density={density}>
                   <input
                     style={{ ...controlInput, textAlign: 'center', fontWeight: 900 }}
                     value={m.scoreB ?? ''}
@@ -395,7 +400,7 @@ export default function CountdownEditor({
                   gap
                 }}
               >
-                <Field label="Team A" density={density}>
+                <Field label={tr('countdownEditor.teamA')} density={density}>
                   <input
                     style={{ ...controlInput, fontWeight: 900 }}
                     value={m.teamA || ''}
@@ -404,7 +409,7 @@ export default function CountdownEditor({
                   />
                 </Field>
 
-                <Field label="Team B" density={density}>
+                <Field label={tr('countdownEditor.teamB')} density={density}>
                   <input
                     style={{ ...controlInput, fontWeight: 900 }}
                     value={m.teamB || ''}
@@ -421,7 +426,7 @@ export default function CountdownEditor({
                   gap
                 }}
               >
-                <Field label="Logo A" density={density}>
+                <Field label={tr('countdownEditor.logoA')} density={density}>
                   <select
                     style={controlSelect}
                     value={m.logoA}
@@ -431,20 +436,20 @@ export default function CountdownEditor({
                   </select>
                 </Field>
 
-                <Field label="BG A" density={density}>
+                <Field label={tr('countdownEditor.bgA')} density={density}>
                   <select
                     style={controlSelect}
                     value={m.logoBgA}
                     onChange={e => setUpcomingMatchField(i, 'logoBgA', e.target.value)}
                   >
-                    <option value={COLORS.mainDark}>Dark</option>
-                    <option value={COLORS.white}>White</option>
+                    <option value={COLORS.mainDark}>{tr('countdownEditor.dark')}</option>
+                    <option value={COLORS.white}>{tr('countdownEditor.white')}</option>
                   </select>
                 </Field>
 
                 {!isUltra && (
                   <>
-                    <Field label="Logo B" density={density}>
+                    <Field label={tr('countdownEditor.logoB')} density={density}>
                       <select
                         style={controlSelect}
                         value={m.logoB}
@@ -454,14 +459,14 @@ export default function CountdownEditor({
                       </select>
                     </Field>
 
-                    <Field label="BG B" density={density}>
+                    <Field label={tr('countdownEditor.bgB')} density={density}>
                       <select
                         style={controlSelect}
                         value={m.logoBgB}
                         onChange={e => setUpcomingMatchField(i, 'logoBgB', e.target.value)}
                       >
-                        <option value={COLORS.mainDark}>Dark</option>
-                        <option value={COLORS.white}>White</option>
+                        <option value={COLORS.mainDark}>{tr('countdownEditor.dark')}</option>
+                        <option value={COLORS.white}>{tr('countdownEditor.white')}</option>
                       </select>
                     </Field>
                   </>
@@ -476,7 +481,7 @@ export default function CountdownEditor({
                     gap
                   }}
                 >
-                  <Field label="Logo B" density={density}>
+                  <Field label={tr('countdownEditor.logoB')} density={density}>
                     <select
                       style={controlSelect}
                       value={m.logoB}
@@ -486,14 +491,14 @@ export default function CountdownEditor({
                     </select>
                   </Field>
 
-                  <Field label="BG B" density={density}>
+                  <Field label={tr('countdownEditor.bgB')} density={density}>
                     <select
                       style={controlSelect}
                       value={m.logoBgB}
                       onChange={e => setUpcomingMatchField(i, 'logoBgB', e.target.value)}
                     >
-                      <option value={COLORS.mainDark}>Dark</option>
-                      <option value={COLORS.white}>White</option>
+                      <option value={COLORS.mainDark}>{tr('countdownEditor.dark')}</option>
+                      <option value={COLORS.white}>{tr('countdownEditor.white')}</option>
                     </select>
                   </Field>
                 </div>
@@ -520,7 +525,7 @@ export default function CountdownEditor({
                   textTransform: 'uppercase'
                 }}
               >
-                No Upcoming Matches
+                {tr('countdownEditor.noMatches')}
               </div>
               <div
                 style={{
@@ -530,7 +535,7 @@ export default function CountdownEditor({
                   lineHeight: 1.6
                 }}
               >
-                Add up to 4 schedule items for the countdown board.
+                {tr('countdownEditor.noMatchesDesc')}
               </div>
             </div>
           )}

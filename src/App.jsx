@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+// 🚀 1. 引入 i18n hook
+import { useTranslation } from 'react-i18next'; 
 
 // Context / Hooks
 import { MatchContext } from './contexts/MatchContext';
@@ -40,13 +42,14 @@ const APP_SCREENS = { INTRO: 'intro', NOTICE: 'notice', LOGIN: 'login', WORKSPAC
 const EASY_TABS = ['LIVE', 'MAP_POOL', 'COUNTDOWN', 'STATS'];
 const PRO_TABS = ['LIVE', 'MAP_POOL', 'ROSTER', 'STATS', 'CASTERS', 'COUNTDOWN', 'HIGHLIGHT', 'VIDEO', 'TEAM_DB', 'COVER'];
 
-const getConsolePresetMeta = (value, viewportW = 0) => {
-  if (value === '1920x1080') return { label: '1080P', width: 1920, desc: 'Optimized for compact console layouts.', densityHint: 'compact' };
-  if (value === '2560x1440') return { label: '2K', width: 2560, desc: 'Standard layout for desktop directing.', densityHint: 'standard' };
-  if (value === '3840x2160') return { label: '4K', width: 3840, desc: 'Spacious layout for large monitor setups.', densityHint: 'spacious' };
-  if (viewportW >= 3000) return { label: 'AUTO · 4K+', width: null, desc: 'Auto-adapting to high-res environments.', densityHint: 'spacious' };
-  if (viewportW >= 2200) return { label: 'AUTO · 2K', width: null, desc: 'Auto-adapting to 2K environments.', densityHint: 'standard' };
-  return { label: 'AUTO · 1080P', width: null, desc: 'Auto-adapting to 1080P environments.', densityHint: 'compact' };
+// 🚀 2. 修改此函数，接收 t 函数作为参数
+const getConsolePresetMeta = (value, viewportW = 0, t) => {
+  if (value === '1920x1080') return { label: '1080P', width: 1920, desc: t('consoleMeta.1080p_desc'), densityHint: 'compact' };
+  if (value === '2560x1440') return { label: '2K', width: 2560, desc: t('consoleMeta.2k_desc'), densityHint: 'standard' };
+  if (value === '3840x2160') return { label: '4K', width: 3840, desc: t('consoleMeta.4k_desc'), densityHint: 'spacious' };
+  if (viewportW >= 3000) return { label: 'AUTO · 4K+', width: null, desc: t('consoleMeta.auto_4k_desc'), densityHint: 'spacious' };
+  if (viewportW >= 2200) return { label: 'AUTO · 2K', width: null, desc: t('consoleMeta.auto_2k_desc'), densityHint: 'standard' };
+  return { label: 'AUTO · 1080P', width: null, desc: t('consoleMeta.auto_1080p_desc'), densityHint: 'compact' };
 };
 
 const SceneComponentMap = {
@@ -69,13 +72,15 @@ const renderSceneByKey = (sceneKey, matchData, isActive = false) => {
 
 function MainApp() {
   const isOverlay = typeof window !== 'undefined' && window.location.hash === '#overlay';
+  
+  // 🚀 3. 初始化 t 函数
+  const { t } = useTranslation();
 
   const { w, h, density, isDense, isUltra, isShort } = useViewport();
   const { matchData, matchDataRef, videoProgress, updateData: originalUpdateData } = useMatchState();
   const { history, setHistory, updateWithHistory: originalUpdateWithHistory, handleUndo: originalHandleUndo } = useHistory(matchDataRef, originalUpdateData);
   const { previewScene, setPreviewScene, previewSceneRef, renderScene, isTransitioning, takeScene: originalTakeScene } = useSceneController(matchData, matchDataRef, originalUpdateData, setHistory);
 
-  // 🚀 引入我们刚写的广播和接收方法
   const { obsStatus, obsConfig, connectOBS, broadcastState, onReceiveSync } = useOBS();
 
   const [activeTab, setActiveTab] = useState('LIVE');
@@ -93,10 +98,8 @@ function MainApp() {
   const closeModal = () => setModalConfig({ isOpen: false });
   const showModal = config => setModalConfig({ ...config, isOpen: true });
 
-// 1️⃣ 【Overlay 端专属逻辑】：打开就静默连上 OBS，并随时听指挥
   useEffect(() => {
     if (isOverlay) {
-      // 🚀 核心修复：从 URL 中抓取密码
       const urlParams = new URLSearchParams(window.location.search);
       const pwdFromUrl = urlParams.get('pwd');
       
@@ -106,7 +109,6 @@ function MainApp() {
       console.log('Overlay attempting to connect with pwd:', connectPwd ? '***' : 'NONE');
       connectOBS(connectUrl, connectPwd);
       
-      // 注册接收器：当收到控制台发来的同步数据时，覆盖本地状态
       onReceiveSync((remotePayload) => {
         if (remotePayload.matchData) {
           originalUpdateData(remotePayload.matchData);
@@ -116,9 +118,8 @@ function MainApp() {
         }
       });
     }
-  }, [isOverlay]); // 仅初始化一次
+  }, [isOverlay]); 
 
-  // 2️⃣ 【控制台端专属逻辑】：统一的状态同步发射器
   const syncToOverlay = (newData, newScene) => {
     if (obsStatus === 'connected' && !isOverlay) {
       broadcastState({
@@ -128,29 +129,24 @@ function MainApp() {
     }
   };
 
-  // 拦截 updateData (比如改比分、换名字时触发)
   const handleUpdateDataAndSync = (newData) => {
     const resolvedData = typeof newData === 'function' ? newData(matchData) : newData;
     originalUpdateData(resolvedData);
     syncToOverlay(resolvedData);
   };
 
-  // 拦截 updateWithHistory (比如各种快捷按钮触发)
   const handleUpdateWithHistoryAndSync = (actionName, newData) => {
     originalUpdateWithHistory(actionName, newData);
     syncToOverlay(newData);
   };
 
-  // 拦截 TakeScene (切场时触发)
   const handleTakeSceneAndSync = (targetScene) => {
     originalTakeScene(targetScene);
     syncToOverlay(matchData, targetScene);
   };
 
-  // 拦截 Undo (撤销时触发)
   const handleUndoAndSync = () => {
     originalHandleUndo();
-    // 稍微延迟一下等待 state 恢复，或者在真实的业务里你可以在 useHistory 内部做钩子，这里用 setTimeout 简单处理同步
     setTimeout(() => {
       syncToOverlay(matchDataRef.current);
     }, 50);
@@ -160,13 +156,14 @@ function MainApp() {
     isUnlocked,
     presetModalTarget: null,
     setPresetModalTarget: () => {},
-    takeScene: handleTakeSceneAndSync, // 🚀 快捷键也走同步版本
+    takeScene: handleTakeSceneAndSync, 
     previewSceneRef,
     setActiveTab,
     handleUndo: handleUndoAndSync
   });
 
-  const consolePresetMeta = useMemo(() => getConsolePresetMeta(consoleResolution, w), [consoleResolution, w]);
+  // 🚀 4. 将 t 传入，并加入依赖数组
+  const consolePresetMeta = useMemo(() => getConsolePresetMeta(consoleResolution, w, t), [consoleResolution, w, t]);
   const uiDensity = consoleResolution === 'auto' ? density : consolePresetMeta.densityHint;
   const densityTokens = useMemo(() => getDensityTokens(uiDensity), [uiDensity]);
 
@@ -194,18 +191,19 @@ function MainApp() {
   const mainGridTemplate = showRightColumn ? `${sideColWidth}px minmax(0,1fr) ${rightColWidth}px` : `${sideColWidth}px minmax(0,1fr)`;
   const monitorGridTemplate = isDense ? '1fr' : '1fr 1fr';
 
+  // 🚀 5. 替换侧边栏与标题文本
   const sceneLabelMap = {
-    LIVE: 'MATCH LIVE',
-    TEAM_DB: 'TEAM DATABASE',
-    MAP_POOL: 'MAP POOL',
-    CASTERS: 'CASTERS',
-    COUNTDOWN: 'COUNTDOWN',
-    VIDEO: 'VIDEO PLAYER',
-    HIGHLIGHT: 'HIGHLIGHTS',
-    STATS: 'MATCH STATS',
-    ROSTER: 'TEAM ROSTERS',
-    WINNER: 'WINNER SCREEN',
-    COVER: 'BROADCAST COVER',
+    LIVE: t('scenes.MATCH_LIVE'),
+    TEAM_DB: t('scenes.TEAM_DB'),
+    MAP_POOL: t('scenes.MAP_POOL'),
+    CASTERS: t('scenes.CASTERS'),
+    COUNTDOWN: t('scenes.COUNTDOWN'),
+    VIDEO: t('scenes.VIDEO_PLAYER'),
+    HIGHLIGHT: t('scenes.HIGHLIGHTS'),
+    STATS: t('scenes.MATCH_STATS'),
+    ROSTER: t('scenes.TEAM_ROSTERS'),
+    WINNER: t('scenes.WINNER_SCREEN'),
+    COVER: t('scenes.BROADCAST_COVER'),
   };
 
   const silentMatchData = useMemo(() => ({
@@ -243,7 +241,8 @@ function MainApp() {
       setProAccessCode('');
       return;
     }
-    showModal({ type: 'alert', title: 'ACCESS DENIED', message: 'Access Denied: Incorrect passcode.', isDanger: true });
+    // 🚀 6. 替换弹窗文本
+    showModal({ type: 'alert', title: t('modals.accessDenied.title'), message: t('modals.accessDenied.message'), isDanger: true });
   };
 
   const handleUnlock = () => {
@@ -259,23 +258,23 @@ function MainApp() {
 
   const exportConfig = () => {
     navigator.clipboard.writeText(JSON.stringify(matchData))
-      .then(() => showModal({ type: 'alert', title: 'EXPORT SUCCESS', message: 'All configurations successfully copied to clipboard.' }))
-      .catch(err => showModal({ type: 'alert', title: 'EXPORT FAILED', message: 'Failed to copy to clipboard. Ensure you have clipboard permissions.', isDanger: true }));
+      .then(() => showModal({ type: 'alert', title: t('modals.exportSuccess.title'), message: t('modals.exportSuccess.message') }))
+      .catch(err => showModal({ type: 'alert', title: t('modals.exportFailed.title'), message: t('modals.exportFailed.message'), isDanger: true }));
   };
 
   const importConfig = () => {
     showModal({
       type: 'prompt',
-      title: 'IMPORT CONFIG',
-      message: 'Paste the full JSON configuration below:',
+      title: t('modals.importConfig.title'),
+      message: t('modals.importConfig.message'),
       onConfirm: data => {
         if (!data) return;
         try {
           const parsed = JSON.parse(data);
           handleUpdateDataAndSync(parsed);
-          showModal({ type: 'alert', title: 'IMPORT SUCCESS', message: 'Configuration imported successfully!' });
+          showModal({ type: 'alert', title: t('modals.importSuccess.title'), message: t('modals.importSuccess.message') });
         } catch (e) {
-          showModal({ type: 'alert', title: 'IMPORT FAILED', message: 'Invalid JSON format. Import failed.', isDanger: true });
+          showModal({ type: 'alert', title: t('modals.importFailed.title'), message: t('modals.importFailed.message'), isDanger: true });
         }
       }
     });
@@ -319,9 +318,9 @@ function MainApp() {
   const handleReset = () => {
     showModal({
       type: 'confirm',
-      title: 'NUCLEAR RESET',
+      title: t('modals.nuclearReset.title'),
       isDanger: true,
-      message: 'WARNING: Are you sure you want to reset all scores, maps, casters, and rosters?\nThis will clear all temporary match data! (Global Team DB will not be affected)',
+      message: t('modals.nuclearReset.message'),
       onConfirm: () =>
         handleUpdateWithHistoryAndSync('Nuclear Reset', {
           ...matchData,
@@ -332,7 +331,7 @@ function MainApp() {
           subIndexA: null,
           subIndexB: null,
           activeComms: null,
-          teamA: 'TEAM A',
+          teamA: 'TEAM A', // 默认数据占位，无需翻译
           teamB: 'TEAM B',
           casters: [
             { id: 'A', title: 'COMMENTATOR', label: 'CASTER A', social: '', avatar: '' },
@@ -381,7 +380,6 @@ function MainApp() {
     );
   };
 
-  // 🚀 确保 Context 下发的是强化过的、带同步功能的拦截器
   const contextValue = useMemo(() => ({
     matchData,
     updateData: handleUpdateDataAndSync,
@@ -463,7 +461,7 @@ function MainApp() {
           setPreviewScene={setPreviewScene}
           renderScene={renderScene}
           isTransitioning={isTransitioning}
-          takeScene={handleTakeSceneAndSync} // 🚀 TAKE 按钮拦截
+          takeScene={handleTakeSceneAndSync} 
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           availableTabs={availableTabs}
@@ -490,7 +488,6 @@ function MainApp() {
   );
 }
 
-// 🚀 将原先单纯导出的 App 包裹上 OBS Provider
 export default function App() {
   return (
     <OBSProvider>

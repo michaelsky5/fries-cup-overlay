@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+// 🚀 引入 i18n
+import { useTranslation } from 'react-i18next';
 import { useOBS } from '../../contexts/OBSContext';
 import { useMatchContext } from '../../contexts/MatchContext'; 
 
@@ -12,6 +14,9 @@ const COLORS = {
 };
 
 export default function OBSConnector() {
+  // 🚀 初始化翻译钩子
+  const { t } = useTranslation();
+
   const { obsStatus, obsConfig, connectOBS, disconnectOBS } = useOBS();
   const { showModal } = useMatchContext(); 
   const [url, setUrl] = useState('');
@@ -31,48 +36,9 @@ export default function OBSConnector() {
   const handleShowHelp = () => {
     showModal({
       type: 'alert',
-      title: 'WEBSOCKET CONNECTION GUIDE',
-      maxWidth: '680px', // 🚀 传给 Modal：让这个弹窗展开到 680px 宽
-      message: `[ ENGLISH ]
-
-To remote control your OBS from another device (e.g., iPad), follow these 3 steps:
-
-STEP 1: ENABLE OBS ACCESS
-In OBS, go to [Tools] -> [WebSocket Server Settings]. 
-Check [Enable WebSocket server] and [Enable authentication]. 
-Set a simple password (e.g., 123456).
-
-STEP 2: ADD TO OBS
-Add a [Browser] source in OBS (1920x1080).
-Enter this EXACT URL (replace with your password) so the overlay auto-connects:
-https://console.fries-cup.com/?pwd=YOUR_PASSWORD#overlay
-
-STEP 3: CONNECT REMOTE
-Ensure your iPad is on the same WiFi as the OBS PC. 
-Open https://console.fries-cup.com/ on the iPad. 
-Enter the OBS PC's local IP (e.g., 192.168.1.x) and the password above. 
-Click CONNECT.
-
----------------------------------------------------
-
-[ 中文说明 ]
-
-为了让外部设备（如平板）能遥控 OBS 画面，请按以下 3 步操作：
-
-第一步：开启 OBS 接口
-在 OBS 菜单栏点击 [工具] -> [WebSocket 服务器设置]。
-勾选 [启用 WebSocket 服务器] 和 [启用身份验证]，并设置一个密码（如 123456）。
-
-第二步：植入直播画面
-在 OBS 中添加一个 [浏览器] 源，宽度 1920，高度 1080。
-网址必须这样填（用于让画面底层自动建立连接）：
-https://console.fries-cup.com/?pwd=你的密码#overlay
-
-第三步：连接遥控台
-确保你的平板与 OBS 电脑在同一个 WiFi 下。
-在平板浏览器中打开 https://console.fries-cup.com/。
-在上方输入 OBS 电脑的局域网 IP（如 192.168.1.x）和刚才的密码。
-点击 CONNECT 即可。`
+      title: t('obsConnector.guideTitle'),
+      maxWidth: '680px',
+      message: t('obsConnector.guideText')
     });
   };
 
@@ -100,7 +66,7 @@ https://console.fries-cup.com/?pwd=你的密码#overlay
           boxShadow: obsStatus !== 'disconnected' ? `0 0 8px ${statusColor}` : 'none' 
         }} />
         <span style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '1px', textTransform: 'uppercase', color: obsStatus === 'disconnected' ? COLORS.faintWhite : '#fff' }}>
-          OBS: {obsStatus}
+          {t('obsConnector.status', { status: obsStatus })}
         </span>
       </div>
 
@@ -130,7 +96,7 @@ https://console.fries-cup.com/?pwd=你的密码#overlay
             onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255, 77, 77, 0.1)'; }}
             onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
           >
-            DISCONNECT
+            {t('obsConnector.disconnect')}
           </button>
         </>
       ) : (
@@ -158,7 +124,7 @@ https://console.fries-cup.com/?pwd=你的密码#overlay
             type="password" 
             value={password} 
             onChange={(e) => setPassword(e.target.value)} 
-            placeholder="Password"
+            placeholder={t('obsConnector.passwordPlaceholder')}
             style={{ 
               height: controlHeight,
               background: 'rgba(0,0,0,0.2)', 
@@ -197,7 +163,7 @@ https://console.fries-cup.com/?pwd=你的密码#overlay
             onMouseOver={(e) => { if(obsStatus !== 'connecting') e.currentTarget.style.background = 'rgba(244, 195, 32, 0.1)'; }}
             onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
           >
-            {obsStatus === 'connecting' ? '...' : 'CONNECT'}
+            {obsStatus === 'connecting' ? t('obsConnector.connecting') : t('obsConnector.connect')}
           </button>
 
           <button 

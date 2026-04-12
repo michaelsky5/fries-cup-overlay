@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+// 🚀 引入 i18n
+import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { ShellPanel, Field, SectionHint, TogglePill } from '../common/SharedUI';
 import { COLORS, panelBase } from '../../constants/styles';
@@ -6,15 +8,6 @@ import { MAP_DATA, HERO_DATA } from '../../constants/gameData';
 import { createEditorUi } from '../../utils/editorUi';
 
 const CANONICAL_MAP_TYPES = ['CONTROL', 'ESCORT', 'HYBRID', 'PUSH', 'FLASHPOINT', 'CLASH'];
-
-const MAP_TYPE_META = {
-  CONTROL: { label: 'CONTROL' },
-  ESCORT: { label: 'ESCORT' },
-  HYBRID: { label: 'HYBRID' },
-  PUSH: { label: 'PUSH' },
-  FLASHPOINT: { label: 'FLASHPOINT' },
-  CLASH: { label: 'CLASH' }
-};
 
 const DEFAULT_EVENT_MAP_POOL = {
   CONTROL: ['ILIOS', 'LIJIANG TOWER', 'BUSAN'],
@@ -86,6 +79,9 @@ const InlineSelect = React.memo(({
 ));
 
 export default function MapPoolEditor({ density = 'standard', densityTokens, isDense = false, isUltra = false }) {
+  // 🚀 初始化翻译钩子
+  const { t: tr } = useTranslation();
+
   const { matchData, updateData, updateWithHistory } = useMatchContext();
   const [mapEditTab, setMapEditTab] = useState('MATCH');
   const [expandedBanIndex, setExpandedBanIndex] = useState(null);
@@ -387,7 +383,6 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
     });
   };
 
-  // 优化点：生成「简称 - 全名」格式的选项文案
   const buildTeamOptionLabel = (short, full, fallbackShort) => {
     const s = (short || fallbackShort).toUpperCase();
     const f = full || '';
@@ -395,13 +390,13 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
   };
 
   const pickerOptions = [
-    <option key="" value="">TBD</option>,
+    <option key="" value="">{tr('mapPoolEditor.tbd')}</option>,
     <option key="A" value="A">{buildTeamOptionLabel(matchData.teamShortA, matchData.teamA, 'TM A')}</option>,
     <option key="B" value="B">{buildTeamOptionLabel(matchData.teamShortB, matchData.teamB, 'TM B')}</option>
   ];
 
   const winnerOptions = [
-    <option key="" value="">TBD</option>,
+    <option key="" value="">{tr('mapPoolEditor.tbd')}</option>,
     <option key="A" value="A">{buildTeamOptionLabel(matchData.teamShortA, matchData.teamA, 'TM A')}</option>,
     <option key="B" value="B">{buildTeamOptionLabel(matchData.teamShortB, matchData.teamB, 'TM B')}</option>
   ];
@@ -411,19 +406,19 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: compactGrid ? '1fr' : density === 'spacious' ? '380px minmax(0,1fr)' : '350px minmax(0,1fr)', gap: t.blockGap, alignItems: 'stretch' }}>
-      <ShellPanel title="Global Map Settings" accent density={density}>
+      <ShellPanel title={tr('mapPoolEditor.globalMapSettings')} accent density={density}>
         <div style={{ display: 'grid', gap: rowGap + 2, height: '100%', alignContent: 'start' }}>
-          <Field label="Event Info" density={density}>
+          <Field label={tr('mapPoolEditor.eventInfo')} density={density}>
             <input
               style={{ ...ui.input, minHeight: stepButtonHeight, height: stepButtonHeight, boxSizing: 'border-box' }}
               value={matchData.info || ''}
               onChange={e => updateData({ ...matchData, info: e.target.value })}
-              placeholder="Enter match or event info"
+              placeholder={tr('mapPoolEditor.eventInfoPlaceholder')}
             />
           </Field>
 
           <div style={{ display: 'grid', gridTemplateColumns: ultraGrid ? '1fr' : '1fr 1fr', gap: rowGap, alignItems: 'stretch' }}>
-            <Field label="Match Format" density={density}>
+            <Field label={tr('mapPoolEditor.matchFormat')} density={density}>
               <select
                 style={consoleSelectStyle}
                 value={safeFormatSelect}
@@ -439,7 +434,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
               </select>
             </Field>
 
-            <Field label="Current Map" density={density}>
+            <Field label={tr('mapPoolEditor.currentMap')} density={density}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.35fr 1fr', gap: rowGap, alignItems: 'stretch' }}>
                 <button style={{ ...ui.outlineBtn, ...stepBtnBase }} onClick={() => setCurrentMapSafe(currentMapSafe - 1)}>−</button>
                 <div style={{ ...ui.input, minHeight: stepButtonHeight, height: stepButtonHeight, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: COLORS.yellow, letterSpacing: '0.08em', textTransform: 'uppercase', boxSizing: 'border-box' }}>
@@ -452,7 +447,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
 
           <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap + 2, alignContent: 'start' }}>
             <div style={{ fontSize: '11px', color: COLORS.white, fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
-              Top Status Content
+              {tr('mapPoolEditor.topStatusContent')}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', backgroundColor: '#111', border: `1px solid ${COLORS.line}` }}>
               <button
@@ -469,7 +464,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                 }}
                 onClick={() => updateData({ ...matchData, mapMetaDisplayMode: 'CLEAN' })}
               >
-                Clean
+                {tr('mapPoolEditor.clean')}
               </button>
               <button
                 style={{
@@ -485,7 +480,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                 }}
                 onClick={() => updateData({ ...matchData, mapMetaDisplayMode: 'RESULT' })}
               >
-                Result
+                {tr('mapPoolEditor.result')}
               </button>
               <button
                 style={{
@@ -501,14 +496,14 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                 }}
                 onClick={() => updateData({ ...matchData, mapMetaDisplayMode: 'FULL' })}
               >
-                Full
+                {tr('mapPoolEditor.full')}
               </button>
             </div>
           </div>
 
           <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap + 2, alignContent: 'start' }}>
             <div style={{ fontSize: '11px', color: COLORS.white, fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
-              Ban Display
+              {tr('mapPoolEditor.banDisplay')}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', backgroundColor: '#111', border: `1px solid ${COLORS.line}` }}>
               <button
@@ -525,7 +520,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                 }}
                 onClick={() => updateData({ ...matchData, mapBanDisplayMode: 'HIDE' })}
               >
-                Hide
+                {tr('mapPoolEditor.hide')}
               </button>
               <button
                 style={{
@@ -541,14 +536,14 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                 }}
                 onClick={() => updateData({ ...matchData, mapBanDisplayMode: 'SHOW' })}
               >
-                Show
+                {tr('mapPoolEditor.show')}
               </button>
             </div>
           </div>
 
           <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap + 2, alignContent: 'start' }}>
             <div style={{ fontSize: '11px', color: COLORS.white, fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
-              Map Pool Output
+              {tr('mapPoolEditor.mapPoolOutput')}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', backgroundColor: '#111', border: `1px solid ${COLORS.line}` }}>
               <button
@@ -565,7 +560,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                 }}
                 onClick={() => updateData({ ...matchData, mapPoolDisplayMode: 'MATCH' })}
               >
-                Match Sequence
+                {tr('mapPoolEditor.matchSequence')}
               </button>
               <button
                 style={{
@@ -581,15 +576,15 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                 }}
                 onClick={() => updateData({ ...matchData, mapPoolDisplayMode: 'OVERVIEW' })}
               >
-                Full Pool
+                {tr('mapPoolEditor.fullPool')}
               </button>
             </div>
             <TogglePill
               density={density}
               active={!!matchData.showOverviewCurrent}
               onClick={() => updateData({ ...matchData, showOverviewCurrent: !matchData.showOverviewCurrent })}
-              onText="Highlight On"
-              offText="Highlight Off"
+              onText={tr('mapPoolEditor.highlightOn')}
+              offText={tr('mapPoolEditor.highlightOff')}
               onColor={COLORS.yellow}
               offColor="#555"
             />
@@ -598,12 +593,12 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
       </ShellPanel>
 
       <ShellPanel
-        title="Map Data Editor"
+        title={tr('mapPoolEditor.mapDataEditor')}
         density={density}
         right={
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <button style={tabBtnStyle(mapEditTab === 'MATCH')} onClick={() => setMapEditTab('MATCH')}>Match Sequence</button>
-            <button style={tabBtnStyle(mapEditTab === 'OVERVIEW')} onClick={() => setMapEditTab('OVERVIEW')}>Full Pool</button>
+            <button style={tabBtnStyle(mapEditTab === 'MATCH')} onClick={() => setMapEditTab('MATCH')}>{tr('mapPoolEditor.matchSequence')}</button>
+            <button style={tabBtnStyle(mapEditTab === 'OVERVIEW')} onClick={() => setMapEditTab('OVERVIEW')}>{tr('mapPoolEditor.fullPool')}</button>
           </div>
         }
         accent
@@ -645,7 +640,6 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                         : isDense
                         ? 'minmax(78px,auto) 1fr'
                         : density === 'spacious'
-                        // 因为 "BAN" 变短了，所以给 Type 和 Name 留出了更多空间
                         ? 'minmax(84px,auto) 1fr 1.6fr 0.95fr 0.95fr auto'
                         : 'minmax(80px,auto) 1fr 1.6fr 0.95fr 0.95fr auto',
                       gap: rowGap,
@@ -654,10 +648,10 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                   >
                     <div style={{ paddingBottom: 0, minWidth: 0 }}>
                       <div style={{ fontSize: density === 'spacious' ? '15px' : '14px', fontWeight: 900, color: isCurrent ? COLORS.yellow : COLORS.softWhite, letterSpacing: '0.06em' }}>
-                        MAP {idx + 1}
+                        {tr('mapPoolEditor.map')} {idx + 1}
                       </div>
                       <div style={{ fontSize: '10px', fontWeight: 900, color: isCurrent ? COLORS.yellow : COLORS.faintWhite, marginTop: '4px', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                        {isCurrent ? 'Current' : 'Ready'}
+                        {isCurrent ? tr('mapPoolEditor.current') : tr('mapPoolEditor.ready')}
                       </div>
                     </div>
 
@@ -668,12 +662,12 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                           rowGap={rowGap}
                           consoleSelectStyle={consoleSelectStyle}
                           inlineLabelBoxStyle={inlineLabelBoxStyle}
-                          labelLines={['MAP', 'TYPE']}
+                          labelLines={[tr('mapPoolEditor.map'), tr('mapPoolEditor.type')]}
                           value={mapInfo.type}
                           onChange={e => updateMap(idx, 'type', e.target.value)}
                         >
                           {CANONICAL_MAP_TYPES.filter(type => enabledMapTypes[type] !== false).map(type => (
-                            <option key={type} value={type}>{MAP_TYPE_META[type]?.label || type}</option>
+                            <option key={type} value={type}>{tr(`mapPoolEditor.mapTypes.${type}`) || type}</option>
                           ))}
                         </InlineSelect>
 
@@ -682,7 +676,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                           rowGap={rowGap}
                           consoleSelectStyle={consoleSelectStyle}
                           inlineLabelBoxStyle={inlineLabelBoxStyle}
-                          labelLines={['MAP', 'NAME']}
+                          labelLines={[tr('mapPoolEditor.map'), tr('mapPoolEditor.name')]}
                           value={mapInfo.name}
                           onChange={e => updateMap(idx, 'name', e.target.value)}
                         >
@@ -694,7 +688,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                           rowGap={rowGap}
                           consoleSelectStyle={consoleSelectStyle}
                           inlineLabelBoxStyle={inlineLabelBoxStyle}
-                          labelLines={['PICK']}
+                          labelLines={[tr('mapPoolEditor.pick')]}
                           value={mapInfo.picker || ''}
                           onChange={e => updateMap(idx, 'picker', e.target.value)}
                         >
@@ -706,7 +700,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                           rowGap={rowGap}
                           consoleSelectStyle={consoleSelectStyle}
                           inlineLabelBoxStyle={inlineLabelBoxStyle}
-                          labelLines={['WINNER']}
+                          labelLines={[tr('mapPoolEditor.winner')]}
                           value={mapInfo.winner || ''}
                           onChange={e => updateMap(idx, 'winner', e.target.value)}
                         >
@@ -717,7 +711,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                           style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap' }}
                           onClick={() => setExpandedBanIndex(isExpanded ? null : idx)}
                         >
-                          {isExpanded ? 'CLOSE' : 'BAN'}
+                          {isExpanded ? tr('mapPoolEditor.close') : tr('mapPoolEditor.ban')}
                         </button>
                       </div>
                     ) : (
@@ -727,12 +721,12 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                           rowGap={rowGap}
                           consoleSelectStyle={consoleSelectStyle}
                           inlineLabelBoxStyle={inlineLabelBoxStyle}
-                          labelLines={['MAP', 'TYPE']}
+                          labelLines={[tr('mapPoolEditor.map'), tr('mapPoolEditor.type')]}
                           value={mapInfo.type}
                           onChange={e => updateMap(idx, 'type', e.target.value)}
                         >
                           {CANONICAL_MAP_TYPES.filter(type => enabledMapTypes[type] !== false).map(type => (
-                            <option key={type} value={type}>{MAP_TYPE_META[type]?.label || type}</option>
+                            <option key={type} value={type}>{tr(`mapPoolEditor.mapTypes.${type}`) || type}</option>
                           ))}
                         </InlineSelect>
 
@@ -741,7 +735,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                           rowGap={rowGap}
                           consoleSelectStyle={consoleSelectStyle}
                           inlineLabelBoxStyle={inlineLabelBoxStyle}
-                          labelLines={['MAP', 'NAME']}
+                          labelLines={[tr('mapPoolEditor.map'), tr('mapPoolEditor.name')]}
                           value={mapInfo.name}
                           onChange={e => updateMap(idx, 'name', e.target.value)}
                         >
@@ -754,7 +748,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                             rowGap={rowGap}
                             consoleSelectStyle={consoleSelectStyle}
                             inlineLabelBoxStyle={inlineLabelBoxStyle}
-                            labelLines={['PICK']}
+                            labelLines={[tr('mapPoolEditor.pick')]}
                             value={mapInfo.picker || ''}
                             onChange={e => updateMap(idx, 'picker', e.target.value)}
                           >
@@ -768,7 +762,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                             rowGap={rowGap}
                             consoleSelectStyle={consoleSelectStyle}
                             inlineLabelBoxStyle={inlineLabelBoxStyle}
-                            labelLines={['WINNER']}
+                            labelLines={[tr('mapPoolEditor.winner')]}
                             value={mapInfo.winner || ''}
                             onChange={e => updateMap(idx, 'winner', e.target.value)}
                           >
@@ -781,7 +775,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                             style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap' }}
                             onClick={() => setExpandedBanIndex(isExpanded ? null : idx)}
                           >
-                            {isExpanded ? 'CLOSE' : 'BAN'}
+                            {isExpanded ? tr('mapPoolEditor.close') : tr('mapPoolEditor.ban')}
                           </button>
                         )}
                       </>
@@ -794,7 +788,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                           rowGap={rowGap}
                           consoleSelectStyle={consoleSelectStyle}
                           inlineLabelBoxStyle={inlineLabelBoxStyle}
-                          labelLines={['PICK']}
+                          labelLines={[tr('mapPoolEditor.pick')]}
                           value={mapInfo.picker || ''}
                           onChange={e => updateMap(idx, 'picker', e.target.value)}
                         >
@@ -806,7 +800,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                           rowGap={rowGap}
                           consoleSelectStyle={consoleSelectStyle}
                           inlineLabelBoxStyle={inlineLabelBoxStyle}
-                          labelLines={['WINNER']}
+                          labelLines={[tr('mapPoolEditor.winner')]}
                           value={mapInfo.winner || ''}
                           onChange={e => updateMap(idx, 'winner', e.target.value)}
                         >
@@ -817,7 +811,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                           style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap' }}
                           onClick={() => setExpandedBanIndex(isExpanded ? null : idx)}
                         >
-                          {isExpanded ? 'CLOSE' : 'BAN'}
+                          {isExpanded ? tr('mapPoolEditor.close') : tr('mapPoolEditor.ban')}
                         </button>
                       </div>
                     )}
@@ -835,25 +829,22 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
                         <div style={{ fontSize: '11px', color: '#ff9a9a', fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
-                          MAP {idx + 1} BAN
+                          {tr('mapPoolEditor.map')} {idx + 1} {tr('mapPoolEditor.ban')}
                         </div>
                         
-                        {/* 优化点：把 Ban Order 和 Swap 全都变成快捷 Toggle 提到最上面一行 */}
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                           <button
                             style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap', color: mapInfo.banOrderMode === 'B_FIRST' ? '#a5a5a5' : COLORS.yellow, borderColor: mapInfo.banOrderMode === 'B_FIRST' ? 'rgba(255,255,255,0.14)' : COLORS.yellow }}
                             onClick={() => updateMap(idx, 'banOrderMode', mapInfo.banOrderMode === 'B_FIRST' ? 'A_FIRST' : 'B_FIRST')}
-                            title="Toggle Ban Order"
                           >
-                            ORDER: {mapInfo.banOrderMode === 'B_FIRST' ? 'B FIRST' : 'A FIRST'}
+                            {tr('mapPoolEditor.order')} {mapInfo.banOrderMode === 'B_FIRST' ? tr('mapPoolEditor.bFirst') : tr('mapPoolEditor.aFirst')}
                           </button>
                           
                           <button
                             style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap', color: mapInfo.swapSides ? COLORS.yellow : '#a5a5a5', borderColor: mapInfo.swapSides ? COLORS.yellow : 'rgba(255,255,255,0.14)' }}
                             onClick={() => updateMap(idx, 'swapSides', !mapInfo.swapSides)}
-                            title="Toggle Visual Side Swap"
                           >
-                            SWAP: {mapInfo.swapSides ? 'ON' : 'OFF'}
+                            {tr('mapPoolEditor.swap')} {mapInfo.swapSides ? tr('mapPoolEditor.on') : tr('mapPoolEditor.off')}
                           </button>
 
                           <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.15)', margin: '0 2px' }} />
@@ -862,13 +853,13 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                             style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap' }}
                             onClick={() => useLiveBansForMap(idx)}
                           >
-                            USE LIVE BANS
+                            {tr('mapPoolEditor.useLiveBans')}
                           </button>
                           <button
                             style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, whiteSpace: 'nowrap', color: '#ff7d7d', borderColor: 'rgba(255,77,77,0.3)', backgroundColor: 'rgba(255,77,77,0.08)' }}
                             onClick={() => clearMapBans(idx)}
                           >
-                            CLEAR BANS
+                            {tr('mapPoolEditor.clearBans')}
                           </button>
                         </div>
                       </div>
@@ -876,7 +867,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                       <div style={{ display: 'grid', gridTemplateColumns: banPanelGrid, gap: rowGap + 2 }}>
                         <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap }}>
                           <div style={{ fontSize: '11px', color: COLORS.white, fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
-                            {matchData.teamShortA || matchData.teamA || 'TEAM A'} BAN
+                            {tr('mapPoolEditor.teamBan', { team: matchData.teamShortA || matchData.teamA || 'TEAM A' })}
                           </div>
 
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: rowGap }}>
@@ -885,7 +876,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                               value={parsedBanA.role}
                               onChange={e => updateMapBanEntry(idx, 'A', e.target.value, 'tbd')}
                             >
-                              {HERO_ROLE_OPTIONS.map(role => <option key={role} value={role}>{role.toUpperCase()}</option>)}
+                              {HERO_ROLE_OPTIONS.map(role => <option key={role} value={role}>{tr(`mapPoolEditor.${role === 'damage' ? 'damage' : role}`) || role.toUpperCase()}</option>)}
                             </select>
 
                             <select
@@ -893,7 +884,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                               value={parsedBanA.hero}
                               onChange={e => updateMapBanEntry(idx, 'A', parsedBanA.role, e.target.value)}
                             >
-                              <option value="tbd">TBD</option>
+                              <option value="tbd">{tr('mapPoolEditor.tbd')}</option>
                               {(HERO_DATA?.[parsedBanA.role] || []).map(hero => <option key={hero} value={hero}>{hero}</option>)}
                             </select>
                           </div>
@@ -901,7 +892,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
 
                         <div style={{ ...panelBase, padding: t.panelPadding, display: 'grid', gap: rowGap }}>
                           <div style={{ fontSize: '11px', color: COLORS.white, fontWeight: 900, letterSpacing: '1.2px', textTransform: 'uppercase' }}>
-                            {matchData.teamShortB || matchData.teamB || 'TEAM B'} BAN
+                            {tr('mapPoolEditor.teamBan', { team: matchData.teamShortB || matchData.teamB || 'TEAM B' })}
                           </div>
 
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: rowGap }}>
@@ -910,7 +901,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                               value={parsedBanB.role}
                               onChange={e => updateMapBanEntry(idx, 'B', e.target.value, 'tbd')}
                             >
-                              {HERO_ROLE_OPTIONS.map(role => <option key={role} value={role}>{role.toUpperCase()}</option>)}
+                              {HERO_ROLE_OPTIONS.map(role => <option key={role} value={role}>{tr(`mapPoolEditor.${role === 'damage' ? 'damage' : role}`) || role.toUpperCase()}</option>)}
                             </select>
 
                             <select
@@ -918,7 +909,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                               value={parsedBanB.hero}
                               onChange={e => updateMapBanEntry(idx, 'B', parsedBanB.role, e.target.value)}
                             >
-                              <option value="tbd">TBD</option>
+                              <option value="tbd">{tr('mapPoolEditor.tbd')}</option>
                               {(HERO_DATA?.[parsedBanB.role] || []).map(hero => <option key={hero} value={hero}>{hero}</option>)}
                             </select>
                           </div>
@@ -945,17 +936,17 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: rowGap, alignItems: 'start', paddingBottom: rowGap, borderBottom: `1px solid ${COLORS.line}` }}>
                       <div>
                         <div style={{ color: COLORS.white, fontSize: density === 'spacious' ? '13px' : '12px', fontWeight: 900, lineHeight: 1.2, textTransform: 'uppercase' }}>
-                          {MAP_TYPE_META[type]?.label || type}
+                          {tr(`mapPoolEditor.mapTypes.${type}`) || type}
                         </div>
                         <div style={{ color: COLORS.faintWhite, fontSize: '10px', marginTop: '4px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                          {slotCount} Slots
+                          {slotCount} {tr('mapPoolEditor.slots')}
                         </div>
                       </div>
                       <button
                         style={{ ...ui.outlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, boxSizing: 'border-box' }}
                         onClick={() => toggleMapTypeEnabled(type, false)}
                       >
-                        Disable
+                        {tr('mapPoolEditor.disable')}
                       </button>
                     </div>
 
@@ -973,7 +964,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
 
             <div style={{ ...panelBase, padding: t.panelPadding, border: `1px dashed ${COLORS.lineStrong}`, display: 'grid', gap: rowGap }}>
               <div style={{ color: COLORS.faintWhite, fontSize: '10px', fontWeight: 900, letterSpacing: '1.4px', textTransform: 'uppercase' }}>
-                Disabled Map Types
+                {tr('mapPoolEditor.disabledMapTypes')}
               </div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {disabledOverviewTypes.map(type => (
@@ -982,10 +973,10 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                     style={{ ...ui.softOutlineBtn, minHeight: stepButtonHeight, height: stepButtonHeight, boxSizing: 'border-box' }}
                     onClick={() => toggleMapTypeEnabled(type, true)}
                   >
-                    Enable {MAP_TYPE_META[type]?.label || type}
+                    {tr('mapPoolEditor.enableMap', { type: tr(`mapPoolEditor.mapTypes.${type}`) || type })}
                   </button>
                 ))}
-                {disabledOverviewTypes.length === 0 && <div style={{ color: COLORS.faintWhite, fontSize: '11px' }}>No disabled map types</div>}
+                {disabledOverviewTypes.length === 0 && <div style={{ color: COLORS.faintWhite, fontSize: '11px' }}>{tr('mapPoolEditor.noDisabled')}</div>}
               </div>
             </div>
           </div>

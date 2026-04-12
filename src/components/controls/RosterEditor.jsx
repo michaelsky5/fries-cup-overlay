@@ -1,4 +1,6 @@
 import React, { useState, useCallback } from 'react';
+// 🚀 引入 i18n
+import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { COLORS, UI, panelBase } from '../../constants/styles';
 import { LOGO_LIST } from '../../constants/logos';
@@ -15,12 +17,11 @@ import {
 import { createEditorUi } from '../../utils/editorUi';
 import { ShellPanel, Field, QuickStat, SectionHint } from '../common/SharedUI';
 
-// 🚀 优化：将复杂的表单行彻底抽离，并加上 React.memo。
-// 现在你再也不用担心“输入一个字母卡半秒”的情况发生了！
 const PlayerRow = React.memo(({
   player, idx, role, isDense, isUltra, density, t, ui, compactLabel, rowInput, rowNumberInput, rowSelect, 
   rowBtn, rowOutlineBtn, denseCell, rowLabelCell, tinyGap, smallGap, controlRowHeight, subButtonHeight,
-  handleRosterImageUpload, updateRosterPlayers, rosterPlayers, updatePlayerPositionXY, pos, heroOptions
+  handleRosterImageUpload, updateRosterPlayers, rosterPlayers, updatePlayerPositionXY, pos, heroOptions,
+  tr // 🚀 接收翻译函数
 }) => {
   if (isUltra) {
     return (
@@ -31,7 +32,7 @@ const PlayerRow = React.memo(({
           </div>
           <div style={{ display: 'flex', gap: tinyGap }}>
             <label style={{ ...rowBtn, backgroundColor: COLORS.yellow, color: COLORS.black, cursor: 'pointer' }}>
-              UPLOAD
+              {tr('rosterEditor.upload')}
               <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleRosterImageUpload(idx, e)} />
             </label>
             <button
@@ -48,7 +49,7 @@ const PlayerRow = React.memo(({
                 updateRosterPlayers(next);
               }}
             >
-              RESET
+              {tr('rosterEditor.reset')}
             </button>
           </div>
         </div>
@@ -56,7 +57,7 @@ const PlayerRow = React.memo(({
         <div style={{ display: 'grid', gap: smallGap }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: smallGap }}>
             <div>
-              <div style={compactLabel}>NICKNAME</div>
+              <div style={compactLabel}>{tr('rosterEditor.nickname')}</div>
               <input
                 style={rowInput}
                 value={player.nickname || ''}
@@ -68,7 +69,7 @@ const PlayerRow = React.memo(({
               />
             </div>
             <div>
-              <div style={compactLabel}>BATTLETAG</div>
+              <div style={compactLabel}>{tr('rosterEditor.battleTag')}</div>
               <input
                 style={rowInput}
                 value={player.battleTag || ''}
@@ -83,7 +84,7 @@ const PlayerRow = React.memo(({
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
             <div>
-              <div style={compactLabel}>ROLE</div>
+              <div style={compactLabel}>{tr('rosterEditor.role')}</div>
               <select
                 style={rowSelect}
                 value={role}
@@ -100,7 +101,7 @@ const PlayerRow = React.memo(({
             </div>
 
             <div>
-              <div style={compactLabel}>HERO</div>
+              <div style={compactLabel}>{tr('rosterEditor.hero')}</div>
               <select
                 style={rowSelect}
                 value={player.hero || ''}
@@ -118,7 +119,7 @@ const PlayerRow = React.memo(({
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
             <div>
-              <div style={compactLabel}>SCALE</div>
+              <div style={compactLabel}>{tr('rosterEditor.scale')}</div>
               <input
                 type="number" step="0.01" style={rowNumberInput} value={player.heroScale ?? 1.1}
                 onChange={e => {
@@ -130,7 +131,7 @@ const PlayerRow = React.memo(({
             </div>
 
             <div>
-              <div style={compactLabel}>BRIGHT</div>
+              <div style={compactLabel}>{tr('rosterEditor.bright')}</div>
               <input
                 type="number" step="0.01" style={rowNumberInput} value={player.heroBrightness ?? 0.84}
                 onChange={e => {
@@ -144,21 +145,21 @@ const PlayerRow = React.memo(({
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
             <div>
-              <div style={compactLabel}>POS X</div>
+              <div style={compactLabel}>{tr('rosterEditor.posX')}</div>
               <input style={rowNumberInput} value={pos.x} onChange={e => updatePlayerPositionXY(idx, e.target.value, pos.y)} placeholder="50%" />
             </div>
 
             <div>
-              <div style={compactLabel}>POS Y</div>
+              <div style={compactLabel}>{tr('rosterEditor.posY')}</div>
               <input style={rowNumberInput} value={pos.y} onChange={e => updatePlayerPositionXY(idx, pos.x, e.target.value)} placeholder="24%" />
             </div>
           </div>
 
           <div>
-            <div style={compactLabel}>IMAGE PATH</div>
+            <div style={compactLabel}>{tr('rosterEditor.imagePath')}</div>
             <input
               style={rowInput}
-              value={(player.heroImage || '').startsWith('blob:') ? '[LOCAL_MEMORY_IMAGE]' : (player.heroImage || '')}
+              value={(player.heroImage || '').startsWith('blob:') ? tr('rosterEditor.localMemoryImage') : (player.heroImage || '')}
               onChange={e => {
                 const next = [...rosterPlayers];
                 next[idx] = { ...next[idx], heroImage: e.target.value };
@@ -181,7 +182,7 @@ const PlayerRow = React.memo(({
           </div>
           <div style={{ display: 'flex', gap: tinyGap }}>
             <label style={{ ...rowBtn, backgroundColor: COLORS.yellow, color: COLORS.black, cursor: 'pointer' }}>
-              UPLOAD
+              {tr('rosterEditor.upload')}
               <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleRosterImageUpload(idx, e)} />
             </label>
             <button
@@ -194,60 +195,60 @@ const PlayerRow = React.memo(({
                 updateRosterPlayers(next);
               }}
             >
-              RESET
+              {tr('rosterEditor.reset')}
             </button>
           </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
           <div>
-            <div style={compactLabel}>NICKNAME</div>
+            <div style={compactLabel}>{tr('rosterEditor.nickname')}</div>
             <input style={rowInput} value={player.nickname || ''} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], nickname: e.target.value }; updateRosterPlayers(next); }} />
           </div>
 
           <div>
-            <div style={compactLabel}>BATTLETAG</div>
+            <div style={compactLabel}>{tr('rosterEditor.battleTag')}</div>
             <input style={rowInput} value={player.battleTag || ''} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], battleTag: e.target.value }; updateRosterPlayers(next); }} />
           </div>
 
           <div>
-            <div style={compactLabel}>ROLE</div>
+            <div style={compactLabel}>{tr('rosterEditor.role')}</div>
             <select style={rowSelect} value={role} onChange={e => { const nextRole = e.target.value; const nextHero = getRosterHeroOptions(nextRole)[0] || ''; const next = [...rosterPlayers]; next[idx] = { ...next[idx], role: nextRole, hero: nextHero, heroImage: getRosterHeroImagePath(nextRole, nextHero) }; updateRosterPlayers(next); }}>
               {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
 
           <div>
-            <div style={compactLabel}>HERO</div>
+            <div style={compactLabel}>{tr('rosterEditor.hero')}</div>
             <select style={rowSelect} value={player.hero || ''} onChange={e => { const nextHero = e.target.value; const next = [...rosterPlayers]; next[idx] = { ...next[idx], hero: nextHero, heroImage: getRosterHeroImagePath(role, nextHero) }; updateRosterPlayers(next); }}>
               {heroOptions.map(hero => <option key={hero} value={hero}>{hero}</option>)}
             </select>
           </div>
 
           <div>
-            <div style={compactLabel}>SCALE</div>
+            <div style={compactLabel}>{tr('rosterEditor.scale')}</div>
             <input type="number" step="0.01" style={rowNumberInput} value={player.heroScale ?? 1.1} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroScale: Number(e.target.value) || 1.1 }; updateRosterPlayers(next); }} />
           </div>
 
           <div>
-            <div style={compactLabel}>BRIGHT</div>
+            <div style={compactLabel}>{tr('rosterEditor.bright')}</div>
             <input type="number" step="0.01" style={rowNumberInput} value={player.heroBrightness ?? 0.84} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroBrightness: Number(e.target.value) || 0.84 }; updateRosterPlayers(next); }} />
           </div>
 
           <div>
-            <div style={compactLabel}>POS X</div>
+            <div style={compactLabel}>{tr('rosterEditor.posX')}</div>
             <input style={rowNumberInput} value={pos.x} onChange={e => updatePlayerPositionXY(idx, e.target.value, pos.y)} placeholder="50%" />
           </div>
 
           <div>
-            <div style={compactLabel}>POS Y</div>
+            <div style={compactLabel}>{tr('rosterEditor.posY')}</div>
             <input style={rowNumberInput} value={pos.y} onChange={e => updatePlayerPositionXY(idx, pos.x, e.target.value)} placeholder="24%" />
           </div>
         </div>
 
         <div>
-          <div style={compactLabel}>IMAGE PATH</div>
-          <input style={rowInput} value={(player.heroImage || '').startsWith('blob:') ? '[LOCAL_MEMORY_IMAGE]' : (player.heroImage || '')} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroImage: e.target.value }; updateRosterPlayers(next); }} placeholder="/assets/roster/damage/tracer.jpg" />
+          <div style={compactLabel}>{tr('rosterEditor.imagePath')}</div>
+          <input style={rowInput} value={(player.heroImage || '').startsWith('blob:') ? tr('rosterEditor.localMemoryImage') : (player.heroImage || '')} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroImage: e.target.value }; updateRosterPlayers(next); }} placeholder="/assets/roster/damage/tracer.jpg" />
         </div>
       </div>
     );
@@ -258,57 +259,57 @@ const PlayerRow = React.memo(({
       <div style={rowLabelCell}>{`P${idx + 1}`}</div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>NICKNAME</div>
+        <div style={compactLabel}>{tr('rosterEditor.nickname')}</div>
         <input style={rowInput} value={player.nickname || ''} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], nickname: e.target.value }; updateRosterPlayers(next); }} />
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>BATTLETAG</div>
+        <div style={compactLabel}>{tr('rosterEditor.battleTag')}</div>
         <input style={rowInput} value={player.battleTag || ''} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], battleTag: e.target.value }; updateRosterPlayers(next); }} />
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>ROLE</div>
+        <div style={compactLabel}>{tr('rosterEditor.role')}</div>
         <select style={rowSelect} value={role} onChange={e => { const nextRole = e.target.value; const nextHero = getRosterHeroOptions(nextRole)[0] || ''; const next = [...rosterPlayers]; next[idx] = { ...next[idx], role: nextRole, hero: nextHero, heroImage: getRosterHeroImagePath(nextRole, nextHero) }; updateRosterPlayers(next); }}>
           {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>HERO</div>
+        <div style={compactLabel}>{tr('rosterEditor.hero')}</div>
         <select style={rowSelect} value={player.hero || ''} onChange={e => { const nextHero = e.target.value; const next = [...rosterPlayers]; next[idx] = { ...next[idx], hero: nextHero, heroImage: getRosterHeroImagePath(role, nextHero) }; updateRosterPlayers(next); }}>
           {heroOptions.map(hero => <option key={hero} value={hero}>{hero}</option>)}
         </select>
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>SCALE</div>
+        <div style={compactLabel}>{tr('rosterEditor.scale')}</div>
         <input type="number" step="0.01" style={rowNumberInput} value={player.heroScale ?? 1.1} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroScale: Number(e.target.value) || 1.1 }; updateRosterPlayers(next); }} />
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>BRIGHT</div>
+        <div style={compactLabel}>{tr('rosterEditor.bright')}</div>
         <input type="number" step="0.01" style={rowNumberInput} value={player.heroBrightness ?? 0.84} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroBrightness: Number(e.target.value) || 0.84 }; updateRosterPlayers(next); }} />
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>POS X</div>
+        <div style={compactLabel}>{tr('rosterEditor.posX')}</div>
         <input style={rowNumberInput} value={pos.x} onChange={e => updatePlayerPositionXY(idx, e.target.value, pos.y)} placeholder="50%" />
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>POS Y</div>
+        <div style={compactLabel}>{tr('rosterEditor.posY')}</div>
         <input style={rowNumberInput} value={pos.y} onChange={e => updatePlayerPositionXY(idx, pos.x, e.target.value)} placeholder="24%" />
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>IMAGE PATH</div>
-        <input style={rowInput} value={(player.heroImage || '').startsWith('blob:') ? '[LOCAL_MEMORY_IMAGE]' : (player.heroImage || '')} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroImage: e.target.value }; updateRosterPlayers(next); }} placeholder="/assets/roster/damage/tracer.jpg" />
+        <div style={compactLabel}>{tr('rosterEditor.imagePath')}</div>
+        <input style={rowInput} value={(player.heroImage || '').startsWith('blob:') ? tr('rosterEditor.localMemoryImage') : (player.heroImage || '')} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroImage: e.target.value }; updateRosterPlayers(next); }} placeholder="/assets/roster/damage/tracer.jpg" />
       </div>
 
       <div style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: '4px' }}>
         <label style={{ ...rowBtn, flex: 1, minHeight: 0, padding: 0, fontSize: '10px', backgroundColor: COLORS.yellow, color: COLORS.black, cursor: 'pointer' }}>
-          UPLOAD
+          {tr('rosterEditor.upload')}
           <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleRosterImageUpload(idx, e)} />
         </label>
 
@@ -320,7 +321,7 @@ const PlayerRow = React.memo(({
             updateRosterPlayers(next);
           }}
         >
-          RESET
+          {tr('rosterEditor.reset')}
         </button>
       </div>
     </div>
@@ -335,6 +336,9 @@ const RosterEditor = ({
   density = 'standard',
   densityTokens
 }) => {
+  // 🚀 初始化翻译钩子
+  const { t: tr } = useTranslation();
+
   const { matchData, updateData, updateWithHistory, showModal } = useMatchContext();
 
   const [rosterPresetModalOpen, setRosterPresetModalOpen] = useState(false);
@@ -368,15 +372,13 @@ const RosterEditor = ({
   const updateRosterPlayers = useCallback((nextPlayers) => updateData(prev => ({ ...prev, [rosterPlayersKey]: nextPlayers })), [rosterPlayersKey, updateData]);
   const updateRosterStaff = nextStaff => updateData({ ...matchData, [rosterStaffKey]: nextStaff });
 
-  // 🚀 核心替换：完美释放 Blob 内存！
   const handleRosterImageUpload = useCallback((idx, e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      return showModal({ type: 'alert', title: 'INVALID FILE', message: 'Please upload a valid image file.', isDanger: true });
+      return showModal({ type: 'alert', title: tr('rosterEditor.invalidFile'), message: tr('rosterEditor.invalidFileMsg'), isDanger: true });
     }
     
-    // 💥 最重要的清理工作：如果旧图存在且是 blob 格式，销毁它释放内存！
     const oldImage = rosterPlayers[idx]?.heroImage;
     if (oldImage && oldImage.startsWith('blob:')) {
       URL.revokeObjectURL(oldImage);
@@ -388,7 +390,7 @@ const RosterEditor = ({
     updateRosterPlayers(next);
     
     e.target.value = '';
-  }, [rosterPlayers, updateRosterPlayers, showModal]);
+  }, [rosterPlayers, updateRosterPlayers, showModal, tr]);
 
   const parsePosition = value => {
     const parts = String(value || '').trim().replace(',', ' ').split(/\s+/).filter(Boolean);
@@ -417,8 +419,8 @@ const RosterEditor = ({
     const name = safeText(rosterPresetForm.name);
     const key = makeRosterPresetKey(rosterPresetForm.key || rosterPresetForm.name);
     
-    if (!name) return showModal({ type: 'alert', title: 'MISSING INFO', message: 'Preset label cannot be empty.', isDanger: true });
-    if (!key) return showModal({ type: 'alert', title: 'MISSING INFO', message: 'Preset key cannot be empty.', isDanger: true });
+    if (!name) return showModal({ type: 'alert', title: tr('rosterEditor.missingInfo'), message: tr('rosterEditor.emptyLabel'), isDanger: true });
+    if (!key) return showModal({ type: 'alert', title: tr('rosterEditor.missingInfo'), message: tr('rosterEditor.emptyKey'), isDanger: true });
 
     const currentPresetData = buildRosterPresetFromTeam(matchData, teamTarget);
     const nextPreset = { key, name, data: cloneRosterPresetData(currentPresetData) };
@@ -428,8 +430,8 @@ const RosterEditor = ({
     if (existedIndex >= 0) {
       showModal({
         type: 'confirm',
-        title: 'OVERWRITE PRESET',
-        message: `Preset [${key}] already exists. Do you want to overwrite it?`,
+        title: tr('rosterEditor.overwrite'),
+        message: tr('rosterEditor.overwriteMsg', { key }),
         isDanger: true,
         onConfirm: () => {
           library[existedIndex] = nextPreset;
@@ -454,8 +456,8 @@ const RosterEditor = ({
   const deleteRosterPreset = presetKey => {
     showModal({
       type: 'confirm',
-      title: 'DELETE PRESET',
-      message: `Are you sure you want to delete preset [${presetKey}]?`,
+      title: tr('rosterEditor.deletePreset'),
+      message: tr('rosterEditor.deletePresetMsg', { key: presetKey }),
       isDanger: true,
       onConfirm: () => {
         updateData({ ...matchData, rosterPresetLibrary: rosterPresetLibrary.filter(p => p.key !== presetKey) });
@@ -490,10 +492,10 @@ const RosterEditor = ({
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: isDense ? '1fr' : density === 'spacious' ? '360px minmax(0,1fr)' : '320px minmax(0,1fr)', gap: blockGap || t.blockGap, alignItems: 'start' }}>
-        <ShellPanel title="Roster Basic Settings" accent density={density}>
+        <ShellPanel title={tr('rosterEditor.basicSettings')} accent density={density}>
           <div style={{ display: 'grid', gap: smallGap }}>
             <div>
-              <div style={compactLabel}>CURRENT EDITING TARGET</div>
+              <div style={compactLabel}>{tr('rosterEditor.editingTarget')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', backgroundColor: '#111', border: UI.innerFrame }}>
                 <button
                   style={{
@@ -502,7 +504,7 @@ const RosterEditor = ({
                   }}
                   onClick={() => updateData({ ...matchData, rosterTeamTarget: 'A' })}
                 >
-                  TEAM A
+                  {tr('rosterEditor.teamA')}
                 </button>
                 <button
                   style={{
@@ -511,18 +513,18 @@ const RosterEditor = ({
                   }}
                   onClick={() => updateData({ ...matchData, rosterTeamTarget: 'B' })}
                 >
-                  TEAM B
+                  {tr('rosterEditor.teamB')}
                 </button>
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: tinyGap }}>
-              <button style={{ ...rowOutlineBtn, width: '100%' }} onClick={openRosterPresetPicker}>LOAD PRESET</button>
-              <button style={{ ...rowActionBtn, width: '100%' }} onClick={openRosterPresetSaveModal}>SAVE PRESET</button>
+              <button style={{ ...rowOutlineBtn, width: '100%' }} onClick={openRosterPresetPicker}>{tr('rosterEditor.loadPreset')}</button>
+              <button style={{ ...rowActionBtn, width: '100%' }} onClick={openRosterPresetSaveModal}>{tr('rosterEditor.savePreset')}</button>
             </div>
 
             <div>
-              <div style={compactLabel}>{`TEAM NAME (SYNCED TO TEAM ${teamTarget})`}</div>
+              <div style={compactLabel}>{tr('rosterEditor.teamName', { target: teamTarget })}</div>
               <input
                 style={rowInput}
                 value={teamTarget === 'B' ? matchData.teamB : matchData.teamA}
@@ -532,7 +534,7 @@ const RosterEditor = ({
 
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 86px', gap: tinyGap, alignItems: 'end' }}>
               <div>
-                <div style={compactLabel}>{`TEAM LOGO (SYNCED TO LOGO ${teamTarget})`}</div>
+                <div style={compactLabel}>{tr('rosterEditor.teamLogo', { target: teamTarget })}</div>
                 <select
                   style={rowSelect}
                   value={teamTarget === 'B' ? matchData.logoB : matchData.logoA}
@@ -543,7 +545,7 @@ const RosterEditor = ({
               </div>
 
               <div>
-                <div style={compactLabel}>CLUB LOGO</div>
+                <div style={compactLabel}>{tr('rosterEditor.clubLogo')}</div>
                 <button
                   style={{
                     ...rowBtn, width: '100%',
@@ -552,24 +554,24 @@ const RosterEditor = ({
                   }}
                   onClick={() => updateRosterStaff({ ...rosterStaff, showClubName: !rosterStaff.showClubName })}
                 >
-                  {rosterStaff.showClubName ? 'ON' : 'OFF'}
+                  {rosterStaff.showClubName ? tr('rosterEditor.on') : tr('rosterEditor.off')}
                 </button>
               </div>
             </div>
 
             <div>
-              <div style={compactLabel}>CLUB NAME</div>
+              <div style={compactLabel}>{tr('rosterEditor.clubName')}</div>
               <input
                 style={rowInput}
                 value={rosterStaff.clubName || ''}
                 onChange={e => updateRosterStaff({ ...rosterStaff, clubName: e.target.value })}
-                placeholder="Crazy Rabbit Club"
+                placeholder={tr('rosterEditor.clubNamePlaceholder')}
               />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: tinyGap }}>
               <div>
-                <div style={compactLabel}>MANAGER NICKNAME</div>
+                <div style={compactLabel}>{tr('rosterEditor.managerNickname')}</div>
                 <input
                   style={rowInput}
                   value={rosterStaff.manager?.nickname || ''}
@@ -577,7 +579,7 @@ const RosterEditor = ({
                 />
               </div>
               <div>
-                <div style={compactLabel}>MANAGER BATTLETAG</div>
+                <div style={compactLabel}>{tr('rosterEditor.managerBattleTag')}</div>
                 <input
                   style={rowInput}
                   value={rosterStaff.manager?.battleTag || ''}
@@ -588,7 +590,7 @@ const RosterEditor = ({
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: tinyGap }}>
               <div>
-                <div style={compactLabel}>COACH NICKNAME</div>
+                <div style={compactLabel}>{tr('rosterEditor.coachNickname')}</div>
                 <input
                   style={rowInput}
                   value={rosterStaff.coaches?.[0]?.nickname || ''}
@@ -597,11 +599,11 @@ const RosterEditor = ({
                     next[0] = { ...(next[0] || { nickname: '', battleTag: '' }), nickname: e.target.value };
                     updateRosterStaff({ ...rosterStaff, coaches: next });
                   }}
-                  placeholder="e.g. Coach A & Coach B"
+                  placeholder={tr('rosterEditor.coachNicknamePlaceholder')}
                 />
               </div>
               <div>
-                <div style={compactLabel}>COACH BATTLETAG</div>
+                <div style={compactLabel}>{tr('rosterEditor.coachBattleTag')}</div>
                 <input
                   style={rowInput}
                   value={rosterStaff.coaches?.[0]?.battleTag || ''}
@@ -610,35 +612,38 @@ const RosterEditor = ({
                     next[0] = { ...(next[0] || { nickname: '', battleTag: '' }), battleTag: e.target.value };
                     updateRosterStaff({ ...rosterStaff, coaches: next });
                   }}
-                  placeholder="Optional"
+                  placeholder={tr('rosterEditor.optional')}
                 />
               </div>
             </div>
 
             
-            {/* 🚀 新增：彻底解耦编辑和播出界面，防止误触导致播出事故 */}
             <div style={{ marginTop: '4px' }}>
                <button 
                  style={{...rowActionBtn, width: '100%', backgroundColor: COLORS.red, color: COLORS.white, border: `1px solid ${COLORS.red}`}}
                  onClick={() => {
                    updateWithHistory(`TAKE ROSTER TEAM ${teamTarget}`, {
                      ...matchData,
-                     liveRosterTeam: teamTarget, // 锁定要播出的队伍
-                     globalScene: 'ROSTER'       // 强切画面
+                     liveRosterTeam: teamTarget, 
+                     globalScene: 'ROSTER'       
                    });
                  }}
                >
-                 ▶ TAKE TO BROADCAST
+                 {tr('rosterEditor.takeToBroadcast')}
                </button>
             </div>
           </div>
         </ShellPanel>
 
-        <ShellPanel title="Roster Players" accent density={density}>
+        <ShellPanel title={tr('rosterEditor.rosterPlayers')} accent density={density}>
           <div style={{ display: 'grid', gap: tinyGap }}>
             {!isUltra && !isDense && (
               <div style={{ display: 'grid', gridTemplateColumns: '56px 1.2fr 1.2fr 100px 1.35fr 74px 74px 64px 64px 1.8fr 80px', gap: tinyGap, alignItems: 'end' }}>
-                {['P', 'NICKNAME', 'BATTLETAG', 'ROLE', 'HERO', 'SCALE', 'BRIGHT', 'POS X', 'POS Y', 'IMAGE PATH', 'ACTIONS'].map((label, i) => (
+                {[
+                  'P', tr('rosterEditor.nickname'), tr('rosterEditor.battleTag'), tr('rosterEditor.role'), 
+                  tr('rosterEditor.hero'), tr('rosterEditor.scale'), tr('rosterEditor.bright'), 
+                  tr('rosterEditor.posX'), tr('rosterEditor.posY'), tr('rosterEditor.imagePath'), tr('rosterEditor.actions')
+                ].map((label, i) => (
                   <div
                     key={i}
                     style={{
@@ -667,6 +672,7 @@ const RosterEditor = ({
                     tinyGap={tinyGap} smallGap={smallGap} controlRowHeight={rowHeight} subButtonHeight={rowHeight}
                     handleRosterImageUpload={handleRosterImageUpload} updateRosterPlayers={updateRosterPlayers} 
                     rosterPlayers={rosterPlayers} updatePlayerPositionXY={updatePlayerPositionXY} pos={pos} heroOptions={heroOptions}
+                    tr={tr} // 🚀 传入翻译函数
                   />
                 )
               })}
@@ -676,7 +682,7 @@ const RosterEditor = ({
               <button
                 style={{ ...rowBtn, backgroundColor: COLORS.yellow, color: COLORS.black }}
                 onClick={() => {
-                  if (rosterPlayers.length >= 7) return showModal({ type: 'alert', title: 'LIMIT REACHED', message: 'MAX 7 PLAYERS ALLOWED', isDanger: true });
+                  if (rosterPlayers.length >= 7) return showModal({ type: 'alert', title: tr('rosterEditor.limitMax'), message: tr('rosterEditor.maxPlayers'), isDanger: true });
                   updateRosterPlayers([
                     ...rosterPlayers,
                     {
@@ -692,15 +698,14 @@ const RosterEditor = ({
                   ]);
                 }}
               >
-                + ADD PLAYER
+                {tr('rosterEditor.addPlayer')}
               </button>
 
               <button
                 style={{ ...rowOutlineBtn, borderColor: COLORS.red, color: COLORS.red }}
                 onClick={() => {
-                  if (rosterPlayers.length <= 5) return showModal({ type: 'alert', title: 'LIMIT REACHED', message: 'MIN 5 PLAYERS REQUIRED', isDanger: true });
+                  if (rosterPlayers.length <= 5) return showModal({ type: 'alert', title: tr('rosterEditor.limitMin'), message: tr('rosterEditor.minPlayers'), isDanger: true });
                   
-                  // 🚀 在移除最后一名选手时，顺手检查并清理它的内存图
                   const lastPlayer = rosterPlayers[rosterPlayers.length - 1];
                   if (lastPlayer.heroImage && lastPlayer.heroImage.startsWith('blob:')) {
                     URL.revokeObjectURL(lastPlayer.heroImage);
@@ -709,7 +714,7 @@ const RosterEditor = ({
                   updateRosterPlayers(rosterPlayers.slice(0, -1));
                 }}
               >
-                - REMOVE LAST
+                {tr('rosterEditor.removeLast')}
               </button>
             </div>
           </div>
@@ -729,15 +734,15 @@ const RosterEditor = ({
               <div style={modalHeaderStyle}>
                 <div style={modalTitleWrapStyle}>
                   <div style={{ width: '8px', height: '8px', background: COLORS.yellow }} />
-                  <span style={modalTitleStyle}>LOAD ROSTER PRESET</span>
+                  <span style={modalTitleStyle}>{tr('rosterEditor.loadRosterPreset')}</span>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: smallGap, flexWrap: 'wrap' }}>
                   <span style={{ color: COLORS.faintWhite, fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                    TARGETING // TEAM {matchData.rosterTeamTarget || 'A'}
+                    {tr('rosterEditor.targeting', { target: matchData.rosterTeamTarget || 'A' })}
                   </span>
                   <button style={{ ...rowOutlineBtn, borderColor: COLORS.red, color: COLORS.red }} onClick={() => setRosterPresetModalOpen(false)}>
-                    CLOSE
+                    {tr('rosterEditor.close')}
                   </button>
                 </div>
               </div>
@@ -758,21 +763,21 @@ const RosterEditor = ({
 
                         <div style={{ display: 'flex', gap: tinyGap, flexWrap: 'wrap' }}>
                           <button style={{ ...rowBtn, backgroundColor: COLORS.yellow, color: COLORS.black }} onClick={() => applyRosterPresetToCurrentTeam(preset)}>
-                            APPLY TO TEAM {matchData.rosterTeamTarget || 'A'}
+                            {tr('rosterEditor.applyToTeam', { target: matchData.rosterTeamTarget || 'A' })}
                           </button>
 
                           <button style={{ ...rowOutlineBtn, borderColor: COLORS.red, color: COLORS.red }} onClick={() => deleteRosterPreset(preset.key)}>
-                            DELETE
+                            {tr('rosterEditor.delete')}
                           </button>
                         </div>
                       </div>
 
                       <div style={{ color: COLORS.softWhite, fontSize: density === 'spacious' ? '12px' : '11px', lineHeight: 1.6 }}>
-                        TEAM: {preset.data?.teamName || '—'}　|　CLUB: {preset.data?.clubName || '—'}
+                        {tr('rosterEditor.team')}: {preset.data?.teamName || '—'}　|　{tr('rosterEditor.club')}: {preset.data?.clubName || '—'}
                       </div>
 
                       <div style={{ color: COLORS.faintWhite, fontSize: density === 'spacious' ? '12px' : '11px', lineHeight: 1.6, wordBreak: 'break-word' }}>
-                        {(preset.data?.players || []).map(p => p.nickname || p.battleTag || 'PLAYER').join(' / ') || 'NO PLAYERS'}
+                        {(preset.data?.players || []).map(p => p.nickname || p.battleTag || 'PLAYER').join(' / ') || tr('rosterEditor.noPlayers')}
                       </div>
                     </div>
                   </div>
@@ -780,7 +785,7 @@ const RosterEditor = ({
 
                 {!((matchData.rosterPresetLibrary || []).length) && (
                   <div style={{ ...panelBase, padding: '22px 16px', textAlign: 'center', color: COLORS.faintWhite, border: `1px dashed ${COLORS.lineStrong}` }}>
-                    NO ROSTER PRESETS SAVED
+                    {tr('rosterEditor.noPresetsSaved')}
                   </div>
                 )}
               </div>
@@ -802,16 +807,16 @@ const RosterEditor = ({
               <div style={modalHeaderStyle}>
                 <div style={modalTitleWrapStyle}>
                   <div style={{ width: '8px', height: '8px', background: COLORS.yellow }} />
-                  <span style={modalTitleStyle}>SAVE ROSTER PRESET</span>
+                  <span style={modalTitleStyle}>{tr('rosterEditor.saveRosterPreset')}</span>
                 </div>
                 <button style={{ ...rowOutlineBtn, borderColor: COLORS.red, color: COLORS.red }} onClick={() => setRosterPresetSaveModalOpen(false)}>
-                  CLOSE
+                  {tr('rosterEditor.close')}
                 </button>
               </div>
 
-              <QuickStat label="SOURCE DATA" value={`TEAM ${matchData.rosterTeamTarget || 'A'}`} valueColor={COLORS.yellow} compact density={density} />
+              <QuickStat label={tr('rosterEditor.sourceData')} value={`TEAM ${matchData.rosterTeamTarget || 'A'}`} valueColor={COLORS.yellow} compact density={density} />
 
-              <Field label="PRESET LABEL" density={density}>
+              <Field label={tr('rosterEditor.presetLabel')} density={density}>
                 <input
                   style={ui.input}
                   value={rosterPresetForm.name}
@@ -820,7 +825,7 @@ const RosterEditor = ({
                 />
               </Field>
 
-              <Field label="PRESET KEY" density={density}>
+              <Field label={tr('rosterEditor.presetKey')} density={density}>
                 <input
                   style={ui.input}
                   value={rosterPresetForm.key}
@@ -830,16 +835,16 @@ const RosterEditor = ({
               </Field>
 
               <SectionHint
-                text="SAVES: TEAM NAME / LOGO / CLUB / STAFF / ALL PLAYER DATA (ROLE/HERO/ASSETS/TRANSFORMS)."
+                text={tr('rosterEditor.saveHint')}
                 density={density}
               />
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: smallGap }}>
                 <button style={{ ...rowOutlineBtn, width: '100%' }} onClick={() => setRosterPresetSaveModalOpen(false)}>
-                  CANCEL
+                  {tr('rosterEditor.cancel')}
                 </button>
                 <button style={{ ...rowActionBtn, width: '100%' }} onClick={saveCurrentRosterAsPreset}>
-                  CONFIRM SAVE
+                  {tr('rosterEditor.confirmSave')}
                 </button>
               </div>
             </div>

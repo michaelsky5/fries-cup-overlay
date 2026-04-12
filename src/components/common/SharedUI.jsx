@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+// 🚀 引入 i18n
+import { useTranslation } from 'react-i18next';
 import { COLORS, UI, panelBase, labelStyle, btnStyle, BASE_SCENE_W, BASE_SCENE_H, getDensityTokens } from '../../constants/styles';
 
 // 🚀 优化：所有基础 UI 组件全部套用 React.memo，彻底阻断毫无意义的重绘！
@@ -190,15 +192,19 @@ export const SectionHint = React.memo(({ text, density = 'standard', style = {} 
 });
 
 export const MonitorFrame = React.memo(({ title, accent = COLORS.yellow, children, compact = false, density = 'standard' }) => {
-  const t = getDensityTokens(density);
+  const tokens = getDensityTokens(density);
+  // 🚀 初始化 t 函数
+  const { t } = useTranslation();
+  
   return (
-    <div style={{ ...panelBase, padding: compact ? '10px' : t.panelPadding, borderTop: `2px solid ${accent}` }}>
+    <div style={{ ...panelBase, padding: compact ? '10px' : tokens.panelPadding, borderTop: `2px solid ${accent}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '8px', height: '8px', background: accent }} />
-          <span style={{ fontSize: compact ? '11px' : `${t.titleSize - 1}px`, fontWeight: '900', color: COLORS.white, letterSpacing: '2px', textTransform: 'uppercase' }}>{title}</span>
+          <span style={{ fontSize: compact ? '11px' : `${tokens.titleSize - 1}px`, fontWeight: '900', color: COLORS.white, letterSpacing: '2px', textTransform: 'uppercase' }}>{title}</span>
         </div>
-        <span style={{ fontSize: '10px', color: COLORS.faintWhite, fontWeight: '900', letterSpacing: '1.5px', textTransform: 'uppercase' }}>16:9 Monitor</span>
+        {/* 🚀 替换翻译项 */}
+        <span style={{ fontSize: '10px', color: COLORS.faintWhite, fontWeight: '900', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{t('common.monitorLabel')}</span>
       </div>
       <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#000', overflow: 'hidden', border: UI.outerFrame, boxShadow: UI.insetLine }}>
         {children}

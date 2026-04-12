@@ -1,9 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
+// 🚀 1. 引入 i18n
+import { useTranslation } from 'react-i18next';
 import { COLORS, panelBase, inputStyle, actionBtn, outlineBtn } from '../../constants/styles';
 
 export default function FriesModal({ config, onClose }) {
-  // 🚀 1. 在这里解构出 maxWidth 参数
-  const { isOpen, type = 'alert', title = 'SYSTEM MESSAGE', message = '', placeholder = '', isDanger = false, onConfirm, maxWidth } = config;
+  // 🚀 2. 初始化 t 函数
+  const { t } = useTranslation();
+
+  // 🚀 3. 在解构时注入翻译后的默认标题
+  const { 
+    isOpen, 
+    type = 'alert', 
+    title = t('common.systemMessage'), 
+    message = '', 
+    placeholder = '', 
+    isDanger = false, 
+    onConfirm, 
+    maxWidth 
+  } = config;
   
   const [inputValue, setInputValue] = useState('');
   
@@ -67,15 +81,14 @@ export default function FriesModal({ config, onClose }) {
       <style>{`
         @keyframes modalBackdropFade { from { opacity: 0; } to { opacity: 1; } }
         @keyframes modalPop { 
-  from { opacity: 0; transform: translateY(2vh) scale(0.96); } 
-  to { opacity: 1; transform: translateY(0) scale(1); } 
-}
+          from { opacity: 0; transform: translateY(2vh) scale(0.96); } 
+          to { opacity: 1; transform: translateY(0) scale(1); } 
+        }
       `}</style>
 
       <div 
         style={{ 
           ...panelBase, 
-          // 🚀 2. 动态读取传入的宽度，如果没有传就默认 460px。同时保留 maxWidth: '90%' 确保小屏幕不会撑爆
           width: maxWidth || '460px', 
           maxWidth: '90%', 
           padding: '0', 
@@ -112,14 +125,16 @@ export default function FriesModal({ config, onClose }) {
                 style={{ ...outlineBtn, padding: '10px', fontSize: '13px', fontWeight: '900', display: 'flex', justifyContent: 'center', alignItems: 'center' }} 
                 onClick={onClose}
               >
-                CANCEL [ESC]
+                {/* 🚀 4. 替换取消按钮 */}
+                {t('common.cancel')}
               </button>
             )}
             <button 
               style={{ ...actionBtn, padding: '10px', fontSize: '13px', backgroundColor: themeColor, color: COLORS.black, fontWeight: '900', display: 'flex', justifyContent: 'center', alignItems: 'center' }} 
               onClick={handleConfirm}
             >
-              CONFIRM [ENTER]
+              {/* 🚀 5. 替换确认按钮 */}
+              {t('common.confirm')}
             </button>
           </div>
         </div>

@@ -1,4 +1,6 @@
 import React from 'react';
+// 🚀 引入 i18n
+import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { ShellPanel, SectionHint } from '../common/SharedUI';
 import { COLORS, panelBase } from '../../constants/styles';
@@ -10,6 +12,9 @@ export default function TeamDBEditor({
   isDense = false,
   isUltra = false
 }) {
+  // 🚀 初始化翻译钩子
+  const { t: tr } = useTranslation();
+
   const { matchData, updateWithHistory, showModal } = useMatchContext();
   const library = matchData.rosterPresetLibrary || [];
   const t = densityTokens || {
@@ -24,8 +29,8 @@ export default function TeamDBEditor({
       .then(() =>
         showModal({
           type: 'alert',
-          title: 'EXPORT SUCCESS',
-          message: 'Team database JSON has been copied to the clipboard.'
+          title: tr('teamDbEditor.exportSuccess'),
+          message: tr('teamDbEditor.exportMessage')
         })
       );
   };
@@ -33,8 +38,8 @@ export default function TeamDBEditor({
   const importDB = () => {
     showModal({
       type: 'prompt',
-      title: 'IMPORT TEAM DATABASE',
-      message: 'Paste the team database JSON below. Existing records with the same KEY will be replaced.',
+      title: tr('teamDbEditor.importPrompt'),
+      message: tr('teamDbEditor.importMessage'),
       onConfirm: data => {
         if (!data) return;
         try {
@@ -55,14 +60,14 @@ export default function TeamDBEditor({
 
           showModal({
             type: 'alert',
-            title: 'IMPORT SUCCESS',
-            message: `${parsed.length} team record(s) imported successfully.`
+            title: tr('teamDbEditor.importSuccess'),
+            message: tr('teamDbEditor.importSuccessMsg', { count: parsed.length })
           });
         } catch (e) {
           showModal({
             type: 'alert',
-            title: 'IMPORT FAILED',
-            message: 'Invalid JSON format or unsupported data structure.',
+            title: tr('teamDbEditor.importFailed'),
+            message: tr('teamDbEditor.importFailedMsg'),
             isDanger: true
           });
         }
@@ -73,9 +78,9 @@ export default function TeamDBEditor({
   const deleteTeam = key => {
     showModal({
       type: 'confirm',
-      title: 'DELETE TEAM',
+      title: tr('teamDbEditor.deleteTitle'),
       isDanger: true,
-      message: `Delete team [${key}] from the database permanently?`,
+      message: tr('teamDbEditor.deleteMsg', { key }),
       onConfirm: () => {
         updateWithHistory(`Delete team: ${key}`, {
           ...matchData,
@@ -113,7 +118,7 @@ export default function TeamDBEditor({
 
   return (
     <div style={{ display: 'grid', gap: t.blockGap }}>
-      <ShellPanel title="Global Team Database" accent density={density}>
+      <ShellPanel title={tr('teamDbEditor.title')} accent density={density}>
         <div style={{ display: 'grid', gap: t.blockGap }}>
           <div
             style={{
@@ -135,7 +140,7 @@ export default function TeamDBEditor({
               }}
               onClick={exportDB}
             >
-              EXPORT TEAM DB
+              {tr('teamDbEditor.exportBtn')}
             </button>
 
             <button
@@ -151,12 +156,12 @@ export default function TeamDBEditor({
               }}
               onClick={importDB}
             >
-              IMPORT TEAM DB JSON
+              {tr('teamDbEditor.importBtn')}
             </button>
           </div>
 
           <SectionHint
-            text="Team records are generated from saved roster presets. Import them here, then load them directly in LIVE."
+            text={tr('teamDbEditor.hint')}
             density={density}
           />
 
@@ -226,7 +231,7 @@ export default function TeamDBEditor({
                           textOverflow: 'ellipsis'
                         }}
                       >
-                        KEY: {team.key}
+                        {tr('teamDbEditor.key')}: {team.key}
                       </div>
                     </div>
 
@@ -243,7 +248,7 @@ export default function TeamDBEditor({
                       }}
                       onClick={() => deleteTeam(team.key)}
                     >
-                      DELETE
+                      {tr('teamDbEditor.delete')}
                     </button>
                   </div>
 
@@ -264,8 +269,8 @@ export default function TeamDBEditor({
                         minWidth: 0
                       }}
                     >
-                      <div style={labelStyle}>Logo</div>
-                      <div style={valueStyle}>{hasLogo ? 'Configured' : 'Not Set'}</div>
+                      <div style={labelStyle}>{tr('teamDbEditor.logo')}</div>
+                      <div style={valueStyle}>{hasLogo ? tr('teamDbEditor.configured') : tr('teamDbEditor.notSet')}</div>
                     </div>
 
                     <div
@@ -278,8 +283,8 @@ export default function TeamDBEditor({
                         minWidth: 0
                       }}
                     >
-                      <div style={labelStyle}>Players</div>
-                      <div style={valueStyle}>{players.length} Registered</div>
+                      <div style={labelStyle}>{tr('teamDbEditor.players')}</div>
+                      <div style={valueStyle}>{players.length} {tr('teamDbEditor.registered')}</div>
                     </div>
 
                     <div
@@ -292,8 +297,8 @@ export default function TeamDBEditor({
                         minWidth: 0
                       }}
                     >
-                      <div style={labelStyle}>Status</div>
-                      <div style={valueStyle}>{players.length ? 'Ready' : 'Incomplete'}</div>
+                      <div style={labelStyle}>{tr('teamDbEditor.status')}</div>
+                      <div style={valueStyle}>{players.length ? tr('teamDbEditor.ready') : tr('teamDbEditor.incomplete')}</div>
                     </div>
                   </div>
 
@@ -315,7 +320,7 @@ export default function TeamDBEditor({
                         color: COLORS.yellow
                       }}
                     >
-                      Roster Preview
+                      {tr('teamDbEditor.rosterPreview')}
                     </div>
 
                     <div
@@ -330,7 +335,7 @@ export default function TeamDBEditor({
                         textOverflow: 'ellipsis'
                       }}
                     >
-                      {playerNames.join(', ') || 'No player data available.'}
+                      {playerNames.join(', ') || tr('teamDbEditor.noPlayerData')}
                     </div>
                   </div>
                 </div>
@@ -347,7 +352,7 @@ export default function TeamDBEditor({
                   gridColumn: '1 / -1'
                 }}
               >
-                No team records found. Import a database or save a team preset from the Roster panel first.
+                {tr('teamDbEditor.noRecords')}
               </div>
             )}
           </div>

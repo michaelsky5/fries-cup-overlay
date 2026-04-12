@@ -1,5 +1,7 @@
 import React, { useRef, useState, useMemo } from 'react';
 import html2canvas from 'html2canvas';
+// 🚀 引入 i18n
+import { useTranslation } from 'react-i18next';
 
 import {
   COLORS,
@@ -26,7 +28,7 @@ import CountdownEditor from '../controls/CountdownEditor';
 import VideoEditor from '../controls/VideoEditor';
 import HighlightEditor from '../controls/HighlightEditor';
 import CoverEditor from '../controls/CoverEditor';
-import OBSConnector from '../controls/OBSConnector'; // 🚀 引入 OBS 连接面板
+import OBSConnector from '../controls/OBSConnector'; 
 
 import RightSidebar from './RightSidebar';
 import StingerTransition from '../scenes/StingerTransition';
@@ -80,6 +82,9 @@ function ConsoleWorkspace({
   renderProgramMonitorScene,
   sceneLabelMap
 }) {
+  // 🚀 初始化翻译函数为 tr，避免与下方的密度 tokens t 冲突
+  const { t: tr } = useTranslation();
+
   const t = useMemo(() => densityTokens || {
     panelPadding: '12px',
     buttonPadding: '10px 12px',
@@ -230,7 +235,7 @@ function ConsoleWorkspace({
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
             <div style={{ width: '10px', height: '10px', background: COLORS.yellow, boxShadow: UI.yellowGlow, flexShrink: 0 }} />
             <span style={{ fontSize: '12px', fontWeight: '900', letterSpacing: '2px', color: COLORS.softWhite }}>
-              FCUP_CONTROL_INTERFACE
+              {tr('workspace.headerTitle')}
             </span>
             <span
               style={{
@@ -243,16 +248,14 @@ function ConsoleWorkspace({
                 borderRadius: '2px'
               }}
             >
-              {isUnlocked ? 'PRO MODE' : 'EASY MODE'}
+              {isUnlocked ? tr('workspace.proMode') : tr('workspace.easyMode')}
             </span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             
-            {/* 🚀 OBS WebSocket 面板：调整到功能按钮左侧 */}
             <OBSConnector />
 
-            {/* 优雅的视觉分割线 */}
             <div style={{ width: '1px', height: '16px', backgroundColor: COLORS.lineStrong, margin: '0 4px' }} />
 
             <button
@@ -262,15 +265,15 @@ function ConsoleWorkspace({
                 borderColor: isUnlocked ? COLORS.red : COLORS.lineStrong,
                 color: isUnlocked ? COLORS.red : COLORS.softWhite,
                 cursor: 'pointer',
-                height: '26px', // 统一高度
+                height: '26px', 
                 padding: '0 10px'
               }}
             >
-              {isUnlocked ? 'EXIT PRO' : 'MODE SELECT'}
+              {isUnlocked ? tr('workspace.exitPro') : tr('workspace.modeSelect')}
             </button>
 
-            <button style={{ ...ui.outlineBtn, cursor: 'pointer', height: '26px', padding: '0 10px' }} onClick={exportConfig}>EXPORT CONFIG</button>
-            <button style={{ ...ui.outlineBtn, cursor: 'pointer', height: '26px', padding: '0 10px' }} onClick={importConfig}>IMPORT CONFIG</button>
+            <button style={{ ...ui.outlineBtn, cursor: 'pointer', height: '26px', padding: '0 10px' }} onClick={exportConfig}>{tr('workspace.exportConfig')}</button>
+            <button style={{ ...ui.outlineBtn, cursor: 'pointer', height: '26px', padding: '0 10px' }} onClick={importConfig}>{tr('workspace.importConfig')}</button>
 
             {isUnlocked && (
               <button
@@ -284,7 +287,7 @@ function ConsoleWorkspace({
                 }}
                 onClick={() => setIsLogOpen(!isLogOpen)}
               >
-                {isLogOpen ? 'LOG ON' : 'LOG OFF'}
+                {isLogOpen ? tr('workspace.logOn') : tr('workspace.logOff')}
               </button>
             )}
 
@@ -304,7 +307,7 @@ function ConsoleWorkspace({
           {isUnlocked ? (
             <>
               <ShellPanel
-                title="System Status"
+                title={tr('workspace.systemStatus')}
                 accent
                 density={density}
                 style={{ height: '100%' }}
@@ -317,17 +320,17 @@ function ConsoleWorkspace({
                     gap: '5px'
                   }}
                 >
-                  <QuickStat label="Mode" value="PRO MODE" valueColor={COLORS.yellow} compact density={density} />
-                  <QuickStat label="Console" value={consolePresetMeta.label} compact density={density} />
-                  <QuickStat label="Output" value={outputResolution === '3840x2160' ? '4K' : '1080P'} compact density={density} />
-                  <QuickStat label="Route" value={isOverlay ? 'OVERLAY' : 'CONTROL'} valueColor={isOverlay ? COLORS.yellow : COLORS.white} compact density={density} />
-                  <QuickStat label="Program" value={matchData.globalScene} valueColor="#2ecc71" compact density={density} />
-                  <QuickStat label="Preview" value={previewScene} valueColor={COLORS.yellow} compact density={density} />
+                  <QuickStat label={tr('workspace.mode')} value={tr('workspace.proMode')} valueColor={COLORS.yellow} compact density={density} />
+                  <QuickStat label={tr('workspace.console')} value={consolePresetMeta.label} compact density={density} />
+                  <QuickStat label={tr('workspace.output')} value={outputResolution === '3840x2160' ? '4K' : '1080P'} compact density={density} />
+                  <QuickStat label={tr('workspace.route')} value={isOverlay ? tr('workspace.overlay') : tr('workspace.control')} valueColor={isOverlay ? COLORS.yellow : COLORS.white} compact density={density} />
+                  <QuickStat label={tr('workspace.program')} value={matchData.globalScene} valueColor="#2ecc71" compact density={density} />
+                  <QuickStat label={tr('workspace.preview')} value={previewScene} valueColor={COLORS.yellow} compact density={density} />
                 </div>
               </ShellPanel>
 
               <ShellPanel
-                title="Scene Routing Center"
+                title={tr('workspace.sceneCenter')}
                 accent
                 density={density}
                 style={{ height: '100%' }}
@@ -354,7 +357,7 @@ function ConsoleWorkspace({
                           lineHeight: 1
                         }}
                       >
-                        Preview
+                        {tr('workspace.preview')}
                       </div>
 
                       <select
@@ -413,7 +416,7 @@ function ConsoleWorkspace({
                           lineHeight: 1
                         }}
                       >
-                        Program
+                        {tr('workspace.program')}
                       </div>
 
                       <div
@@ -467,7 +470,7 @@ function ConsoleWorkspace({
                         alignSelf: 'end'
                       }}
                     >
-                      TAKE
+                      {tr('workspace.takeBtn')}
                     </button>
                   </div>
 
@@ -491,7 +494,7 @@ function ConsoleWorkspace({
                           lineHeight: 1
                         }}
                       >
-                        Stinger Logo
+                        {tr('workspace.stingerLogo')}
                       </div>
                       <select
                         style={{
@@ -517,9 +520,9 @@ function ConsoleWorkspace({
                         value={matchData.stingerLogo || '/assets/logos/fc_logo.png'}
                         onChange={e => updateData({ ...matchData, stingerLogo: e.target.value })}
                       >
-                        <option value="/assets/logos/fc_logo.png">MAIN</option>
-                        <option value="/assets/logos/fca_logo.png">ACADEMY</option>
-                        <option value="/assets/logos/fcr_logo.png">REGULAR</option>
+                        <option value="/assets/logos/fc_logo.png">{tr('workspace.logoMain')}</option>
+                        <option value="/assets/logos/fca_logo.png">{tr('workspace.logoAcademy')}</option>
+                        <option value="/assets/logos/fcr_logo.png">{tr('workspace.logoRegular')}</option>
                       </select>
                     </div>
 
@@ -535,7 +538,7 @@ function ConsoleWorkspace({
                           lineHeight: 1
                         }}
                       >
-                        HUD Mode
+                        {tr('workspace.hudMode')}
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
                         <button
@@ -555,7 +558,7 @@ function ConsoleWorkspace({
                           }}
                           onClick={() => updateData({ ...matchData, uiMode: 'NORMAL', hudMarginTop: 0 })}
                         >
-                          NORM
+                          {tr('workspace.modeNorm')}
                         </button>
                         <button
                           style={{
@@ -574,7 +577,7 @@ function ConsoleWorkspace({
                           }}
                           onClick={() => updateData({ ...matchData, uiMode: 'TOURNAMENT', hudMarginTop: 56 })}
                         >
-                          MATCH
+                          {tr('workspace.modeMatch')}
                         </button>
                       </div>
                     </div>
@@ -592,7 +595,7 @@ function ConsoleWorkspace({
                           textAlign: 'center'
                         }}
                       >
-                        Y-Offset
+                        {tr('workspace.yOffset')}
                       </div>
                       <div
                         style={{
@@ -701,7 +704,7 @@ function ConsoleWorkspace({
                           lineHeight: 1
                         }}
                       >
-                        Output Mode
+                        {tr('workspace.outputMode')}
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
                         <button
@@ -757,7 +760,7 @@ function ConsoleWorkspace({
                           lineHeight: 1
                         }}
                       >
-                        Current Editor
+                        {tr('workspace.currentEditor')}
                       </div>
                       <div
                         style={{
@@ -793,7 +796,7 @@ function ConsoleWorkspace({
               </ShellPanel>
 
               <ShellPanel
-                title="Instant Actions"
+                title={tr('workspace.instantActions')}
                 accent
                 density={density}
                 style={{ height: '100%' }}
@@ -816,7 +819,7 @@ function ConsoleWorkspace({
                     }}
                     onClick={handleSwapTeams}
                   >
-                    SWAP SIDES
+                    {tr('workspace.swapSides')}
                   </button>
 
                   <button
@@ -837,7 +840,7 @@ function ConsoleWorkspace({
                     onClick={handleUndo}
                     disabled={history.length === 0}
                   >
-                    UNDO LAST STEP
+                    {tr('workspace.undo')}
                   </button>
 
                   <button
@@ -856,14 +859,14 @@ function ConsoleWorkspace({
                     }}
                     onClick={handleReset}
                   >
-                    HARD RESET
+                    {tr('workspace.hardReset')}
                   </button>
                 </div>
               </ShellPanel>
             </>
           ) : (
             <ShellPanel
-              title="LIVE STATUS & ACTIONS"
+              title={tr('workspace.liveStatus')}
               accent
               density={density}
               style={{ height: '100%' }}
@@ -878,7 +881,7 @@ function ConsoleWorkspace({
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                   <div style={{ fontSize: density === 'spacious' ? '12px' : '11px', color: COLORS.faintWhite, fontWeight: 900, letterSpacing: '2px', marginBottom: '8px' }}>
-                    CURRENTLY ON AIR
+                    {tr('workspace.currentlyOnAir')}
                   </div>
                   <div
                     style={{
@@ -910,7 +913,7 @@ function ConsoleWorkspace({
                     }}
                     onClick={handleSwapTeams}
                   >
-                    SWAP SIDES
+                    {tr('workspace.swapSides')}
                   </button>
                   <button
                     style={{
@@ -928,7 +931,7 @@ function ConsoleWorkspace({
                     onClick={handleUndo}
                     disabled={history.length === 0}
                   >
-                    UNDO
+                    {tr('workspace.undo')}
                   </button>
                 </div>
               </div>
@@ -942,7 +945,7 @@ function ConsoleWorkspace({
             <div style={{ display: 'flex', flexDirection: 'column', gap: blockGap, minWidth: 0, minHeight: 0, height: '100%' }}>
               <div style={{ flex: '1 1 0', minHeight: 0, overflow: 'hidden' }}>
                 <ShellPanel
-                  title={isUnlocked ? "Scene Selector" : "Auto-Take Deck"}
+                  title={isUnlocked ? tr('workspace.sceneSelector') : tr('workspace.autoTakeDeck')}
                   accent
                   density={density}
                   style={{ height: '100%' }}
@@ -976,7 +979,7 @@ function ConsoleWorkspace({
                             takeScene(tab, '[AUTO-TAKE] Menu');
                           }
                         }}
-                        label={tab}
+                        label={sceneLabelMap[tab] || tab} 
                         index={idx + 1}
                         compact={isSelectorTight}
                         density={isSelectorTight ? 'compact' : density}
@@ -988,7 +991,7 @@ function ConsoleWorkspace({
 
               <div style={{ flex: '0 0 auto' }}>
                 <ShellPanel
-                  title="Quick Summary"
+                  title={tr('workspace.quickSummary')}
                   bodyStyle={{
                     ...headerPanelBodyStyle,
                     padding: quickSummaryPadding
@@ -1002,10 +1005,10 @@ function ConsoleWorkspace({
                       gap: quickSummaryGap
                     }}
                   >
-                    <QuickStat label="Match Format" value={matchData.matchFormat} compact density={density} />
-                    <QuickStat label="Current Map" value={`MAP ${matchData.currentMap}`} compact density={density} />
-                    <QuickStat label="Score" value={`${matchData.scoreA} : ${matchData.scoreB}`} valueColor={COLORS.yellow} compact density={density} />
-                    <QuickStat label="Ticker" value={matchData.showTicker ? 'ACTIVE' : 'OFF'} valueColor={matchData.showTicker ? COLORS.yellow : COLORS.softWhite} compact density={density} />
+                    <QuickStat label={tr('workspace.matchFormat')} value={matchData.matchFormat} compact density={density} />
+                    <QuickStat label={tr('workspace.currentMap')} value={`${tr('workspace.currentMap').split(' ')[1] || 'MAP'} ${matchData.currentMap}`} compact density={density} />
+                    <QuickStat label={tr('workspace.score')} value={`${matchData.scoreA} : ${matchData.scoreB}`} valueColor={COLORS.yellow} compact density={density} />
+                    <QuickStat label={tr('workspace.ticker')} value={matchData.showTicker ? tr('workspace.active') : tr('workspace.off')} valueColor={matchData.showTicker ? COLORS.yellow : COLORS.softWhite} compact density={density} />
                   </div>
                 </ShellPanel>
               </div>
@@ -1025,11 +1028,11 @@ function ConsoleWorkspace({
             >
               {isUnlocked && (
                 <div style={{ display: 'grid', gridTemplateColumns: monitorGridTemplate, gap: blockGap }}>
-                  <MonitorFrame title={`Preview // ${previewScene}`} accent={COLORS.yellow} compact={isDense} density={density}>
+                  <MonitorFrame title={`${tr('workspace.preview')} // ${previewScene}`} accent={COLORS.yellow} compact={isDense} density={density}>
                     <AutoFitScene>{renderPreviewMonitorScene(previewScene)}</AutoFitScene>
                   </MonitorFrame>
 
-                  <MonitorFrame title={`Program // ${matchData.globalScene}`} accent="#2ecc71" compact={isDense} density={density}>
+                  <MonitorFrame title={`${tr('workspace.program')} // ${matchData.globalScene}`} accent="#2ecc71" compact={isDense} density={density}>
                     <AutoFitScene>
                       {renderProgramMonitorScene(renderScene)}
                       <StingerTransition

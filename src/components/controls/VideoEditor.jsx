@@ -1,10 +1,15 @@
 import React from 'react';
+// 🚀 引入 i18n
+import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { COLORS, panelBase } from '../../constants/styles';
 import { ShellPanel, Field, SectionHint } from '../common/SharedUI';
 import { createEditorUi } from '../../utils/editorUi';
 
 export default function VideoEditor({ density = 'standard', densityTokens, isDense = false, isUltra = false }) {
+  // 🚀 初始化翻译钩子
+  const { t: tr } = useTranslation();
+  
   const { matchData, updateData } = useMatchContext();
 
   const t = densityTokens || { blockGap: 10, panelPadding: '12px 14px', buttonFontSize: 12 };
@@ -29,16 +34,16 @@ export default function VideoEditor({ density = 'standard', densityTokens, isDen
   };
 
   const addVideo = () => {
-    const name = window.prompt('Enter video display name:');
+    const name = window.prompt(tr('videoEditor.promptName'));
     if (!name) return;
-    const path = window.prompt('Enter video HTTP path (MUST be in public folder):', '/assets/videos/');
+    const path = window.prompt(tr('videoEditor.promptPath'), '/assets/videos/');
     if (!path) return;
     updateData({ ...matchData, videoLibrary: [...videoLibrary, { name, path }] });
   };
 
   const deleteVideo = index => {
     const item = videoLibrary[index];
-    if (!item || !window.confirm(`Delete [${item.name}] from library?`)) return;
+    if (!item || !window.confirm(tr('videoEditor.confirmDelete', { name: item.name }))) return;
     updateData({
       ...matchData,
       videoLibrary: videoLibrary.filter((_, i) => i !== index),
@@ -68,28 +73,28 @@ export default function VideoEditor({ density = 'standard', densityTokens, isDen
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: isUltra ? '1fr' : `${leftColWidth} minmax(0,1fr)`, gap: t.blockGap, alignItems: 'stretch' }}>
-      <ShellPanel title="Video Status" accent density={density}>
+      <ShellPanel title={tr('videoEditor.statusTitle')} accent density={density}>
         <div style={{ display: 'grid', gap }}>
-          <Field label="Active Video Path" density={density}>
-            <input style={controlInput} value={matchData.activeVideoPath || ''} onChange={e => updateData({ ...matchData, activeVideoPath: e.target.value })} placeholder="/assets/videos/warmup.mp4" />
+          <Field label={tr('videoEditor.activePath')} density={density}>
+            <input style={controlInput} value={matchData.activeVideoPath || ''} onChange={e => updateData({ ...matchData, activeVideoPath: e.target.value })} placeholder={tr('videoEditor.placeholderPath')} />
           </Field>
 
           <div style={{ display: 'grid', gridTemplateColumns: isDense ? '1fr' : '1fr 1fr', gap }}>
             <button style={{ ...softBtn, backgroundColor: matchData.videoMuted ? COLORS.red : COLORS.green, color: '#fff' }} onClick={() => updateData({ ...matchData, videoMuted: !matchData.videoMuted })}>
-              {matchData.videoMuted ? 'Muted' : 'Audio On'}
+              {matchData.videoMuted ? tr('videoEditor.muted') : tr('videoEditor.audioOn')}
             </button>
             <button style={{ ...outlineBtn, borderColor: COLORS.yellow, color: COLORS.yellow }} onClick={() => updateData({ ...matchData, activeVideoPath: '' })}>
-              Clear Active
+              {tr('videoEditor.clearActive')}
             </button>
           </div>
 
-          <SectionHint text="Manage the video scene source path, library assets, and playback playlist here." density={density} />
+          <SectionHint text={tr('videoEditor.hint')} density={density} />
 
           <div style={{ ...panelBase, padding: t.panelPadding, borderLeft: `3px solid ${COLORS.yellow}`, display: 'grid', gap, alignContent: 'start' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap, alignItems: 'center', paddingBottom: gap, borderBottom: `1px solid ${COLORS.line}` }}>
               <div>
-                <div style={{ color: COLORS.white, fontWeight: 900, fontSize: density === 'spacious' ? '13px' : '12px', letterSpacing: '1px', textTransform: 'uppercase' }}>Playlist</div>
-                <div style={{ color: COLORS.faintWhite, fontSize: '10px', marginTop: '4px', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Playback Queue</div>
+                <div style={{ color: COLORS.white, fontWeight: 900, fontSize: density === 'spacious' ? '13px' : '12px', letterSpacing: '1px', textTransform: 'uppercase' }}>{tr('videoEditor.playlist')}</div>
+                <div style={{ color: COLORS.faintWhite, fontSize: '10px', marginTop: '4px', letterSpacing: '0.12em', textTransform: 'uppercase' }}>{tr('videoEditor.playbackQueue')}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {videoPlaylist.length > 0 && (
@@ -97,7 +102,7 @@ export default function VideoEditor({ density = 'standard', densityTokens, isDen
                     style={{ ...actionBtn, padding: '0 12px', backgroundColor: COLORS.yellow, color: COLORS.black }} 
                     onClick={() => updateData({ ...matchData, activeVideoPath: videoPlaylist[0] })}
                   >
-                    START QUEUE
+                    {tr('videoEditor.startQueue')}
                   </button>
                 )}
                 <div style={{ minHeight: rowH, height: rowH, minWidth: '52px', padding: '0 10px', border: `1px solid ${COLORS.line}`, background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.softWhite, fontWeight: 900, fontSize: '12px', boxSizing: 'border-box' }}>
@@ -119,31 +124,31 @@ export default function VideoEditor({ density = 'standard', densityTokens, isDen
                           {idx + 1}
                         </div>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ color: COLORS.white, fontSize: density === 'spacious' ? '12px' : '11px', fontWeight: 900, wordBreak: 'break-word' }}>{item ? item.name : 'Unregistered Video'}</div>
+                          <div style={{ color: COLORS.white, fontSize: density === 'spacious' ? '12px' : '11px', fontWeight: 900, wordBreak: 'break-word' }}>{item ? item.name : tr('videoEditor.unregistered')}</div>
                           <div style={{ color: COLORS.faintWhite, fontSize: '10px', marginTop: '4px', wordBreak: 'break-all' }}>{path}</div>
                         </div>
                       </div>
 
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         <button style={{ ...actionBtn, backgroundColor: isActive ? '#6f5a12' : COLORS.yellow, color: isActive ? COLORS.softWhite : COLORS.black, padding: density === 'spacious' ? '0 12px' : '0 10px' }} onClick={() => handlePlayNow(path)}>
-                          {isActive ? 'PLAYING' : 'PLAYNOW'}
+                          {isActive ? tr('videoEditor.playing') : tr('videoEditor.playNow')}
                         </button>
-                        <button style={{ ...outlineBtn, padding: density === 'spacious' ? '0 10px' : '0 8px' }} onClick={() => movePlaylistItem(idx, -1)} disabled={idx === 0}>UP</button>
-                        <button style={{ ...outlineBtn, padding: density === 'spacious' ? '0 10px' : '0 8px' }} onClick={() => movePlaylistItem(idx, 1)} disabled={idx === videoPlaylist.length - 1}>DN</button>
-                        <button style={{ ...outlineBtn, borderColor: COLORS.red, color: COLORS.red, padding: density === 'spacious' ? '0 12px' : '0 10px' }} onClick={() => removeFromPlaylist(idx)}>Remove</button>
+                        <button style={{ ...outlineBtn, padding: density === 'spacious' ? '0 10px' : '0 8px' }} onClick={() => movePlaylistItem(idx, -1)} disabled={idx === 0}>{tr('videoEditor.up')}</button>
+                        <button style={{ ...outlineBtn, padding: density === 'spacious' ? '0 10px' : '0 8px' }} onClick={() => movePlaylistItem(idx, 1)} disabled={idx === videoPlaylist.length - 1}>{tr('videoEditor.dn')}</button>
+                        <button style={{ ...outlineBtn, borderColor: COLORS.red, color: COLORS.red, padding: density === 'spacious' ? '0 12px' : '0 10px' }} onClick={() => removeFromPlaylist(idx)}>{tr('videoEditor.remove')}</button>
                       </div>
                     </div>
                   </div>
                 );
               })}
-              {videoPlaylist.length === 0 && <div style={{ color: COLORS.faintWhite, textAlign: 'center', padding: '18px 10px', border: `1px dashed ${COLORS.lineStrong}`, gridColumn: '1 / -1', fontSize: density === 'spacious' ? '12px' : '11px' }}>Playlist is empty</div>}
+              {videoPlaylist.length === 0 && <div style={{ color: COLORS.faintWhite, textAlign: 'center', padding: '18px 10px', border: `1px dashed ${COLORS.lineStrong}`, gridColumn: '1 / -1', fontSize: density === 'spacious' ? '12px' : '11px' }}>{tr('videoEditor.emptyPlaylist')}</div>}
             </div>
           </div>
         </div>
       </ShellPanel>
 
       <ShellPanel 
-        title="Video Library" 
+        title={tr('videoEditor.libraryTitle')} 
         accent 
         density={density} 
         right={
@@ -158,7 +163,7 @@ export default function VideoEditor({ density = 'standard', densityTokens, isDen
               }} 
               onClick={() => updateData({ ...matchData, videoRenderMode: renderMode === 'WEB' ? 'OBS_LOCAL' : 'WEB' })}
             >
-              {renderMode === 'WEB' ? 'MODE // WEB' : 'MODE // OBS LOCAL'}
+              {renderMode === 'WEB' ? tr('videoEditor.modeWeb') : tr('videoEditor.modeObs')}
             </button>
             <button 
               style={{ 
@@ -169,7 +174,7 @@ export default function VideoEditor({ density = 'standard', densityTokens, isDen
               }} 
               onClick={addVideo}
             >
-              + Register
+              {tr('videoEditor.register')}
             </button>
           </div>
         }
@@ -188,26 +193,26 @@ export default function VideoEditor({ density = 'standard', densityTokens, isDen
                       <div style={{ color: COLORS.faintWhite, fontSize: '10px', marginTop: '4px', wordBreak: 'break-all' }}>{v.path}</div>
                     </div>
                     <div style={{ minHeight: rowH, height: rowH, minWidth: '56px', padding: '0 10px', border: `1px solid ${isActive ? 'rgba(244,195,32,0.35)' : COLORS.line}`, background: isActive ? 'rgba(244,195,32,0.14)' : 'rgba(255,255,255,0.02)', color: isActive ? COLORS.yellow : COLORS.faintWhite, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', boxSizing: 'border-box', whiteSpace: 'nowrap' }}>
-                      {isActive ? 'Live' : 'Idle'}
+                      {isActive ? tr('videoEditor.live') : tr('videoEditor.idle')}
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     <button style={{ ...actionBtn, backgroundColor: COLORS.red, color: '#fff', padding: density === 'spacious' ? '0 12px' : '0 10px' }} onClick={() => handlePlayNow(v.path)}>
-                      Play Now
+                      {tr('videoEditor.playNow')}
                     </button>
                     <button style={{ ...softBtn, backgroundColor: isInPlaylist ? '#555' : COLORS.green, color: isInPlaylist ? '#bbb' : '#fff', padding: density === 'spacious' ? '0 12px' : '0 10px' }} disabled={isInPlaylist} onClick={() => addToPlaylist(v.path)}>
-                      {isInPlaylist ? 'In Queue' : 'Add to Queue'}
+                      {isInPlaylist ? tr('videoEditor.inQueue') : tr('videoEditor.addToQueue')}
                     </button>
                     <button style={{ ...outlineBtn, borderColor: COLORS.red, color: COLORS.red, padding: density === 'spacious' ? '0 12px' : '0 10px' }} onClick={() => deleteVideo(i)}>
-                      Delete
+                      {tr('videoEditor.delete')}
                     </button>
                   </div>
                 </div>
               </div>
             );
           })}
-          {videoLibrary.length === 0 && <div style={{ color: COLORS.faintWhite, textAlign: 'center', padding: '20px 10px', border: `1px dashed ${COLORS.lineStrong}`, gridColumn: '1 / -1', fontSize: density === 'spacious' ? '12px' : '11px' }}>No video assets registered</div>}
+          {videoLibrary.length === 0 && <div style={{ color: COLORS.faintWhite, textAlign: 'center', padding: '20px 10px', border: `1px dashed ${COLORS.lineStrong}`, gridColumn: '1 / -1', fontSize: density === 'spacious' ? '12px' : '11px' }}>{tr('videoEditor.noAssets')}</div>}
         </div>
       </ShellPanel>
     </div>

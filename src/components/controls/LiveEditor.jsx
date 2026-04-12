@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
+// 🚀 引入 i18n
+import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { ShellPanel, Field } from '../common/SharedUI';
 import { COLORS, labelStyle, panelBase } from '../../constants/styles';
@@ -12,7 +14,8 @@ const TeamControlPanel = React.memo(({
   selectedPreset, setSelectedPreset, library, showSideControl, attackSide,
   sideLeftLabel, sideRightLabel, toggleAttackDefense, banInfo, getRosterOptionsForSide,
   onSetMapWinner,
-  isA, isUltra, is1080Compact, density, ui, t, compactInputPad, controlRowHeight, stackGap, innerGap, tightGap, compactBtnPad, playerCols, subButtonHeight, livePanelBodyPadding
+  isA, isUltra, is1080Compact, density, ui, t, compactInputPad, controlRowHeight, stackGap, innerGap, tightGap, compactBtnPad, playerCols, subButtonHeight, livePanelBodyPadding,
+  tr // 🚀 接收翻译函数
 }) => {
   const teamName = isA ? matchData.teamA : matchData.teamB;
   const teamShort = isA ? matchData.teamShortA : matchData.teamShortB;
@@ -23,7 +26,9 @@ const TeamControlPanel = React.memo(({
 
   const sideLabel = isA ? sideLeftLabel : sideRightLabel;
   const sideActive = isA ? attackSide === 'A' : attackSide === 'B';
-  const banOrderLabel = isA ? (matchData.banOrderMode === 'B_FIRST' ? 'A SECOND' : 'A FIRST') : (matchData.banOrderMode === 'B_FIRST' ? 'B FIRST' : 'B SECOND');
+  const banOrderLabel = isA 
+    ? (matchData.banOrderMode === 'B_FIRST' ? tr('liveEditor.aSecond') : tr('liveEditor.aFirst')) 
+    : (matchData.banOrderMode === 'B_FIRST' ? tr('liveEditor.bFirst') : tr('liveEditor.bSecond'));
   const banPanelOpacity = matchData.showBans ? 1 : 0.58;
 
   const buildFallbackShort = name =>
@@ -64,13 +69,13 @@ const TeamControlPanel = React.memo(({
   };
 
   return (
-    <ShellPanel title={`Team ${side} Control`} accent density={density} style={{ height: '100%' }} bodyStyle={{ padding: livePanelBodyPadding, height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <ShellPanel title={tr('liveEditor.teamControl', { side })} accent density={density} style={{ height: '100%' }} bodyStyle={{ padding: livePanelBodyPadding, height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'grid', gap: stackGap, height: '100%' }}>
         <div style={{ display: 'grid', gap: '5px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: isUltra ? '1fr' : showSideControl ? 'minmax(0,1fr) 116px 132px' : 'minmax(0,1fr) 132px', gap: innerGap, alignItems: 'end' }}>
-            <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>TEAM PRESET</div>
-            {!isUltra && showSideControl && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize, textAlign: 'center' }}>SIDE STATUS</div>}
-            {!isUltra && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize, textAlign: 'center' }}>WINNER</div>}
+            <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>{tr('liveEditor.teamPreset')}</div>
+            {!isUltra && showSideControl && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize, textAlign: 'center' }}>{tr('liveEditor.sideStatus')}</div>}
+            {!isUltra && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize, textAlign: 'center' }}>{tr('liveEditor.winner')}</div>}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: isUltra ? '1fr' : showSideControl ? 'minmax(0,1fr) 116px 132px' : 'minmax(0,1fr) 132px', gap: innerGap, alignItems: 'center' }}>
@@ -79,7 +84,7 @@ const TeamControlPanel = React.memo(({
               setSelectedPreset(next);
               if (next) loadTeamFromLibrary(side, next);
             }}>
-              <option value="" style={{ color: COLORS.white }}>{library.length ? '-- LOAD AND REPLACE CURRENT TEAM --' : '-- NO TEAM PRESETS --'}</option>
+              <option value="" style={{ color: COLORS.white }}>{library.length ? tr('liveEditor.loadReplace') : tr('liveEditor.noPresets')}</option>
               {library.map(p => <option key={p.key} value={p.key} style={{ color: COLORS.black }}>{p.name}</option>)}
             </select>
 
@@ -94,7 +99,7 @@ const TeamControlPanel = React.memo(({
                 style={{ ...ui.actionBtn, padding: compactBtnPad || ui.actionBtn.padding, height: controlRowHeight, minHeight: controlRowHeight, fontSize: is1080Compact ? '11px' : undefined, fontWeight: '900', width: '100%', whiteSpace: 'nowrap' }}
                 onClick={() => onSetMapWinner?.(side)}
               >
-                {isA ? 'TEAM A WIN' : 'TEAM B WIN'}
+                {isA ? tr('liveEditor.teamAWin') : tr('liveEditor.teamBWin')}
               </button>
             )}
           </div>
@@ -110,7 +115,7 @@ const TeamControlPanel = React.memo(({
                 style={{ ...ui.actionBtn, padding: compactBtnPad || ui.actionBtn.padding, height: controlRowHeight, minHeight: controlRowHeight, fontSize: is1080Compact ? '11px' : undefined, fontWeight: '900', width: '100%', whiteSpace: 'nowrap' }}
                 onClick={() => onSetMapWinner?.(side)}
               >
-                {isA ? 'TEAM A WIN' : 'TEAM B WIN'}
+                {isA ? tr('liveEditor.teamAWin') : tr('liveEditor.teamBWin')}
               </button>
             </div>
           )}
@@ -118,10 +123,10 @@ const TeamControlPanel = React.memo(({
 
         <div style={{ display: 'grid', gap: '5px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: isUltra ? '1fr' : '1.2fr 88px 1fr 96px', gap: innerGap, alignItems: 'end' }}>
-            <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>TEAM NAME</div>
-            {!isUltra && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>SHORT</div>}
-            {!isUltra && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>LOGO</div>}
-            {!isUltra && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>LOGO BG</div>}
+            <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>{tr('liveEditor.teamName')}</div>
+            {!isUltra && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>{tr('liveEditor.short')}</div>}
+            {!isUltra && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>{tr('liveEditor.logo')}</div>}
+            {!isUltra && <div style={{ ...labelStyle, marginBottom: 0, fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>{tr('liveEditor.logoBg')}</div>}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: isUltra ? '1fr' : '1.2fr 88px 1fr 96px', gap: innerGap, alignItems: 'center' }}>
@@ -137,7 +142,7 @@ const TeamControlPanel = React.memo(({
                 value={teamShort || ''}
                 maxLength={4}
                 onChange={e => updateData(prev => ({ ...prev, [isA ? 'teamShortA' : 'teamShortB']: e.target.value.toUpperCase().slice(0, 4) }))}
-                placeholder="TAG"
+                placeholder={tr('liveEditor.tagPlaceholder')}
               />
             )}
 
@@ -149,34 +154,34 @@ const TeamControlPanel = React.memo(({
 
             {!isUltra && (
               <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={logoBg} onChange={e => updateData(prev => ({ ...prev, [isA ? 'logoBgA' : 'logoBgB']: e.target.value }))}>
-                <option value={COLORS.mainDark}>DARK</option>
-                <option value={COLORS.white}>LIGHT</option>
+                <option value={COLORS.mainDark}>{tr('liveEditor.dark')}</option>
+                <option value={COLORS.white}>{tr('liveEditor.light')}</option>
               </select>
             )}
           </div>
 
           {isUltra && (
             <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 92px', gap: innerGap }}>
-              <Field label="SHORT" density={density}>
+              <Field label={tr('liveEditor.short')} density={density}>
                 <input
                   style={{ ...ui.input, padding: compactInputPad, height: controlRowHeight, textTransform: 'uppercase', fontWeight: '900', textAlign: 'center' }}
                   value={teamShort || ''}
                   maxLength={4}
                   onChange={e => updateData(prev => ({ ...prev, [isA ? 'teamShortA' : 'teamShortB']: e.target.value.toUpperCase().slice(0, 4) }))}
-                  placeholder="TAG"
+                  placeholder={tr('liveEditor.tagPlaceholder')}
                 />
               </Field>
 
-              <Field label="LOGO" density={density}>
+              <Field label={tr('liveEditor.logo')} density={density}>
                 <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={logo} onChange={e => updateData(prev => ({ ...prev, [isA ? 'logoA' : 'logoB']: e.target.value }))}>
                   {LOGO_LIST.map((l, index) => <option key={`${l.path}-${index}`} value={l.path}>{l.name}</option>)}
                 </select>
               </Field>
 
-              <Field label="LOGO BG" density={density}>
+              <Field label={tr('liveEditor.logoBg')} density={density}>
                 <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={logoBg} onChange={e => updateData(prev => ({ ...prev, [isA ? 'logoBgA' : 'logoBgB']: e.target.value }))}>
-                  <option value={COLORS.mainDark}>DARK</option>
-                  <option value={COLORS.white}>LIGHT</option>
+                  <option value={COLORS.mainDark}>{tr('liveEditor.dark')}</option>
+                  <option value={COLORS.white}>{tr('liveEditor.light')}</option>
                 </select>
               </Field>
             </div>
@@ -185,20 +190,19 @@ const TeamControlPanel = React.memo(({
 
         <div style={{ backgroundColor: 'rgba(255,77,77,0.08)', border: '1px solid rgba(255,77,77,0.18)', padding: is1080Compact ? '8px 10px' : t.panelPadding, display: 'grid', gap: '5px', opacity: banPanelOpacity }}>
           <div style={{ display: 'grid', gridTemplateColumns: isUltra ? '1fr' : '110px 120px 1fr 1fr', gap: innerGap, alignItems: 'center' }}>
-            <div style={{ ...labelStyle, marginBottom: 0, color: '#ff7d7d', fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>BAN SLOT</div>
+            <div style={{ ...labelStyle, marginBottom: 0, color: '#ff7d7d', fontSize: is1080Compact ? '10px' : labelStyle.fontSize }}>{tr('liveEditor.banSlot')}</div>
             {!isUltra && (
               <>
                 <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, height: controlRowHeight, minHeight: controlRowHeight, fontSize: is1080Compact ? '11px' : undefined, backgroundColor: 'rgba(255,255,255,0.04)', color: COLORS.softWhite, borderColor: 'rgba(255,255,255,0.14)', fontWeight: '900', whiteSpace: 'nowrap' }} onClick={() => updateWithHistory(matchData.banOrderMode === 'B_FIRST' ? 'Set ban order A first' : 'Set ban order B first', { ...matchData, banOrderMode: matchData.banOrderMode === 'B_FIRST' ? 'A_FIRST' : 'B_FIRST' })}>
                   {banOrderLabel}
                 </button>
                 <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={banInfo.role} onChange={e => updateData(prev => ({ ...prev, [isA ? 'bansA' : 'bansB']: [`${e.target.value}/tbd`] }))}>
-                  <option value="tank">TANK</option>
-                  <option value="damage">DPS</option>
-                  <option value="support">SUP</option>
+                  <option value="tank">{tr('liveEditor.tank')}</option>
+                  <option value="damage">{tr('liveEditor.dps')}</option>
+                  <option value="support">{tr('liveEditor.sup')}</option>
                 </select>
                 <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={banInfo.hero} onChange={e => updateData(prev => ({ ...prev, [isA ? 'bansA' : 'bansB']: [`${banInfo.role}/${e.target.value}`] }))}>
-                  <option value="tbd">TBD</option>
-                  <option value="tbd">TBD</option>
+                  <option value="tbd">{tr('liveEditor.tbd')}</option>
                   {HERO_DATA[banInfo.role]?.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
               </>
@@ -211,19 +215,19 @@ const TeamControlPanel = React.memo(({
                 {banOrderLabel}
               </button>
               <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={banInfo.role} onChange={e => updateData(prev => ({ ...prev, [isA ? 'bansA' : 'bansB']: [`${e.target.value}/tbd`] }))}>
-                <option value="tank">TANK</option>
-                <option value="damage">DPS</option>
-                <option value="support">SUP</option>
+                <option value="tank">{tr('liveEditor.tank')}</option>
+                <option value="damage">{tr('liveEditor.dps')}</option>
+                <option value="support">{tr('liveEditor.sup')}</option>
               </select>
               <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={banInfo.hero} onChange={e => updateData(prev => ({ ...prev, [isA ? 'bansA' : 'bansB']: [`${banInfo.role}/${e.target.value}`] }))}>
-                <option value="tbd">TBD</option>
+                <option value="tbd">{tr('liveEditor.tbd')}</option>
                 {HERO_DATA[banInfo.role]?.map(h => <option key={h} value={h}>{h}</option>)}
               </select>
             </div>
           )}
         </div>
 
-        <Field label="PLAYER STATUS" density={density}>
+        <Field label={tr('liveEditor.playerStatus')} density={density}>
           <div style={{ display: 'grid', gridTemplateColumns: playerCols, gap: tightGap }}>
             {players.map((p, i) => {
               const rosterOptions = getRosterOptionsForSide(side);
@@ -235,16 +239,16 @@ const TeamControlPanel = React.memo(({
                     newP[i] = e.target.value;
                     updateData(prev => ({ ...prev, [isA ? 'playersA' : 'playersB']: newP }));
                   }}>
-                    <option value="">-- SELECT --</option>
+                    <option value="">{tr('liveEditor.select')}</option>
                     {rosterOptions.map(opt => <option key={`${opt.value}-${opt.idx}`} value={opt.value}>{opt.label}</option>)}
                   </select>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: tightGap }}>
                     <button style={{ ...ui.outlineBtn, padding: is1080Compact ? '0 4px' : density === 'ultra' ? '0 6px' : '0 8px', minHeight: `${subButtonHeight}px`, fontSize: is1080Compact ? '10px' : `${t.buttonFontSize}px`, whiteSpace: 'nowrap' }} onClick={() => updateWithHistory(`Trigger key player ${currentValue || `P${i + 1}`}`, { ...matchData, keyPlayerTriggerAt: Date.now(), keyPlayerSide: side, keyPlayerName: currentValue || `P${i + 1}` })}>
-                      KEY
+                      {tr('liveEditor.key')}
                     </button>
                     <button style={{ ...ui.outlineBtn, padding: is1080Compact ? '0 4px' : density === 'ultra' ? '0 6px' : '0 8px', backgroundColor: subIndex === i ? COLORS.yellow : 'transparent', color: subIndex === i ? COLORS.black : COLORS.softWhite, minHeight: `${subButtonHeight}px`, fontSize: is1080Compact ? '10px' : `${t.buttonFontSize}px`, whiteSpace: 'nowrap' }} onClick={() => updateWithHistory(subIndex === i ? `Clear TEAM ${side} sub status` : `TEAM ${side} sub in ${currentValue || `P${i + 1}`}`, { ...matchData, [isA ? 'subIndexA' : 'subIndexB']: subIndex === i ? null : i })}>
-                      {subIndex === i ? 'IN' : 'SUB'}
+                      {subIndex === i ? tr('liveEditor.in') : tr('liveEditor.sub')}
                     </button>
                   </div>
                 </div>
@@ -260,6 +264,8 @@ const TeamControlPanel = React.memo(({
 export default function LiveEditor({
   isDense, isUltra, isShort, density = 'standard', densityTokens
 }) {
+  // 🚀 初始化翻译钩子
+  const { t: tr } = useTranslation();
   const { matchData, updateData, updateWithHistory, setPreviewScene } = useMatchContext();
 
   const t = densityTokens || {
@@ -307,8 +313,8 @@ export default function LiveEditor({
   const showSideControl = needsAttackDefense(currentMapModeKey);
 
   const attackSide = currentMapData.attackSide || matchData.attackSide || '';
-  const sideLeftLabel = attackSide === 'A' ? 'ATK' : 'DEF';
-  const sideRightLabel = attackSide === 'B' ? 'ATK' : 'DEF';
+  const sideLeftLabel = attackSide === 'A' ? tr('liveEditor.atk') : tr('liveEditor.def');
+  const sideRightLabel = attackSide === 'B' ? tr('liveEditor.atk') : tr('liveEditor.def');
 
   const toggleAttackDefense = useCallback(() => {
     const nextSide = attackSide === 'A' ? 'B' : 'A';
@@ -380,7 +386,6 @@ export default function LiveEditor({
     setPreviewScene
   ]);
 
-  // 修改：彻底重置比赛（清空比分、地图结果、所有当期和历史的 Ban 位，并将 currentMap 切回 1）
   const handleResetMatch = useCallback(() => {
     if (!resetConfirm) {
       setResetConfirm(true);
@@ -400,7 +405,7 @@ export default function LiveEditor({
       ...matchData,
       scoreA: 0,
       scoreB: 0,
-      currentMap: 1, // 将地图切回第一张
+      currentMap: 1, 
       mapLineup: clearedMapLineup,
       bansA: [], 
       bansB: []
@@ -419,17 +424,18 @@ export default function LiveEditor({
           banInfo={banA} getRosterOptionsForSide={getRosterOptionsForSide} onSetMapWinner={settleCurrentMapWinner} isUltra={isUltra} is1080Compact={is1080Compact} density={density}
           ui={ui} t={t} compactInputPad={compactInputPad} controlRowHeight={controlRowHeight} stackGap={stackGap} innerGap={innerGap}
           tightGap={tightGap} compactBtnPad={compactBtnPad} playerCols={playerCols} subButtonHeight={subButtonHeight} livePanelBodyPadding={livePanelBodyPadding}
+          tr={tr}
         />
 
-        <ShellPanel title="Live Core Control" accent density={density} style={{ height: '100%' }} bodyStyle={{ padding: livePanelBodyPadding, height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <ShellPanel title={tr('liveEditor.liveCoreControl')} accent density={density} style={{ height: '100%' }} bodyStyle={{ padding: livePanelBodyPadding, height: '100%', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: stackGap, height: '100%' }}>
             <div style={{ ...panelBase, padding: is1080Compact ? '10px' : t.panelPadding, borderTop: `2px solid ${COLORS.yellow}` }}>
-              <div style={sectionTitleStyle}>Score Control</div>
+              <div style={sectionTitleStyle}>{tr('liveEditor.scoreControl')}</div>
               
               <div style={{ marginTop: sectionTopGap, display: 'grid', gridTemplateColumns: '1fr auto 1fr', rowGap: sectionTopGap, columnGap: innerGap, alignItems: 'center' }}>
                 
                 <div style={{ textAlign: 'center', fontSize: is1080Compact ? '24px' : density === 'spacious' ? '36px' : '32px', fontWeight: '900', color: COLORS.white, lineHeight: 1 }}>{matchData.scoreA}</div>
-                <div style={{ textAlign: 'center', fontSize: is1080Compact ? '13px' : density === 'spacious' ? '16px' : '15px', fontWeight: '900', color: COLORS.yellow, letterSpacing: is1080Compact ? '1px' : '2px', lineHeight: 1 }}>VS</div>
+                <div style={{ textAlign: 'center', fontSize: is1080Compact ? '13px' : density === 'spacious' ? '16px' : '15px', fontWeight: '900', color: COLORS.yellow, letterSpacing: is1080Compact ? '1px' : '2px', lineHeight: 1 }}>{tr('liveEditor.vs')}</div>
                 <div style={{ textAlign: 'center', fontSize: is1080Compact ? '24px' : density === 'spacious' ? '36px' : '32px', fontWeight: '900', color: COLORS.white, lineHeight: 1 }}>{matchData.scoreB}</div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
@@ -453,7 +459,7 @@ export default function LiveEditor({
                   }} 
                   onClick={handleResetMatch}
                 >
-                  {resetConfirm ? 'SURE?' : 'RESET'}
+                  {resetConfirm ? tr('liveEditor.sure') : tr('liveEditor.reset')}
                 </button>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
@@ -466,16 +472,16 @@ export default function LiveEditor({
             <div style={{ ...panelBase, padding: is1080Compact ? '9px 10px' : t.panelPadding, flex: 1, display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'grid', gap: is1080Compact ? '10px' : '12px', height: '100%', alignContent: 'space-between' }}>
                 <div>
-                  <div style={sectionTitleStyle}>Voice Comms</div>
+                  <div style={sectionTitleStyle}>{tr('liveEditor.voiceComms')}</div>
                   <div style={{ marginTop: sectionTopGap, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: tightGap, width: '100%' }}>
-                    <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '34px' : '38px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.activeComms === 'A' ? COLORS.yellow : 'transparent', color: matchData.activeComms === 'A' ? COLORS.black : COLORS.softWhite, borderColor: matchData.activeComms === 'A' ? COLORS.yellow : 'rgba(255,255,255,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }} onClick={() => updateData(prev => ({ ...prev, activeComms: 'A' }))}>LEFT</button>
-                    <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '34px' : '38px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.activeComms === null ? 'rgba(255,255,255,0.08)' : 'transparent', color: matchData.activeComms === null ? COLORS.white : COLORS.softWhite, borderColor: matchData.activeComms === null ? COLORS.yellow : 'rgba(255,255,255,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }} onClick={() => updateData(prev => ({ ...prev, activeComms: null }))}>OFF</button>
-                    <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '34px' : '38px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.activeComms === 'B' ? COLORS.yellow : 'transparent', color: matchData.activeComms === 'B' ? COLORS.black : COLORS.softWhite, borderColor: matchData.activeComms === 'B' ? COLORS.yellow : 'rgba(255,255,255,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }} onClick={() => updateData(prev => ({ ...prev, activeComms: 'B' }))}>RIGHT</button>
+                    <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '34px' : '38px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.activeComms === 'A' ? COLORS.yellow : 'transparent', color: matchData.activeComms === 'A' ? COLORS.black : COLORS.softWhite, borderColor: matchData.activeComms === 'A' ? COLORS.yellow : 'rgba(255,255,255,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }} onClick={() => updateData(prev => ({ ...prev, activeComms: 'A' }))}>{tr('liveEditor.left')}</button>
+                    <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '34px' : '38px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.activeComms === null ? 'rgba(255,255,255,0.08)' : 'transparent', color: matchData.activeComms === null ? COLORS.white : COLORS.softWhite, borderColor: matchData.activeComms === null ? COLORS.yellow : 'rgba(255,255,255,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }} onClick={() => updateData(prev => ({ ...prev, activeComms: null }))}>{tr('liveEditor.off')}</button>
+                    <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '34px' : '38px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.activeComms === 'B' ? COLORS.yellow : 'transparent', color: matchData.activeComms === 'B' ? COLORS.black : COLORS.softWhite, borderColor: matchData.activeComms === 'B' ? COLORS.yellow : 'rgba(255,255,255,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }} onClick={() => updateData(prev => ({ ...prev, activeComms: 'B' }))}>{tr('liveEditor.right')}</button>
                   </div>
                 </div>
 
                 <div>
-                  <div style={sectionTitleStyle}>Live Triggers</div>
+                  <div style={sectionTitleStyle}>{tr('liveEditor.liveTriggers')}</div>
                   <div style={{ marginTop: sectionTopGap, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: tightGap, width: '100%' }}>
                     <button
                       style={{
@@ -488,15 +494,15 @@ export default function LiveEditor({
                       }}
                       onClick={() => updateWithHistory(matchData.beginInfoEnabled ? 'Disable Auto Begin' : 'Enable Auto Begin', { ...matchData, beginInfoEnabled: !matchData.beginInfoEnabled })}
                     >
-                      AUTO BEGIN
+                      {tr('liveEditor.autoBegin')}
                     </button>
 
-                    <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '38px' : '42px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.showPlayers ? 'rgba(244,195,32,0.16)' : 'transparent', color: matchData.showPlayers ? COLORS.yellow : COLORS.softWhite, borderColor: matchData.showPlayers ? COLORS.yellow : 'rgba(255,255,255,0.14)', whiteSpace: 'nowrap' }} onClick={() => updateData(prev => ({ ...prev, showPlayers: !prev.showPlayers }))}>NAME INFO</button>
+                    <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '38px' : '42px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.showPlayers ? 'rgba(244,195,32,0.16)' : 'transparent', color: matchData.showPlayers ? COLORS.yellow : COLORS.softWhite, borderColor: matchData.showPlayers ? COLORS.yellow : 'rgba(255,255,255,0.14)', whiteSpace: 'nowrap' }} onClick={() => updateData(prev => ({ ...prev, showPlayers: !prev.showPlayers }))}>{tr('liveEditor.nameInfo')}</button>
 
-                    <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '38px' : '42px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.showBans ? 'rgba(255,77,77,0.16)' : 'transparent', color: matchData.showBans ? '#ff8f8f' : COLORS.softWhite, borderColor: matchData.showBans ? COLORS.banRed : 'rgba(255,255,255,0.14)', whiteSpace: 'nowrap' }} onClick={() => updateWithHistory(matchData.showBans ? 'Disable ban mode' : 'Enable ban mode', { ...matchData, showBans: !matchData.showBans, showBanPhase: !matchData.showBans ? matchData.showBanPhase : false })}>BAN MODE</button>
+                    <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '38px' : '42px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.showBans ? 'rgba(255,77,77,0.16)' : 'transparent', color: matchData.showBans ? '#ff8f8f' : COLORS.softWhite, borderColor: matchData.showBans ? COLORS.banRed : 'rgba(255,255,255,0.14)', whiteSpace: 'nowrap' }} onClick={() => updateWithHistory(matchData.showBans ? 'Disable ban mode' : 'Enable ban mode', { ...matchData, showBans: !matchData.showBans, showBanPhase: !matchData.showBans ? matchData.showBanPhase : false })}>{tr('liveEditor.banMode')}</button>
 
                     <button style={{ ...ui.btn, backgroundColor: 'rgba(255,77,77,0.92)', color: '#fff', padding: compactBtnPad || ui.btn.padding, minHeight: is1080Compact ? '38px' : '42px', fontSize: is1080Compact ? '11px' : undefined, border: `1px solid ${COLORS.banRed}`, whiteSpace: 'nowrap' }} onClick={() => updateWithHistory(matchData.showBanPhase ? 'Close ban phase' : 'Open ban phase', { ...matchData, showBanPhase: !matchData.showBanPhase, heroBanTriggerAt: !matchData.showBanPhase ? Date.now() : matchData.heroBanTriggerAt })}>
-                      {matchData.showBanPhase ? 'CLOSE BAN' : 'BAN PHASE'}
+                      {matchData.showBanPhase ? tr('liveEditor.closeBan') : tr('liveEditor.banPhase')}
                     </button>
                   </div>
                 </div>
@@ -512,19 +518,20 @@ export default function LiveEditor({
           banInfo={banB} getRosterOptionsForSide={getRosterOptionsForSide} onSetMapWinner={settleCurrentMapWinner} isUltra={isUltra} is1080Compact={is1080Compact} density={density}
           ui={ui} t={t} compactInputPad={compactInputPad} controlRowHeight={controlRowHeight} stackGap={stackGap} innerGap={innerGap}
           tightGap={tightGap} compactBtnPad={compactBtnPad} playerCols={playerCols} subButtonHeight={subButtonHeight} livePanelBodyPadding={livePanelBodyPadding}
+          tr={tr}
         />
       </div>
 
-      <ShellPanel title="Ticker Control" accent bodyStyle={{ padding: is1080Compact ? '10px 12px' : t.panelPadding }} density={density}>
+      <ShellPanel title={tr('liveEditor.tickerControl')} accent bodyStyle={{ padding: is1080Compact ? '10px 12px' : t.panelPadding }} density={density}>
         <div style={{ display: 'grid', gridTemplateColumns: isUltra ? '1fr' : is1080Compact ? '120px 120px 1fr' : isDense ? '1fr' : density === 'spacious' ? '150px 150px 1fr' : '130px 130px 1fr', gap: is1080Compact ? '8px' : '10px', alignItems: 'center' }}>
           <select style={{ ...ui.select, padding: compactInputPad }} value={matchData.tickerMode || 'INFINITE'} onChange={e => updateData(prev => ({ ...prev, tickerMode: e.target.value }))}>
-            <option value="INFINITE">LOOP</option>
-            <option value="ONCE">ONCE</option>
+            <option value="INFINITE">{tr('liveEditor.loop')}</option>
+            <option value="ONCE">{tr('liveEditor.once')}</option>
           </select>
           <button style={{ ...ui.btn, backgroundColor: matchData.showTicker ? '#e74c3c' : '#2ecc71', padding: compactBtnPad || ui.btn.padding, fontSize: is1080Compact ? '11px' : undefined }} onClick={() => updateData(prev => ({ ...prev, showTicker: !prev.showTicker }))}>
-            {matchData.showTicker ? 'TICKER OFF' : 'TICKER ON'}
+            {matchData.showTicker ? tr('liveEditor.tickerOff') : tr('liveEditor.tickerOn')}
           </button>
-          <input style={{ ...ui.input, padding: compactInputPad }} value={matchData.tickerText ?? ''} onChange={e => updateData(prev => ({ ...prev, tickerText: e.target.value }))} placeholder="Enter ticker text..." />
+          <input style={{ ...ui.input, padding: compactInputPad }} value={matchData.tickerText ?? ''} onChange={e => updateData(prev => ({ ...prev, tickerText: e.target.value }))} placeholder={tr('liveEditor.tickerPlaceholder')} />
         </div>
       </ShellPanel>
     </div>
