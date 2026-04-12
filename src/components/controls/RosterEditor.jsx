@@ -364,7 +364,6 @@ const RosterEditor = ({
   const updateRosterPlayers = useCallback((nextPlayers) => updateData(prev => ({ ...prev, [rosterPlayersKey]: nextPlayers })), [rosterPlayersKey, updateData]);
   const updateRosterStaff = nextStaff => updateData({ ...matchData, [rosterStaffKey]: nextStaff });
 
-  // 核心修复部分：改为异步处理并调用 processImageForStorage
   const handleRosterImageUpload = useCallback(async (idx, e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -745,44 +744,46 @@ const RosterEditor = ({
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gap: '10px', maxHeight: '62vh', overflowY: 'auto', paddingRight: '4px' }}>
+              {/* 🚀 核心修改区域：将原来的单列改为响应式多列网格 (自动适配，通常是 2-3 列) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px', maxHeight: '70vh', overflowY: 'auto', paddingRight: '6px', alignContent: 'start' }}>
                 {(matchData.rosterPresetLibrary || []).map((preset, idx) => (
-                  <div key={preset.key || idx} style={{ ...panelBase, padding: t.panelPadding, borderLeft: `3px solid ${COLORS.yellow}` }}>
-                    <div style={{ display: 'grid', gap: '10px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ color: COLORS.white, fontWeight: '900', fontSize: density === 'spacious' ? '15px' : '14px', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                            {preset.name}
-                          </div>
-                          <div style={{ color: COLORS.faintWhite, fontSize: '10px', marginTop: '5px', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                            KEY // {preset.key}
-                          </div>
-                        </div>
+                  <div 
+                    key={preset.key || idx} 
+                    style={{ 
+                      ...panelBase, 
+                      padding: '8px 14px', 
+                      borderLeft: `3px solid ${COLORS.yellow}`,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '12px'
+                    }}
+                    title={(preset.data?.players || []).map(p => p.nickname || p.battleTag || 'PLAYER').join(' / ')}
+                  >
+                    <div style={{ color: COLORS.white, fontWeight: '900', fontSize: '14px', letterSpacing: '1px', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {preset.name}
+                    </div>
 
-                        <div style={{ display: 'flex', gap: tinyGap, flexWrap: 'wrap' }}>
-                          <button style={{ ...rowBtn, backgroundColor: COLORS.yellow, color: COLORS.black }} onClick={() => applyRosterPresetToCurrentTeam(preset)}>
-                            {tr('rosterEditor.applyToTeam', { target: matchData.rosterTeamTarget || 'A' })}
-                          </button>
+                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                      <button 
+                        style={{ ...rowBtn, height: '26px', minHeight: '26px', padding: '0 10px', fontSize: '11px', backgroundColor: COLORS.yellow, color: COLORS.black }} 
+                        onClick={() => applyRosterPresetToCurrentTeam(preset)}
+                      >
+                        {tr('rosterEditor.applyToTeam', { target: matchData.rosterTeamTarget || 'A' })}
+                      </button>
 
-                          <button style={{ ...rowOutlineBtn, borderColor: COLORS.red, color: COLORS.red }} onClick={() => deleteRosterPreset(preset.key)}>
-                            {tr('rosterEditor.delete')}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div style={{ color: COLORS.softWhite, fontSize: density === 'spacious' ? '12px' : '11px', lineHeight: 1.6 }}>
-                        {tr('rosterEditor.team')}: {preset.data?.teamName || '—'}　|　{tr('rosterEditor.club')}: {preset.data?.clubName || '—'}
-                      </div>
-
-                      <div style={{ color: COLORS.faintWhite, fontSize: density === 'spacious' ? '12px' : '11px', lineHeight: 1.6, wordBreak: 'break-word' }}>
-                        {(preset.data?.players || []).map(p => p.nickname || p.battleTag || 'PLAYER').join(' / ') || tr('rosterEditor.noPlayers')}
-                      </div>
+                      <button 
+                        style={{ ...rowOutlineBtn, height: '26px', minHeight: '26px', padding: '0 10px', fontSize: '11px', borderColor: COLORS.red, color: COLORS.red }} 
+                        onClick={() => deleteRosterPreset(preset.key)}
+                      >
+                        {tr('rosterEditor.delete')}
+                      </button>
                     </div>
                   </div>
                 ))}
 
                 {!((matchData.rosterPresetLibrary || []).length) && (
-                  <div style={{ ...panelBase, padding: '22px 16px', textAlign: 'center', color: COLORS.faintWhite, border: `1px dashed ${COLORS.lineStrong}` }}>
+                  <div style={{ ...panelBase, padding: '22px 16px', textAlign: 'center', color: COLORS.faintWhite, border: `1px dashed ${COLORS.lineStrong}`, gridColumn: '1 / -1' }}>
                     {tr('rosterEditor.noPresetsSaved')}
                   </div>
                 )}
