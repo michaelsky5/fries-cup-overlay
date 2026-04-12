@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-// 引入 i18n
 import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { COLORS, UI, panelBase } from '../../constants/styles';
@@ -16,6 +15,9 @@ import {
 } from '../../utils';
 import { createEditorUi } from '../../utils/editorUi';
 import { ShellPanel, Field, QuickStat, SectionHint } from '../common/SharedUI';
+
+// 引入图片处理工具
+import { processImageForStorage } from '../../utils/imageHelper';
 
 const PlayerRow = React.memo(({
   player, idx, role, isDense, isUltra, density, t, ui, compactLabel, rowInput, rowNumberInput, rowSelect, 
@@ -362,7 +364,8 @@ const RosterEditor = ({
   const updateRosterPlayers = useCallback((nextPlayers) => updateData(prev => ({ ...prev, [rosterPlayersKey]: nextPlayers })), [rosterPlayersKey, updateData]);
   const updateRosterStaff = nextStaff => updateData({ ...matchData, [rosterStaffKey]: nextStaff });
 
-  const handleRosterImageUpload = useCallback((idx, e) => {
+  // 核心修复部分：改为异步处理并调用 processImageForStorage
+  const handleRosterImageUpload = useCallback(async (idx, e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -374,10 +377,15 @@ const RosterEditor = ({
       URL.revokeObjectURL(oldImage);
     }
     
-    const objectUrl = URL.createObjectURL(file);
-    const next = [...rosterPlayers];
-    next[idx] = { ...next[idx], heroImage: objectUrl };
-    updateRosterPlayers(next);
+    try {
+      const base64Image = await processImageForStorage(file);
+      const next = [...rosterPlayers];
+      next[idx] = { ...next[idx], heroImage: base64Image };
+      updateRosterPlayers(next);
+    } catch (error) {
+      console.error("Image processing failed:", error);
+      showModal({ type: 'alert', title: 'Error', message: 'Image processing failed, please try again.', isDanger: true });
+    }
     
     e.target.value = '';
   }, [rosterPlayers, updateRosterPlayers, showModal, tr]);

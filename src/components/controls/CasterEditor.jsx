@@ -6,13 +6,13 @@ import { ShellPanel, Field } from '../common/SharedUI';
 import { COLORS, panelBase } from '../../constants/styles';
 import { createEditorUi } from '../../utils/editorUi';
 
-// 如果你之前加了 imageHelper，可以保留 import。如果纯用路径法，这行甚至可以不要，我这里先帮你保留以防万一你想混用。
-// import { processImageForStorage } from '../../utils/imageHelper'; 
+// 🚀 引入图片处理工具，用于生成 OBS 可读取的 Base64
+import { processImageForStorage } from '../../utils/imageHelper'; 
 
 const CasterRow = React.memo(({
   caster, idx, rowH, gap, t, ui, density, isUltra, isDense, compactInput, slotTitleStyle, metaLabelStyle,
   removeCaster, updateCasterField, handleCasterAvatarUpload, clearCasterAvatar, renderAvatarThumb,
-  tr // 🚀 接收翻译函数
+  tr 
 }) => {
   return (
     <div
@@ -237,9 +237,7 @@ export default function CasterEditor({
   isDense = false,
   isUltra = false
 }) {
-  // 🚀 初始化翻译钩子
   const { t: tr } = useTranslation();
-
   const { matchData, updateData } = useMatchContext();
   const casters = Array.isArray(matchData.casters) ? matchData.casters : [];
 
@@ -319,18 +317,27 @@ export default function CasterEditor({
     updateData({ ...matchData, casters: next });
   }, [casters, matchData, updateData]);
 
+  // 🚀 核心改动：使用 async/await，并调用 processImageForStorage
   const handleCasterAvatarUpload = useCallback(async (idx, e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) return alert(tr('casterEditor.imageWarning'));
     
     const oldAvatar = casters[idx]?.avatar;
+    // 兼容清理旧版产生的 blob 链接
     if (oldAvatar && oldAvatar.startsWith('blob:')) {
       URL.revokeObjectURL(oldAvatar);
     }
 
-    const objectUrl = URL.createObjectURL(file);
-    updateCasterField(idx, 'avatar', objectUrl);
+    try {
+      // 生成 Base64 字符串
+      const base64Image = await processImageForStorage(file);
+      // 直接将 Base64 字符串写入全局状态
+      updateCasterField(idx, 'avatar', base64Image);
+    } catch (error) {
+      console.error("图片处理失败:", error);
+      alert("图片处理失败，请重试！");
+    }
     
     e.target.value = '';
   }, [casters, updateCasterField, tr]);
@@ -428,7 +435,7 @@ export default function CasterEditor({
               handleCasterAvatarUpload={handleCasterAvatarUpload}
               clearCasterAvatar={clearCasterAvatar}
               renderAvatarThumb={renderAvatarThumb}
-              tr={tr} // 🚀 传入翻译函数
+              tr={tr}
             />
           ))}
         </div>

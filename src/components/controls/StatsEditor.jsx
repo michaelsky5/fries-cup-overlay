@@ -11,6 +11,9 @@ import OcrScannerModal from './OcrScannerModal';
 // 🌟 1. 引入你的自定义工业风弹窗
 import FriesModal from '../common/FriesModal';
 
+// 引入图片处理工具，用于生成 OBS 可读取的 Base64
+import { processImageForStorage } from '../../utils/imageHelper';
+
 const PRO_DEFAULTS = {
   cropW: 1000,
   cropH: 320,
@@ -101,7 +104,8 @@ export default function StatsEditor({ isUltra = false, density = 'standard', den
     transition: 'background-color 0.2s, color 0.2s'
   });
 
-  const processImageFile = file => {
+  // 核心修复：改为异步处理并调用 processImageForStorage
+  const processImageFile = async (file) => {
     if (!file.type.startsWith('image/')) {
       alert(tr('statsEditor.invalidImage'));
       return;
@@ -111,11 +115,17 @@ export default function StatsEditor({ isUltra = false, density = 'standard', den
       URL.revokeObjectURL(matchData.statsImageTempUrl);
     }
 
-    updateData({
-      ...matchData,
-      statsImageTempUrl: URL.createObjectURL(file),
-      statsMode: 'IMAGE'
-    });
+    try {
+      const base64Image = await processImageForStorage(file);
+      updateData({
+        ...matchData,
+        statsImageTempUrl: base64Image,
+        statsMode: 'IMAGE'
+      });
+    } catch (error) {
+      console.error("图片处理失败:", error);
+      alert("图片处理失败，请重试！");
+    }
   };
 
   const handleStatsImageUpload = e => {
@@ -143,8 +153,11 @@ export default function StatsEditor({ isUltra = false, density = 'standard', den
     return () => document.removeEventListener('paste', handlePaste);
   }, [matchData, updateData]);
 
+  // 修复：只撤销 blob 链接，防止误伤 base64
   const clearStatsTempImage = () => {
-    if (matchData.statsImageTempUrl) URL.revokeObjectURL(matchData.statsImageTempUrl);
+    if (matchData.statsImageTempUrl && matchData.statsImageTempUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(matchData.statsImageTempUrl);
+    }
     updateData({ ...matchData, statsImageTempUrl: '' });
   };
 
