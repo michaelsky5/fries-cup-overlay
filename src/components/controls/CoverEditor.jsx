@@ -387,6 +387,8 @@ export default function CoverEditor({
   const setField = (key, value) => updateData({ ...matchData, [key]: value });
 
   const teamOptions = buildTeamOptions(matchData);
+  // ✅ 获取当前画幅比例，默认为 16:9
+  const currentRatio = matchData.aspectRatio || '16:9';
 
   return (
     <div
@@ -397,34 +399,52 @@ export default function CoverEditor({
         alignItems: 'start'
       }}
     >
-      {/* 左列：通用设置 + 导出按钮 */}
+      {/* 左列：通用设置 + 导出面板 */}
       <div style={{ display: 'grid', gap: blockGap }}>
         <CoverModePanel coverMode={coverMode} setField={setField} ui={ui} density={density} tr={tr} />
         <BrandingPanel matchData={matchData} setField={setField} ui={ui} density={density} tr={tr} />
 
-        {/* 导出按钮 */}
+        {/* ✅ 新增的导出与画幅设置区域 */}
         {onExport && (
-          <button
-            onClick={onExport}
-            disabled={isExporting}
-            style={{
-              ...ui.btn,
-              minHeight: '44px',
-              background: COLORS.yellow,
-              color: COLORS.black,
-              border: UI.outerFrame,
-              fontWeight: 900,
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-              cursor: isExporting ? 'wait' : 'pointer',
-              opacity: isExporting ? 0.7 : 1,
-              marginTop: '4px',
-              boxShadow: isExporting ? 'none' : '0 4px 14px rgba(244,195,32,0.25)',
-              transition: 'all 0.2s ease'
-            }}
+          <ShellPanel
+            title={tr('coverEditor.exportSettings') || 'EXPORT SETTINGS'}
+            accent
+            density={density}
+            bodyStyle={{ padding: density === 'spacious' ? '14px' : '12px', display: 'grid', gap: '12px' }}
           >
-            {isExporting ? tr('coverEditor.generating') : tr('coverEditor.exportBtn')}
-          </button>
+            {/* 画幅比例切换器 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <ToggleBtn active={currentRatio === '16:9'} onClick={() => setField('aspectRatio', '16:9')} ui={ui}>
+                16:9 
+              </ToggleBtn>
+              <ToggleBtn active={currentRatio === '4:3'} onClick={() => setField('aspectRatio', '4:3')} ui={ui}>
+                4:3 
+              </ToggleBtn>
+            </div>
+
+            {/* 导出按钮 */}
+            <button
+              onClick={onExport}
+              disabled={isExporting}
+              style={{
+                ...ui.btn,
+                minHeight: '44px',
+                background: COLORS.yellow,
+                color: COLORS.black,
+                border: UI.outerFrame,
+                fontWeight: 900,
+                letterSpacing: '1px',
+                textTransform: 'uppercase',
+                cursor: isExporting ? 'wait' : 'pointer',
+                opacity: isExporting ? 0.7 : 1,
+                marginTop: '4px',
+                boxShadow: isExporting ? 'none' : '0 4px 14px rgba(244,195,32,0.25)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {isExporting ? tr('coverEditor.generating') : tr('coverEditor.exportBtn')}
+            </button>
+          </ShellPanel>
         )}
       </div>
 

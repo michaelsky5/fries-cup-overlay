@@ -1,6 +1,6 @@
 import React, { useRef, useState, useMemo } from 'react';
 import html2canvas from 'html2canvas';
-// 🚀 引入 i18n
+// 引入 i18n
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -80,8 +80,11 @@ function ConsoleWorkspace({
 
   renderPreviewMonitorScene,
   renderProgramMonitorScene,
-  sceneLabelMap = {}
+  sceneLabelMap = {},
+  
+  openShortcutModal
 }) {
+  // 初始化翻译函数为 tr，避免与下方的密度 tokens t 冲突
   const { t: tr } = useTranslation();
 
   const t = useMemo(() => densityTokens || {
@@ -112,7 +115,6 @@ function ConsoleWorkspace({
   const quickSummaryGap = isSelectorTight ? '5px' : isDense || isUltra ? '6px' : '8px';
   const quickSummaryCols = isUltra ? '1fr' : isSelectorTight ? '1fr' : '1fr 1fr';
 
-  // 🚀 修改：调换 COVER 和 TEAM_DB 的位置
   const OPTIMAL_TAB_ORDER = [
     'LIVE',
     'MAP_POOL',
@@ -122,8 +124,8 @@ function ConsoleWorkspace({
     'COUNTDOWN',
     'HIGHLIGHT',
     'VIDEO',
-    'COVER',    // 直播封面提前
-    'TEAM_DB',  // 战队数据置后
+    'COVER',
+    'TEAM_DB',
   ];
 
   const displayTabs = OPTIMAL_TAB_ORDER.filter(tab => availableTabs.includes(tab));
@@ -272,6 +274,27 @@ function ConsoleWorkspace({
               {isUnlocked ? tr('workspace.exitPro') : tr('workspace.modeSelect')}
             </button>
 
+            {isUnlocked && (
+              <button 
+                style={{ 
+                  ...ui.outlineBtn, 
+                  cursor: 'pointer', 
+                  height: '26px', 
+                  padding: '0 10px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px',
+                  borderColor: 'rgba(244,195,32,0.3)',
+                  color: COLORS.yellow
+                }} 
+                onClick={openShortcutModal}
+                title="Shortcut Settings"
+              >
+                {/* SVG 图标已删除 */}
+                {tr('workspace.shortcuts')}
+              </button>
+            )}
+
             <button style={{ ...ui.outlineBtn, cursor: 'pointer', height: '26px', padding: '0 10px' }} onClick={exportConfig}>{tr('workspace.exportConfig')}</button>
             <button style={{ ...ui.outlineBtn, cursor: 'pointer', height: '26px', padding: '0 10px' }} onClick={importConfig}>{tr('workspace.importConfig')}</button>
 
@@ -373,25 +396,25 @@ function ConsoleWorkspace({
                         value={previewScene}
                         onChange={e => setPreviewScene(e.target.value)}
                       >
-                        {/* 🚀 修改：通过 filter 将 TEAM_DB 剔除出可预览的选项 */}
                         {Object.keys(sceneLabelMap).length > 0 ? (
                           Object.entries(sceneLabelMap)
+                            .sort(([keyA], [keyB]) => {
+                              const indexA = OPTIMAL_TAB_ORDER.indexOf(keyA);
+                              const indexB = OPTIMAL_TAB_ORDER.indexOf(keyB);
+                              const orderA = indexA !== -1 ? indexA : 999;
+                              const orderB = indexB !== -1 ? indexB : 999;
+                              return orderA - orderB;
+                            })
                             .filter(([key]) => key !== 'TEAM_DB')
                             .map(([key, label]) => (
                               <option key={key} value={key}>{label}</option>
                             ))
                         ) : (
                           <>
-                            <option value="LIVE">LIVE</option>
-                            <option value="MAP_POOL">MAP_POOL</option>
-                            <option value="ROSTER">ROSTER</option>
-                            <option value="STATS">STATS</option>
-                            <option value="CASTERS">CASTERS</option>
-                            <option value="COUNTDOWN">COUNTDOWN</option>
-                            <option value="HIGHLIGHT">HIGHLIGHT</option>
-                            <option value="VIDEO">VIDEO</option>
+                            {OPTIMAL_TAB_ORDER.filter(key => key !== 'TEAM_DB').map(key => (
+                              <option key={key} value={key}>{key}</option>
+                            ))}
                             <option value="WINNER">WINNER</option>
-                            <option value="COVER">COVER</option>
                           </>
                         )}
                       </select>

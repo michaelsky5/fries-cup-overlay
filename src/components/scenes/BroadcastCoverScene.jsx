@@ -21,6 +21,7 @@ const UI = {
 
 const DEFAULT_DATA = {
   coverMode: 'GENERIC', 
+  aspectRatio: '16:9',
   titleMain: 'FRIES CUP',
   titleSubEn: 'ACADEMY',
   titleSubCn: '薯条杯学院赛',
@@ -39,14 +40,13 @@ const DEFAULT_DATA = {
   coverCasters: 'AAA / BBB',
   coverAdmins: 'CCC / DDD',
   
-  // 对阵数据
   teamA: 'TEAM A',
   teamB: 'TEAM B',
   logoA: '',
   logoB: '',
   rosterStaffA: { clubName: '' }, 
   rosterStaffB: { clubName: '' },
-  rosterPresetLibrary: [], // ✅ 引入 TEAM_DB 库
+  rosterPresetLibrary: [], 
   
   matchStage: 'OPEN QUALIFIER',
   roundLabel: 'ROUND 01',
@@ -59,11 +59,10 @@ const DEFAULT_DATA = {
   showFooterCenter: true
 };
 
-// --- 工具函数 ---
 const safe = (v, fallback = '') => (v === undefined || v === null || v === '' ? fallback : String(v));
 const up = (v, fallback = '') => safe(v, fallback).toUpperCase();
 
-// --- 子组件 ---
+// --- 子组件 (全部还原为你最初的 16:9 原版比例) ---
 
 const TopBar = memo(({ data, isMatch }) => {
   const { topLeftLabel, topLeftYear, topRightLabelMatch, topRightLabelGeneric } = data;
@@ -222,7 +221,6 @@ const TeamLogoBox = memo(({ logo, alt, align = 'left', size = 178 }) => {
   );
 });
 
-// ✅ 确保字号充足
 const getUnifiedNameStyle = (nameA = '', nameB = '') => {
   const lenA = String(nameA).replace(/\s+/g, '').length;
   const lenB = String(nameB).replace(/\s+/g, '').length;
@@ -239,61 +237,21 @@ const TeamNameBlock = memo(({ name, club, align = 'left', unifiedStyle }) => {
   const isLeft = align === 'left';
 
   return (
-    <div style={{ 
-      minWidth: 0, 
-      display: 'flex', 
-      alignSelf: 'stretch', 
-      justifyContent: isLeft ? 'flex-end' : 'flex-start' 
-    }}>
+    <div style={{ minWidth: 0, display: 'flex', alignSelf: 'stretch', justifyContent: isLeft ? 'flex-end' : 'flex-start' }}>
       <div style={{
-        width: '100%', 
-        height: '100%', 
-        minWidth: 0, 
-        textAlign: isLeft ? 'right' : 'left',
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'center', 
-        alignItems: isLeft ? 'flex-end' : 'flex-start',
-        borderRight: isLeft ? `4px solid ${COLORS.yellow}` : 'none',
-        borderLeft: !isLeft ? `4px solid ${COLORS.yellow}` : 'none',
-        paddingRight: isLeft ? '24px' : '0',
-        paddingLeft: !isLeft ? '24px' : '0',
-        overflow: 'hidden'
+        width: '100%', height: '100%', minWidth: 0, textAlign: isLeft ? 'right' : 'left',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: isLeft ? 'flex-end' : 'flex-start',
+        borderRight: isLeft ? `4px solid ${COLORS.yellow}` : 'none', borderLeft: !isLeft ? `4px solid ${COLORS.yellow}` : 'none',
+        paddingRight: isLeft ? '24px' : '0', paddingLeft: !isLeft ? '24px' : '0', overflow: 'hidden'
       }}>
-        
         {club && (
-          <div style={{
-            fontSize: '13px',
-            color: COLORS.yellow,
-            letterSpacing: '4px',
-            fontWeight: 900,
-            marginBottom: '6px',
-            textTransform: 'uppercase',
-            opacity: 0.9,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            maxWidth: '100%'
-          }}>
+          <div style={{ fontSize: '13px', color: COLORS.yellow, letterSpacing: '4px', fontWeight: 900, marginBottom: '6px', textTransform: 'uppercase', opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
             {up(club)}
           </div>
         )}
-
-        <div style={{
-          fontWeight: 900,
-          color: COLORS.white,
-          textTransform: 'uppercase',
-          whiteSpace: 'nowrap', 
-          overflow: 'hidden',   
-          textOverflow: 'ellipsis', 
-          textShadow: '3px 3px 0 rgba(0,0,0,0.5)', 
-          lineHeight: 1, 
-          maxWidth: '100%',
-          ...unifiedStyle 
-        }}>
+        <div style={{ fontWeight: 900, color: COLORS.white, textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '3px 3px 0 rgba(0,0,0,0.5)', lineHeight: 1, maxWidth: '100%', ...unifiedStyle }}>
           {up(name, 'TEAM')}
         </div>
-        
       </div>
     </div>
   );
@@ -316,60 +274,32 @@ const InfoCard = memo(({ label, value, highlight = false }) => (
 ));
 
 const MatchCover = memo(({ data }) => {
-  const { 
-    roundLabel, matchStage, matchFormat, matchTime, casterLabel, casterNames, 
-    teamA, teamB, logoA, logoB, showLogos, 
-    rosterStaffA, rosterStaffB, rosterPresetLibrary // ✅ 解构引入数据库
-  } = data;
+  const { roundLabel, matchStage, matchFormat, matchTime, casterLabel, casterNames, teamA, teamB, logoA, logoB, showLogos, rosterStaffA, rosterStaffB, rosterPresetLibrary } = data;
   
   const safeRound = up(roundLabel, 'ROUND 01');
   const safeStage = up(matchStage, 'OPEN QUALIFIER');
 
-  // ✅ 终极核心修复：通过下拉框传入的 teamA 名字，主动去 TEAM_DB (rosterPresetLibrary) 里面把 clubName 捞出来！
   const findClubName = (teamName, staffData, fallback) => {
     if (!teamName) return fallback || '';
-    
-    // 1. 优先去 TEAM_DB 库里找这个队伍的预设（匹配 name 或 teamName）
     const preset = (rosterPresetLibrary || []).find(p => p.name === teamName || p.data?.teamName === teamName);
-    
-    // 如果预设里存了 clubName，直接返回预设里的！这完美解决了“下拉载入后没变动”的问题
-    if (preset && preset.data && typeof preset.data.clubName === 'string') {
-      return preset.data.clubName; 
-    }
-    
-    // 2. 如果库里没有，再退回看当前表单上暂存的数据
-    if (staffData && typeof staffData.clubName === 'string') {
-      return staffData.clubName;
-    }
-    
-    // 3. 最后兜底
+    if (preset && preset.data && typeof preset.data.clubName === 'string') return preset.data.clubName; 
+    if (staffData && typeof staffData.clubName === 'string') return staffData.clubName;
     return fallback || '';
   };
 
   const clubA = findClubName(teamA, rosterStaffA, data.clubA);
   const clubB = findClubName(teamB, rosterStaffB, data.clubB);
-
-  // 统一下发字号
   const unifiedTeamStyle = getUnifiedNameStyle(teamA, teamB);
 
   return (
     <>
       <Watermark text={data.matchWatermark || 'MATCHDAY'} size={240} />
-      <div style={{
-        position: 'absolute', top: '170px', left: '64px', right: '64px', bottom: '160px',
-        zIndex: 10, display: 'grid', gridTemplateRows: 'auto auto 1fr auto', gap: '22px'
-      }}>
+      <div style={{ position: 'absolute', top: '170px', left: '64px', right: '64px', bottom: '160px', zIndex: 10, display: 'grid', gridTemplateRows: 'auto auto 1fr auto', gap: '22px' }}>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-          <div style={{ background: COLORS.yellow, color: COLORS.black, padding: '8px 16px', fontSize: '13px', fontWeight: 900, letterSpacing: '1.8px', textTransform: 'uppercase', boxShadow: UI.yellowGlow }}>
-            {safeRound}
-          </div>
-          <div style={{ background: 'rgba(255,255,255,0.03)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '8px 16px', fontSize: '13px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '1.8px', textTransform: 'uppercase' }}>
-            {safeStage}
-          </div>
-          <div style={{ background: 'rgba(255,255,255,0.03)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '8px 16px', fontSize: '13px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '1.8px', textTransform: 'uppercase' }}>
-            {up(matchFormat, 'BO3')}
-          </div>
+          <div style={{ background: COLORS.yellow, color: COLORS.black, padding: '8px 16px', fontSize: '13px', fontWeight: 900, letterSpacing: '1.8px', textTransform: 'uppercase', boxShadow: UI.yellowGlow }}>{safeRound}</div>
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '8px 16px', fontSize: '13px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '1.8px', textTransform: 'uppercase' }}>{safeStage}</div>
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '8px 16px', fontSize: '13px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '1.8px', textTransform: 'uppercase' }}>{up(matchFormat, 'BO3')}</div>
         </div>
 
         <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.012) 100%)', border: UI.outerFrame, boxShadow: `${UI.hardShadow}, ${UI.insetLine}`, minHeight: '360px', position: 'relative', overflow: 'hidden' }}>
@@ -382,7 +312,6 @@ const MatchCover = memo(({ data }) => {
             alignItems: 'center', columnGap: '20px', padding: '42px 28px'
           }}>
             {showLogos !== false && <TeamLogoBox logo={logoA} alt={teamA} align="left" size={156} />}
-            
             <TeamNameBlock name={teamA} club={clubA} align="left" unifiedStyle={unifiedTeamStyle} />
 
             <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -393,7 +322,6 @@ const MatchCover = memo(({ data }) => {
             </div>
 
             <TeamNameBlock name={teamB} club={clubB} align="right" unifiedStyle={unifiedTeamStyle} />
-            
             {showLogos !== false && <TeamLogoBox logo={logoB} alt={teamB} align="right" size={156} />}
           </div>
         </div>
@@ -411,7 +339,6 @@ const MatchCover = memo(({ data }) => {
 const BottomBar = memo(({ data, isMatch }) => {
   const left = up(data.footerLeft, 'FRIES CUP LIVE ROOM');
   const center = up(data.footerCenter, 'FRIES-CUP.COM');
-  
   const rightBase = isMatch 
     ? `${up(data.matchTime, '19:30 CST')}${data.matchFormat ? ` // ${up(data.matchFormat)}` : ''}` 
     : up(data.footerRight, 'LIVE COVER SYSTEM');
@@ -419,21 +346,10 @@ const BottomBar = memo(({ data, isMatch }) => {
   return (
     <>
       <div style={{ position: 'absolute', left: '64px', right: '64px', bottom: '70px', height: '2px', background: 'rgba(255,255,255,0.08)', zIndex: 12 }} />
-      <div style={{
-        position: 'absolute', left: '64px', right: '64px', bottom: '42px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', zIndex: 12
-      }}>
-        <span style={{ fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.26)', letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-          {left}
-        </span>
-        {data.showFooterCenter !== false && (
-          <span style={{ fontSize: '11px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-            {center}
-          </span>
-        )}
-        <span style={{ fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.26)', letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-          {rightBase}
-        </span>
+      <div style={{ position: 'absolute', left: '64px', right: '64px', bottom: '42px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', zIndex: 12 }}>
+        <span style={{ fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.26)', letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{left}</span>
+        {data.showFooterCenter !== false && <span style={{ fontSize: '11px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{center}</span>}
+        <span style={{ fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.26)', letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{rightBase}</span>
       </div>
     </>
   );
@@ -443,16 +359,11 @@ const BottomBar = memo(({ data, isMatch }) => {
 const BroadcastCoverScene = forwardRef(({ matchData = {} }, ref) => {
   const data = { ...DEFAULT_DATA, ...matchData };
   const isMatch = up(data.coverMode) === 'MATCH';
+  const is43 = data.aspectRatio === '4:3';
 
-  return (
-    <div
-      ref={ref}
-      style={{
-        width: '1920px', height: '1080px', position: 'relative', overflow: 'hidden',
-        backgroundColor: COLORS.black, fontFamily: '"HarmonyOS Sans SC", "Microsoft YaHei", sans-serif',
-        backgroundImage: `radial-gradient(circle at center, rgba(42,42,42,0.90) 0%, rgba(42,42,42,0.98) 100%), linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%)`
-      }}
-    >
+  // 抽离核心的 16:9 内容
+  const content169 = (
+    <>
       <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 40px)', opacity: 0.18, pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', left: '70px', top: '70px', width: '520px', height: '520px', border: '1px solid rgba(244,195,32,0.07)', transform: 'rotate(45deg)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', right: '-120px', bottom: '-120px', width: '460px', height: '460px', border: '1px solid rgba(255,255,255,0.03)', transform: 'rotate(45deg)', pointerEvents: 'none' }} />
@@ -462,6 +373,60 @@ const BroadcastCoverScene = forwardRef(({ matchData = {} }, ref) => {
         {isMatch ? <MatchCover data={data} /> : <GenericCover data={data} />}
       </FrameShell>
       <BottomBar data={data} isMatch={isMatch} />
+    </>
+  );
+
+  // ✅ 核心修复：如果是 4:3 模式，在外层套一个 Letterbox (信箱模式) 包装器
+  if (is43) {
+    return (
+      <div
+        ref={ref}
+        style={{
+          width: '1440px', // 目标 4:3 宽度
+          height: '1080px', // 目标 4:3 高度
+          backgroundImage: `url('/assets/bg/43_bg.png')`, // 垫底你指定的背景图
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          display: 'flex',
+          alignItems: 'center',     // 上下居中！
+          justifyContent: 'center',
+          overflow: 'hidden',
+          backgroundColor: '#000'
+        }}
+      >
+        <div style={{
+          width: '1920px', 
+          height: '1080px',
+          position: 'relative', 
+          overflow: 'hidden',
+          backgroundColor: COLORS.black, 
+          fontFamily: '"HarmonyOS Sans SC", "Microsoft YaHei", sans-serif',
+          backgroundImage: `radial-gradient(circle at center, rgba(42,42,42,0.90) 0%, rgba(42,42,42,0.98) 100%), linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%)`,
+          transform: 'scale(0.75)', // 1440 / 1920 = 0.75，精准缩放，左右完美撑满
+          transformOrigin: 'center', 
+          flexShrink: 0
+        }}>
+          {content169}
+        </div>
+      </div>
+    );
+  }
+
+  // 16:9 正常模式
+  return (
+    <div
+      ref={ref}
+      style={{
+        width: '1920px', 
+        height: '1080px', 
+        position: 'relative', 
+        overflow: 'hidden',
+        backgroundColor: COLORS.black, 
+        fontFamily: '"HarmonyOS Sans SC", "Microsoft YaHei", sans-serif',
+        backgroundImage: `radial-gradient(circle at center, rgba(42,42,42,0.90) 0%, rgba(42,42,42,0.98) 100%), linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%)`
+      }}
+    >
+      {content169}
     </div>
   );
 });

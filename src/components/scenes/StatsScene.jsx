@@ -168,7 +168,7 @@ const TemplateStatsClassic = ({ matchData, statsData }) => {
 };
 
 // ==========================================
-// 修改后的 ImageStatsRowPRO 组件：彻底修复 Flex 溢出
+// 修改后的 ImageStatsRowPRO 组件：修复分辨率兼容性
 // ==========================================
 const ImageStatsRowPRO = ({
   shortName,
@@ -191,7 +191,7 @@ const ImageStatsRowPRO = ({
     width: `${BASE_IMAGE_W * cropScale}px`,
     height: `${BASE_IMAGE_H * cropScale}px`,
     transform: `translate(${-cropX * cropScale}px, ${-cropY * cropScale}px)`,
-    objectFit: 'none',
+    objectFit: 'cover', // 修改点：使用 cover 替代 none 以适应不同分辨率截图
     userSelect: 'none',
     pointerEvents: 'none',
     display: 'block'
