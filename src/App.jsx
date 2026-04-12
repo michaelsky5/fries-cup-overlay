@@ -280,37 +280,70 @@ function MainApp() {
     });
   };
 
+  // 🌟 终极深度换边逻辑
   const handleSwapTeams = () => {
+    const nextMapLineup = (matchData.mapLineup || []).map(map => {
+      const nextMap = { ...map };
+      
+      if (nextMap.picker === 'A') nextMap.picker = 'B';
+      else if (nextMap.picker === 'B') nextMap.picker = 'A';
+
+      if (nextMap.winner === 'A') nextMap.winner = 'B';
+      else if (nextMap.winner === 'B') nextMap.winner = 'A';
+
+      if (nextMap.winnerSide === 'A') nextMap.winnerSide = 'B';
+      else if (nextMap.winnerSide === 'B') nextMap.winnerSide = 'A';
+
+      if (nextMap.banOrderMode === 'A_FIRST') nextMap.banOrderMode = 'B_FIRST';
+      else if (nextMap.banOrderMode === 'B_FIRST') nextMap.banOrderMode = 'A_FIRST';
+
+      const tempBansA = nextMap.bansA;
+      nextMap.bansA = nextMap.bansB || [];
+      nextMap.bansB = tempBansA || [];
+
+      return nextMap;
+    });
+
+    const currentStats = matchData.statsTemplateData || {};
+
     handleUpdateWithHistoryAndSync('Swap Teams', {
       ...matchData,
-      teamA: matchData.teamB,
-      teamB: matchData.teamA,
-      logoA: matchData.logoB,
-      logoB: matchData.logoA,
-      logoBgA: matchData.logoBgB,
-      logoBgB: matchData.logoBgA,
-      scoreA: matchData.scoreB,
-      scoreB: matchData.scoreA,
-      bansA: matchData.bansB,
-      bansB: matchData.bansA,
-      playersA: [...matchData.playersB],
-      playersB: [...matchData.playersA],
+      teamA: matchData.teamB || '',
+      teamB: matchData.teamA || '',
+      teamShortA: matchData.teamShortB || '',
+      teamShortB: matchData.teamShortA || '',
+      logoA: matchData.logoB || '',
+      logoB: matchData.logoA || '',
+      logoBgA: matchData.logoBgB || '',
+      logoBgB: matchData.logoBgA || '',
+      scoreA: matchData.scoreB ?? 0,
+      scoreB: matchData.scoreA ?? 0,
+      bansA: matchData.bansB || [],
+      bansB: matchData.bansA || [],
+      playersA: [...(matchData.playersB || [])],
+      playersB: [...(matchData.playersA || [])],
+      subIndexA: matchData.subIndexB ?? null,
+      subIndexB: matchData.subIndexA ?? null,
+      activeComms: matchData.activeComms === 'A' ? 'B' : matchData.activeComms === 'B' ? 'A' : null,
       rosterPlayersA: [...(matchData.rosterPlayersB || [])],
       rosterPlayersB: [...(matchData.rosterPlayersA || [])],
       rosterStaffA: { ...(matchData.rosterStaffB || {}) },
       rosterStaffB: { ...(matchData.rosterStaffA || {}) },
-      subIndexA: matchData.subIndexB,
-      subIndexB: matchData.subIndexA,
-      activeComms: matchData.activeComms === 'A' ? 'B' : matchData.activeComms === 'B' ? 'A' : null,
+      mapLineup: nextMapLineup,
       statsTemplateData: {
-        elimsA: matchData.statsTemplateData.elimsB,
-        elimsB: matchData.statsTemplateData.elimsA,
-        deathsA: matchData.statsTemplateData.deathsB,
-        deathsB: matchData.statsTemplateData.deathsA,
-        damageA: matchData.statsTemplateData.damageB,
-        damageB: matchData.statsTemplateData.damageA,
-        healingA: matchData.statsTemplateData.healingB,
-        healingB: matchData.statsTemplateData.healingA
+        ...currentStats,
+        elimsA: currentStats.elimsB || '',
+        elimsB: currentStats.elimsA || '',
+        assistsA: currentStats.assistsB || '',
+        assistsB: currentStats.assistsA || '',
+        deathsA: currentStats.deathsB || '',
+        deathsB: currentStats.deathsA || '',
+        damageA: currentStats.damageB || '',
+        damageB: currentStats.damageA || '',
+        healingA: currentStats.healingB || '',
+        healingB: currentStats.healingA || '',
+        mitigatedA: currentStats.mitigatedB || '',
+        mitigatedB: currentStats.mitigatedA || ''
       }
     });
   };
@@ -331,7 +364,7 @@ function MainApp() {
           subIndexA: null,
           subIndexB: null,
           activeComms: null,
-          teamA: 'TEAM A', // 默认数据占位，无需翻译
+          teamA: 'TEAM A', 
           teamB: 'TEAM B',
           casters: [
             { id: 'A', title: 'COMMENTATOR', label: 'CASTER A', social: '', avatar: '' },

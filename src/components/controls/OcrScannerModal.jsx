@@ -203,17 +203,17 @@ export default function OcrScannerModal({ onClose, onApplyData, teamA, teamB, in
   const renderStatsTable = (teamKey, title, teamName) => (
     <div style={{ flex: 1, minWidth: 0, background: '#111', border: UI.innerFrame, padding: '12px' }}>
       <div style={{ marginBottom: '12px', color: COLORS.white, fontWeight: 900, letterSpacing: '1px', textTransform: 'uppercase' }}>
-        <span style={{ color: COLORS.yellow }}>[{title}]</span> {teamName || tr('ocrScanner.unregistered')}
+        <span style={{ color: COLORS.yellow }}>[{title}]</span> {teamName || t('ocrScanner.unregistered')}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: '6px', marginBottom: '6px', fontSize: '10px', color: COLORS.faintWhite, textAlign: 'center', fontWeight: 900 }}>
-        <div>{tr('ocrScanner.colNum')}</div>
-        <div>{tr('ocrScanner.colElim')}</div>
-        <div>{tr('ocrScanner.colAst')}</div>
-        <div>{tr('ocrScanner.colDth')}</div>
-        <div style={{color: '#f87171'}}>{tr('ocrScanner.colDmg')}</div>
-        <div style={{color: '#4ade80'}}>{tr('ocrScanner.colHeal')}</div>
-        <div style={{color: '#60a5fa'}}>{tr('ocrScanner.colMit')}</div>
+        <div>{t('ocrScanner.colNum')}</div>
+        <div>{t('ocrScanner.colElim')}</div>
+        <div>{t('ocrScanner.colAst')}</div>
+        <div>{t('ocrScanner.colDth')}</div>
+        <div style={{color: '#f87171'}}>{t('ocrScanner.colDmg')}</div>
+        <div style={{color: '#4ade80'}}>{t('ocrScanner.colHeal')}</div>
+        <div style={{color: '#60a5fa'}}>{t('ocrScanner.colMit')}</div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -268,10 +268,10 @@ export default function OcrScannerModal({ onClose, onApplyData, teamA, teamB, in
         {/* Header */}
         <div style={{ padding: '16px 24px', borderBottom: `1px solid ${COLORS.lineStrong}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '2px', color: COLORS.softWhite, textTransform: 'uppercase' }}>{tr('ocrScanner.titleSub')}</div>
-            <div style={{ fontSize: '18px', fontWeight: 900, letterSpacing: '1px', color: COLORS.white, textTransform: 'uppercase', margin: 0 }}>{tr('ocrScanner.titleMain')}</div>
+            <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '2px', color: COLORS.softWhite, textTransform: 'uppercase' }}>{t('ocrScanner.titleSub')}</div>
+            <div style={{ fontSize: '18px', fontWeight: 900, letterSpacing: '1px', color: COLORS.white, textTransform: 'uppercase', margin: 0 }}>{t('ocrScanner.titleMain')}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: COLORS.faintWhite, fontSize: '12px', fontWeight: 800, cursor: 'pointer' }}>{tr('ocrScanner.close')}</button>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: COLORS.faintWhite, fontSize: '12px', fontWeight: 800, cursor: 'pointer' }}>{t('ocrScanner.close')}</button>
         </div>
         
         {/* Workspace */}
@@ -287,7 +287,7 @@ export default function OcrScannerModal({ onClose, onApplyData, teamA, teamB, in
                 <img src={originalImage} style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: 0.52 }} alt="source" />
               ) : (
                 <span style={{ color: COLORS.softWhite, fontSize: '12px', fontWeight: 800, textAlign: 'center', padding: '0 20px', whiteSpace: 'pre-wrap' }}>
-                  {tr('ocrScanner.uploadHint')}
+                  {t('ocrScanner.uploadHint')}
                 </span>
               )}
               {isProcessing && (
@@ -303,7 +303,7 @@ export default function OcrScannerModal({ onClose, onApplyData, teamA, teamB, in
               disabled={!originalImage || isProcessing} 
               style={{ height: '44px', background: (!originalImage || isProcessing) ? 'rgba(255,255,255,0.05)' : COLORS.yellow, color: (!originalImage || isProcessing) ? COLORS.faintWhite : COLORS.black, border: `1px solid ${(!originalImage || isProcessing) ? COLORS.lineStrong : COLORS.yellow}`, fontWeight: 900, fontSize: '13px', letterSpacing: '1px', cursor: (!originalImage || isProcessing) ? 'not-allowed' : 'pointer' }}
             >
-              {isProcessing ? tr('ocrScanner.scanning') : tr('ocrScanner.extractBtn')}
+              {isProcessing ? t('ocrScanner.scanning') : t('ocrScanner.extractBtn')}
             </button>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: COLORS.softWhite, fontFamily: 'monospace', fontWeight: 800 }}>
@@ -311,7 +311,7 @@ export default function OcrScannerModal({ onClose, onApplyData, teamA, teamB, in
               <span>{progress.pct}%</span>
             </div>
             {previewZones.length > 0 && (
-              <div style={{ fontSize: '10px', color: COLORS.faintWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>{tr('ocrScanner.zonesDetected')}</div>
+              <div style={{ fontSize: '10px', color: COLORS.faintWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>{t('ocrScanner.zonesDetected')}</div>
             )}
           </div>
 
@@ -322,7 +322,7 @@ export default function OcrScannerModal({ onClose, onApplyData, teamA, teamB, in
                 onClick={handleSwapTeams} disabled={!originalImage} 
                 style={{ height: '34px', padding: '0 16px', background: 'transparent', border: `1px solid ${COLORS.lineStrong}`, color: COLORS.white, fontSize: '11px', fontWeight: 900, cursor: !originalImage ? 'not-allowed' : 'pointer', opacity: !originalImage ? 0.3 : 1 }}
               >
-                {tr('ocrScanner.swapBtn')}
+                {t('ocrScanner.swapBtn')}
               </button>
             </div>
             
@@ -337,7 +337,7 @@ export default function OcrScannerModal({ onClose, onApplyData, teamA, teamB, in
               onMouseOver={e => { if(originalImage) e.target.style.borderColor = COLORS.blue; }}
               onMouseOut={e => { if(originalImage) e.target.style.borderColor = COLORS.lineStrong; }}
             >
-              {tr('ocrScanner.applyBtn')}
+              {t('ocrScanner.applyBtn')}
             </button>
           </div>
 

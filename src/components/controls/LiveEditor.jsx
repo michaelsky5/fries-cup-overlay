@@ -202,8 +202,8 @@ const TeamControlPanel = React.memo(({
                   <option value="support">{tr('liveEditor.sup')}</option>
                 </select>
                 <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={banInfo.hero} onChange={e => updateData(prev => ({ ...prev, [isA ? 'bansA' : 'bansB']: [`${banInfo.role}/${e.target.value}`] }))}>
-                  <option value="tbd">{tr('liveEditor.tbd')}</option>
-                  {HERO_DATA[banInfo.role]?.map(h => <option key={h} value={h}>{h}</option>)}
+                  <option value="tbd">{tr('heroes.tbd', 'TBD')}</option>
+                  {HERO_DATA[banInfo.role]?.map(h => <option key={h} value={h}>{tr(`heroes.${h}`, h)}</option>)}
                 </select>
               </>
             )}
@@ -220,8 +220,8 @@ const TeamControlPanel = React.memo(({
                 <option value="support">{tr('liveEditor.sup')}</option>
               </select>
               <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={banInfo.hero} onChange={e => updateData(prev => ({ ...prev, [isA ? 'bansA' : 'bansB']: [`${banInfo.role}/${e.target.value}`] }))}>
-                <option value="tbd">{tr('liveEditor.tbd')}</option>
-                {HERO_DATA[banInfo.role]?.map(h => <option key={h} value={h}>{h}</option>)}
+                <option value="tbd">{tr('heroes.tbd', 'TBD')}</option>
+                {HERO_DATA[banInfo.role]?.map(h => <option key={h} value={h}>{tr(`heroes.${h}`, h)}</option>)}
               </select>
             </div>
           )}

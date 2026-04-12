@@ -680,7 +680,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                           value={mapInfo.name}
                           onChange={e => updateMap(idx, 'name', e.target.value)}
                         >
-                          {mapNameOptions.map((name, i) => <option key={`${name}-${i}`} value={name}>{name}</option>)}
+                          {mapNameOptions.map((name, i) => <option key={`${name}-${i}`} value={name}>{tr(`maps.${name}`, name)}</option>)}
                         </InlineSelect>
 
                         <InlineSelect
@@ -739,7 +739,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                           value={mapInfo.name}
                           onChange={e => updateMap(idx, 'name', e.target.value)}
                         >
-                          {mapNameOptions.map((name, i) => <option key={`${name}-${i}`} value={name}>{name}</option>)}
+                          {mapNameOptions.map((name, i) => <option key={`${name}-${i}`} value={name}>{tr(`maps.${name}`, name)}</option>)}
                         </InlineSelect>
 
                         {!isDense && (
@@ -884,8 +884,8 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                               value={parsedBanA.hero}
                               onChange={e => updateMapBanEntry(idx, 'A', parsedBanA.role, e.target.value)}
                             >
-                              <option value="tbd">{tr('mapPoolEditor.tbd')}</option>
-                              {(HERO_DATA?.[parsedBanA.role] || []).map(hero => <option key={hero} value={hero}>{hero}</option>)}
+                              <option value="tbd">{tr('heroes.tbd', 'TBD')}</option>
+                              {(HERO_DATA?.[parsedBanA.role] || []).map(hero => <option key={hero} value={hero}>{tr(`heroes.${hero}`, hero)}</option>)}
                             </select>
                           </div>
                         </div>
@@ -909,8 +909,8 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                               value={parsedBanB.hero}
                               onChange={e => updateMapBanEntry(idx, 'B', parsedBanB.role, e.target.value)}
                             >
-                              <option value="tbd">{tr('mapPoolEditor.tbd')}</option>
-                              {(HERO_DATA?.[parsedBanB.role] || []).map(hero => <option key={hero} value={hero}>{hero}</option>)}
+                              <option value="tbd">{tr('heroes.tbd', 'TBD')}</option>
+                              {(HERO_DATA?.[parsedBanB.role] || []).map(hero => <option key={hero} value={hero}>{tr(`heroes.${hero}`, hero)}</option>)}
                             </select>
                           </div>
                         </div>
@@ -953,7 +953,7 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
                     <div style={{ display: 'grid', gridTemplateColumns: slotCount <= 2 ? 'repeat(2, minmax(0,1fr))' : 'repeat(3, minmax(0,1fr))', gap: rowGap }}>
                       {slots.map((mapName, idx) => (
                         <select key={`${type}-${idx}`} style={consoleSelectStyle} value={mapName} onChange={e => updateEventPoolSlot(type, idx, e.target.value)}>
-                          {allOptions.map(name => <option key={name} value={name}>{name}</option>)}
+                          {allOptions.map(name => <option key={name} value={name}>{tr(`maps.${name}`, name)}</option>)}
                         </select>
                       ))}
                     </div>

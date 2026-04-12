@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-// 🚀 引入 i18n
+// 引入 i18n
 import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { COLORS, UI, panelBase } from '../../constants/styles';
@@ -21,7 +21,7 @@ const PlayerRow = React.memo(({
   player, idx, role, isDense, isUltra, density, t, ui, compactLabel, rowInput, rowNumberInput, rowSelect, 
   rowBtn, rowOutlineBtn, denseCell, rowLabelCell, tinyGap, smallGap, controlRowHeight, subButtonHeight,
   handleRosterImageUpload, updateRosterPlayers, rosterPlayers, updatePlayerPositionXY, pos, heroOptions,
-  tr // 🚀 接收翻译函数
+  tr 
 }) => {
   if (isUltra) {
     return (
@@ -255,55 +255,46 @@ const PlayerRow = React.memo(({
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '56px 1.2fr 1.2fr 100px 1.35fr 74px 74px 64px 64px 1.8fr 80px', gap: tinyGap, alignItems: 'end' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '56px 1.2fr 1.2fr 100px 1.35fr 74px 74px 64px 64px 1.8fr 80px', gap: tinyGap, alignItems: 'center' }}>
       <div style={rowLabelCell}>{`P${idx + 1}`}</div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>{tr('rosterEditor.nickname')}</div>
         <input style={rowInput} value={player.nickname || ''} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], nickname: e.target.value }; updateRosterPlayers(next); }} />
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>{tr('rosterEditor.battleTag')}</div>
         <input style={rowInput} value={player.battleTag || ''} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], battleTag: e.target.value }; updateRosterPlayers(next); }} />
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>{tr('rosterEditor.role')}</div>
         <select style={rowSelect} value={role} onChange={e => { const nextRole = e.target.value; const nextHero = getRosterHeroOptions(nextRole)[0] || ''; const next = [...rosterPlayers]; next[idx] = { ...next[idx], role: nextRole, hero: nextHero, heroImage: getRosterHeroImagePath(nextRole, nextHero) }; updateRosterPlayers(next); }}>
           {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>{tr('rosterEditor.hero')}</div>
         <select style={rowSelect} value={player.hero || ''} onChange={e => { const nextHero = e.target.value; const next = [...rosterPlayers]; next[idx] = { ...next[idx], hero: nextHero, heroImage: getRosterHeroImagePath(role, nextHero) }; updateRosterPlayers(next); }}>
           {heroOptions.map(hero => <option key={hero} value={hero}>{hero}</option>)}
         </select>
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>{tr('rosterEditor.scale')}</div>
         <input type="number" step="0.01" style={rowNumberInput} value={player.heroScale ?? 1.1} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroScale: Number(e.target.value) || 1.1 }; updateRosterPlayers(next); }} />
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>{tr('rosterEditor.bright')}</div>
         <input type="number" step="0.01" style={rowNumberInput} value={player.heroBrightness ?? 0.84} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroBrightness: Number(e.target.value) || 0.84 }; updateRosterPlayers(next); }} />
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>{tr('rosterEditor.posX')}</div>
         <input style={rowNumberInput} value={pos.x} onChange={e => updatePlayerPositionXY(idx, e.target.value, pos.y)} placeholder="50%" />
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>{tr('rosterEditor.posY')}</div>
         <input style={rowNumberInput} value={pos.y} onChange={e => updatePlayerPositionXY(idx, pos.x, e.target.value)} placeholder="24%" />
       </div>
 
       <div style={denseCell}>
-        <div style={compactLabel}>{tr('rosterEditor.imagePath')}</div>
         <input style={rowInput} value={(player.heroImage || '').startsWith('blob:') ? tr('rosterEditor.localMemoryImage') : (player.heroImage || '')} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroImage: e.target.value }; updateRosterPlayers(next); }} placeholder="/assets/roster/damage/tracer.jpg" />
       </div>
 
@@ -336,7 +327,6 @@ const RosterEditor = ({
   density = 'standard',
   densityTokens
 }) => {
-  // 🚀 初始化翻译钩子
   const { t: tr } = useTranslation();
 
   const { matchData, updateData, updateWithHistory, showModal } = useMatchContext();
@@ -672,7 +662,7 @@ const RosterEditor = ({
                     tinyGap={tinyGap} smallGap={smallGap} controlRowHeight={rowHeight} subButtonHeight={rowHeight}
                     handleRosterImageUpload={handleRosterImageUpload} updateRosterPlayers={updateRosterPlayers} 
                     rosterPlayers={rosterPlayers} updatePlayerPositionXY={updatePlayerPositionXY} pos={pos} heroOptions={heroOptions}
-                    tr={tr} // 🚀 传入翻译函数
+                    tr={tr} 
                   />
                 )
               })}

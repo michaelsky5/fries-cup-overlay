@@ -2,6 +2,41 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { defaultData } from '../constants/defaultData';
 import { getSafeCasters } from '../utils';
 
+// 🧹 专门用来清理本地缓存中已失效的 blob 临时体验卡
+const cleanDeadBlobs = (data) => {
+  if (!data) return data;
+  
+  const cleanedData = { ...data };
+
+  // 1. 清理 StatsEditor (战绩OCR图)
+  if (cleanedData.statsImageTempUrl && cleanedData.statsImageTempUrl.startsWith('blob:')) {
+    cleanedData.statsImageTempUrl = '';
+  }
+
+  // 2. 清理 RosterEditor (A队选手头像)
+  if (Array.isArray(cleanedData.rosterPlayersA)) {
+    cleanedData.rosterPlayersA = cleanedData.rosterPlayersA.map(p => 
+      (p.heroImage && p.heroImage.startsWith('blob:')) ? { ...p, heroImage: '' } : p
+    );
+  }
+
+  // 3. 清理 RosterEditor (B队选手头像)
+  if (Array.isArray(cleanedData.rosterPlayersB)) {
+    cleanedData.rosterPlayersB = cleanedData.rosterPlayersB.map(p => 
+      (p.heroImage && p.heroImage.startsWith('blob:')) ? { ...p, heroImage: '' } : p
+    );
+  }
+
+  // 4. 清理 CasterEditor (解说头像)
+  if (Array.isArray(cleanedData.casters)) {
+    cleanedData.casters = cleanedData.casters.map(c => 
+      (c.avatar && c.avatar.startsWith('blob:')) ? { ...c, avatar: '' } : c
+    );
+  }
+
+  return cleanedData;
+};
+
 export function useMatchState() {
   const [matchData, setMatchData] = useState(defaultData);
   const [videoProgress, setVideoProgress] = useState({ currentTime: 0, duration: 0 });
@@ -36,7 +71,11 @@ export function useMatchState() {
     const saved = localStorage.getItem('fries_cup_data');
     if (saved) {
       try {
-        const normalized = getNormalizedData(JSON.parse(saved));
+        // 🌟 在这里拦截！解析 JSON 后，先清理失效的 Blob，再去更新状态
+        const parsedData = JSON.parse(saved);
+        const cleanedData = cleanDeadBlobs(parsedData);
+        const normalized = getNormalizedData(cleanedData);
+        
         matchDataRef.current = normalized;
         setMatchData(normalized);
       } catch (e) {
@@ -48,7 +87,11 @@ export function useMatchState() {
       if (!e.newValue) return;
       try {
         if (e.key === 'fries_cup_data') {
-          const normalized = getNormalizedData(JSON.parse(e.newValue));
+          // 🌟 跨标签页同步时也拦截一下，防止接收到其他页面的脏数据
+          const parsedData = JSON.parse(e.newValue);
+          const cleanedData = cleanDeadBlobs(parsedData);
+          const normalized = getNormalizedData(cleanedData);
+          
           matchDataRef.current = normalized;
           setMatchData(normalized);
         } else if (e.key === 'fries_cup_video_progress') {

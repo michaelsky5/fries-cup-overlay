@@ -144,7 +144,8 @@ export default function RightSidebar({ previewScene, showRightColumn, density = 
         <ShellPanel title={tr('rightSidebar.operationLogTitle')} accent density={density} bodyStyle={{ ...ui.panelBody, padding: isCompactSidebar ? '10px' : ui.panelBody?.padding }}>
           <div className="fc-custom-scroll" style={{ display: 'flex', flexDirection: 'column', gap: sectionGap, maxHeight: logMaxHeight, overflowY: 'auto', paddingRight: '6px' }}>
             {history && history.length ? history.slice().reverse().map((entry, idx) => (
-              <div key={`${entry.time || idx}-${entry.action || idx}`} style={{ ...panelBase, padding: cardPadding, borderLeft: idx === 0 ? `3px solid ${COLORS.yellow}` : `2px solid rgba(255,255,255,0.12)`, flexShrink: 0 }}>
+              // 🚀 核心修复点：在这里加上了 -${idx}
+              <div key={`${entry.time || idx}-${entry.action || idx}-${idx}`} style={{ ...panelBase, padding: cardPadding, borderLeft: idx === 0 ? `3px solid ${COLORS.yellow}` : `2px solid rgba(255,255,255,0.12)`, flexShrink: 0 }}>
                 <div style={{ fontSize: cardMetaSize, color: COLORS.faintWhite, marginBottom: '6px', letterSpacing: '0.4px' }}>[{entry.time || '--:--:--'}]</div>
                 <div style={{ fontSize: cardTitleSize, fontWeight: '900', color: COLORS.white, textTransform: 'uppercase', lineHeight: 1.25 }}>{entry.action || tr('rightSidebar.unknownAction')}</div>
               </div>

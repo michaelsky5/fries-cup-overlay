@@ -80,9 +80,8 @@ function ConsoleWorkspace({
 
   renderPreviewMonitorScene,
   renderProgramMonitorScene,
-  sceneLabelMap
+  sceneLabelMap = {}
 }) {
-  // 🚀 初始化翻译函数为 tr，避免与下方的密度 tokens t 冲突
   const { t: tr } = useTranslation();
 
   const t = useMemo(() => densityTokens || {
@@ -113,6 +112,7 @@ function ConsoleWorkspace({
   const quickSummaryGap = isSelectorTight ? '5px' : isDense || isUltra ? '6px' : '8px';
   const quickSummaryCols = isUltra ? '1fr' : isSelectorTight ? '1fr' : '1fr 1fr';
 
+  // 🚀 修改：调换 COVER 和 TEAM_DB 的位置
   const OPTIMAL_TAB_ORDER = [
     'LIVE',
     'MAP_POOL',
@@ -122,8 +122,8 @@ function ConsoleWorkspace({
     'COUNTDOWN',
     'HIGHLIGHT',
     'VIDEO',
-    'TEAM_DB',
-    'COVER',
+    'COVER',    // 直播封面提前
+    'TEAM_DB',  // 战队数据置后
   ];
 
   const displayTabs = OPTIMAL_TAB_ORDER.filter(tab => availableTabs.includes(tab));
@@ -373,16 +373,27 @@ function ConsoleWorkspace({
                         value={previewScene}
                         onChange={e => setPreviewScene(e.target.value)}
                       >
-                        <option value="LIVE">LIVE</option>
-                        <option value="MAP_POOL">MAP_POOL</option>
-                        <option value="ROSTER">ROSTER</option>
-                        <option value="STATS">STATS</option>
-                        <option value="CASTERS">CASTERS</option>
-                        <option value="COUNTDOWN">COUNTDOWN</option>
-                        <option value="HIGHLIGHT">HIGHLIGHT</option>
-                        <option value="VIDEO">VIDEO</option>
-                        <option value="WINNER">WINNER</option>
-                        <option value="COVER">COVER</option>
+                        {/* 🚀 修改：通过 filter 将 TEAM_DB 剔除出可预览的选项 */}
+                        {Object.keys(sceneLabelMap).length > 0 ? (
+                          Object.entries(sceneLabelMap)
+                            .filter(([key]) => key !== 'TEAM_DB')
+                            .map(([key, label]) => (
+                              <option key={key} value={key}>{label}</option>
+                            ))
+                        ) : (
+                          <>
+                            <option value="LIVE">LIVE</option>
+                            <option value="MAP_POOL">MAP_POOL</option>
+                            <option value="ROSTER">ROSTER</option>
+                            <option value="STATS">STATS</option>
+                            <option value="CASTERS">CASTERS</option>
+                            <option value="COUNTDOWN">COUNTDOWN</option>
+                            <option value="HIGHLIGHT">HIGHLIGHT</option>
+                            <option value="VIDEO">VIDEO</option>
+                            <option value="WINNER">WINNER</option>
+                            <option value="COVER">COVER</option>
+                          </>
+                        )}
                       </select>
                     </div>
 
@@ -815,9 +826,11 @@ function ConsoleWorkspace({
                       boxSizing: 'border-box',
                       backgroundColor: COLORS.blue,
                       color: '#fff',
-                      cursor: 'pointer'
+                      cursor: isTransitioning ? 'not-allowed' : 'pointer',
+                      opacity: isTransitioning ? 0.5 : 1
                     }}
                     onClick={handleSwapTeams}
+                    disabled={isTransitioning}
                   >
                     {tr('workspace.swapSides')}
                   </button>
@@ -834,11 +847,11 @@ function ConsoleWorkspace({
                       boxSizing: 'border-box',
                       borderColor: history.length ? COLORS.yellow : COLORS.lineStrong,
                       color: history.length ? COLORS.yellow : COLORS.softWhite,
-                      cursor: history.length ? 'pointer' : 'not-allowed',
-                      opacity: history.length ? 1 : 0.5
+                      cursor: history.length && !isTransitioning ? 'pointer' : 'not-allowed',
+                      opacity: history.length && !isTransitioning ? 1 : 0.5
                     }}
                     onClick={handleUndo}
-                    disabled={history.length === 0}
+                    disabled={history.length === 0 || isTransitioning}
                   >
                     {tr('workspace.undo')}
                   </button>
@@ -855,9 +868,11 @@ function ConsoleWorkspace({
                       boxSizing: 'border-box',
                       borderColor: COLORS.red,
                       color: COLORS.red,
-                      cursor: 'pointer'
+                      cursor: isTransitioning ? 'not-allowed' : 'pointer',
+                      opacity: isTransitioning ? 0.5 : 1
                     }}
                     onClick={handleReset}
+                    disabled={isTransitioning}
                   >
                     {tr('workspace.hardReset')}
                   </button>
@@ -906,12 +921,14 @@ function ConsoleWorkspace({
                       height: density === 'spacious' ? '54px' : '44px',
                       backgroundColor: COLORS.blue,
                       color: '#fff',
-                      cursor: 'pointer',
+                      cursor: isTransitioning ? 'not-allowed' : 'pointer',
+                      opacity: isTransitioning ? 0.5 : 1,
                       fontWeight: 900,
                       fontSize: density === 'spacious' ? '15px' : '14px',
                       letterSpacing: '0.5px'
                     }}
                     onClick={handleSwapTeams}
+                    disabled={isTransitioning}
                   >
                     {tr('workspace.swapSides')}
                   </button>
@@ -922,14 +939,14 @@ function ConsoleWorkspace({
                       height: density === 'spacious' ? '54px' : '44px',
                       borderColor: history.length ? COLORS.yellow : COLORS.lineStrong,
                       color: history.length ? COLORS.yellow : COLORS.softWhite,
-                      cursor: history.length ? 'pointer' : 'not-allowed',
-                      opacity: history.length ? 1 : 0.5,
+                      cursor: history.length && !isTransitioning ? 'pointer' : 'not-allowed',
+                      opacity: history.length && !isTransitioning ? 1 : 0.5,
                       fontWeight: 900,
                       fontSize: density === 'spacious' ? '15px' : '14px',
                       letterSpacing: '0.5px'
                     }}
                     onClick={handleUndo}
-                    disabled={history.length === 0}
+                    disabled={history.length === 0 || isTransitioning}
                   >
                     {tr('workspace.undo')}
                   </button>
