@@ -28,6 +28,7 @@ import CountdownEditor from '../controls/CountdownEditor';
 import VideoEditor from '../controls/VideoEditor';
 import HighlightEditor from '../controls/HighlightEditor';
 import CoverEditor from '../controls/CoverEditor';
+import DataGraphicsEditor from '../controls/DataGraphicsEditor'; // 👇 1. 引入刚才写好的数据包装组件
 import OBSConnector from '../controls/OBSConnector'; 
 
 import RightSidebar from './RightSidebar';
@@ -115,11 +116,13 @@ function ConsoleWorkspace({
   const quickSummaryGap = isSelectorTight ? '5px' : isDense || isUltra ? '6px' : '8px';
   const quickSummaryCols = isUltra ? '1fr' : isSelectorTight ? '1fr' : '1fr 1fr';
 
+  // 👇 2. 在侧边栏排序数组中插入 'DATA_GRAPHICS'
   const OPTIMAL_TAB_ORDER = [
     'LIVE',
     'MAP_POOL',
     'ROSTER',
     'STATS',
+    'DATA_GRAPHICS', 
     'CASTERS',
     'COUNTDOWN',
     'HIGHLIGHT',
@@ -290,7 +293,6 @@ function ConsoleWorkspace({
                 onClick={openShortcutModal}
                 title="Shortcut Settings"
               >
-                {/* SVG 图标已删除 */}
                 {tr('workspace.shortcuts')}
               </button>
             )}
@@ -1085,6 +1087,7 @@ function ConsoleWorkspace({
                 </div>
               )}
 
+              {/* 👇 3. 把组件挂载到渲染层里 */}
               {activeTab === 'LIVE' && <LiveEditor {...editorEnv} isShort={isShort} handleSwapTeams={handleSwapTeams} />}
               {activeTab === 'TEAM_DB' && <TeamDBEditor {...editorEnv} />}
               {activeTab === 'MAP_POOL' && <MapPoolEditor {...editorEnv} />}
@@ -1093,6 +1096,7 @@ function ConsoleWorkspace({
               {activeTab === 'VIDEO' && <VideoEditor {...editorEnv} />}
               {activeTab === 'HIGHLIGHT' && <HighlightEditor {...editorEnv} />}
               {activeTab === 'STATS' && <StatsEditor {...editorEnv} />}
+              {activeTab === 'DATA_GRAPHICS' && <DataGraphicsEditor {...editorEnv} />} 
               {activeTab === 'ROSTER' && <RosterEditor {...editorEnv} blockGap={blockGap} />}
               
               {activeTab === 'COVER' && (

@@ -29,13 +29,17 @@ import StingerTransition from './components/scenes/StingerTransition';
 import WinnerScene from './components/scenes/WinnerScene';
 import BroadcastCoverScene from './components/scenes/BroadcastCoverScene';
 
+// 引入数据包装屏组件
+import PlayerSpotlightScene from './components/scenes/graphics/PlayerSpotlightScene';
+import PlayerComparisonScene from './components/scenes/graphics/PlayerComparisonScene';
+
 import { COLORS, getDensityTokens } from './constants/styles';
 import { LOGO_LIST } from './constants/logos';
 
 const APP_SCREENS = { INTRO: 'intro', NOTICE: 'notice', LOGIN: 'login', WORKSPACE: 'workspace' };
 
 const EASY_TABS = ['LIVE', 'MAP_POOL', 'COUNTDOWN', 'STATS'];
-const PRO_TABS = ['LIVE', 'MAP_POOL', 'ROSTER', 'STATS', 'CASTERS', 'COUNTDOWN', 'HIGHLIGHT', 'VIDEO', 'TEAM_DB', 'COVER'];
+const PRO_TABS = ['LIVE', 'MAP_POOL', 'ROSTER', 'STATS', 'DATA_GRAPHICS', 'CASTERS', 'COUNTDOWN', 'HIGHLIGHT', 'VIDEO', 'TEAM_DB', 'COVER'];
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
@@ -67,7 +71,9 @@ const SceneComponentMap = {
   STATS: StatsScene,
   ROSTER: RosterScene,
   WINNER: WinnerScene,
-  COVER: BroadcastCoverScene
+  COVER: BroadcastCoverScene,
+  MVP_SCENE: PlayerSpotlightScene,
+  H2H_SCENE: PlayerComparisonScene
 };
 
 const renderSceneByKey = (sceneKey, matchData, isActive = false) => {
@@ -422,8 +428,11 @@ function MainApp() {
     HIGHLIGHT: t('scenes.HIGHLIGHTS'),
     STATS: t('scenes.MATCH_STATS'),
     ROSTER: t('scenes.TEAM_ROSTERS'),
+    DATA_GRAPHICS: t('scenes.DATA_GRAPHICS', '数据包装'), 
     WINNER: t('scenes.WINNER_SCREEN'),
-    COVER: t('scenes.BROADCAST_COVER')
+    COVER: t('scenes.BROADCAST_COVER'),
+    MVP_SCENE: t('scenes.MVP_SCENE', '焦点选手 (MVP)'),
+    H2H_SCENE: t('scenes.H2H_SCENE', '选手对位 (H2H)')
   };
 
   const silentMatchData = useMemo(() => ({
@@ -567,8 +576,9 @@ function MainApp() {
     handleUndo: handleUndoAndSync,
     videoProgress,
     showModal,
-    setPreviewScene
-  }), [matchData, history, videoProgress, setPreviewScene]);
+    setPreviewScene,
+    takeScene: handleTakeSceneAndSync // <--- ADDED THIS 暴露给子组件的切台遥控器
+  }), [matchData, history, videoProgress, setPreviewScene, handleTakeSceneAndSync]);
 
   return (
     <MatchContext.Provider value={contextValue}>
