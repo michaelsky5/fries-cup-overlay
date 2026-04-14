@@ -14,7 +14,6 @@ export const LOGO_LIST = [
   { name: 'TBD', path: '/src/assets/logos/OW.png' },
   // 🚀 过滤掉名为 TBD 和 OW 的扫描结果，防止重复
   ...scannedLogos.filter(logo => 
-    logo.name.toUpperCase() !== 'TBD' && 
-    logo.name.toUpperCase() !== 'OW'
+    logo.name.toUpperCase() !== 'TBD'
   )
 ];
