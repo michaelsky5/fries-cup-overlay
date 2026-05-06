@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../../contexts/MatchContext';
 import { ShellPanel } from '../../common/SharedUI';
 import { COLORS, labelStyle } from '../../../constants/styles';
+
+// Playoff team allowlist
+const PLAYOFF_TEAMS = ['NGP', 'TNS', 'YOU', 'ZS', 'HYW', 'SPC', 'XCFN.G', 'FG'];
 
 const UI = {
   input: {
@@ -52,6 +56,23 @@ const toNum = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const toText = v => (v === null || v === undefined ? '' : String(v));
 
 const ROLE_SLOTS = { TANK: 1, DPS: 2, SUP: 2 };
+
+const TC_I18N = 'dataGraphicsPanels.teamComparison';
+
+const OUTPUT_CATEGORIES = [
+  { key: 'OVERALL', labelKey: `${TC_I18N}.outputCategories.overall` },
+  { key: 'TANK', labelKey: `${TC_I18N}.outputCategories.tank` },
+  { key: 'DPS', labelKey: `${TC_I18N}.outputCategories.dps` },
+  { key: 'SUP', labelKey: `${TC_I18N}.outputCategories.sup` }
+];
+
+const ROLE_SECTIONS = [
+  { key: 'TANK', titleKey: `${TC_I18N}.roles.tank`, summaryKey: `${TC_I18N}.roles.tankSummary` },
+  { key: 'DPS', titleKey: `${TC_I18N}.roles.dps`, summaryKey: `${TC_I18N}.roles.dpsSummary` },
+  { key: 'SUP', titleKey: `${TC_I18N}.roles.sup`, summaryKey: `${TC_I18N}.roles.supSummary` }
+];
+
+const tc = (tr, key, options) => tr(`${TC_I18N}.${key}`, options);
 
 function normalizeRole(role) {
   const r = toText(role).trim().toUpperCase();
@@ -110,43 +131,49 @@ function createMetricRow(label, a = '0.0', b = '0.0') {
   return { label, a: toText(a), b: toText(b) };
 }
 
-function getDefaultOverallMetrics() {
+function getDefaultOverallMetrics(tr) {
   return [
-    createMetricRow('全队击杀 / 10分'),
-    createMetricRow('全队助攻 / 10分'),
-    createMetricRow('全队死亡 / 10分'),
-    createMetricRow('全队伤害 / 10分'),
-    createMetricRow('全队治疗 / 10分'),
-    createMetricRow('全队承伤 / 10分')
+    createMetricRow(tc(tr, 'metrics.overallElimsPer10')),
+    createMetricRow(tc(tr, 'metrics.overallAssistsPer10')),
+    createMetricRow(tc(tr, 'metrics.overallDeathsPer10')),
+    createMetricRow(tc(tr, 'metrics.overallDamagePer10')),
+    createMetricRow(tc(tr, 'metrics.overallHealingPer10')),
+    createMetricRow(tc(tr, 'metrics.overallMitigationPer10'))
   ];
 }
 
-function getDefaultRoleMetrics() {
+function getDefaultRoleMetricRows(tr) {
+  return [
+    createMetricRow(tc(tr, 'metrics.elimsPer10')),
+    createMetricRow(tc(tr, 'metrics.assistsPer10')),
+    createMetricRow(tc(tr, 'metrics.deathsPer10')),
+    createMetricRow(tc(tr, 'metrics.damagePer10')),
+    createMetricRow(tc(tr, 'metrics.healingPer10')),
+    createMetricRow(tc(tr, 'metrics.mitigationPer10'))
+  ];
+}
+
+function getDefaultRoleMetrics(tr) {
   return {
-    TANK: [
-      createMetricRow('击杀 / 10分'),
-      createMetricRow('助攻 / 10分'),
-      createMetricRow('死亡 / 10分'),
-      createMetricRow('伤害 / 10分'),
-      createMetricRow('治疗 / 10分'),
-      createMetricRow('承伤 / 10分')
-    ],
-    DPS: [
-      createMetricRow('击杀 / 10分'),
-      createMetricRow('助攻 / 10分'),
-      createMetricRow('死亡 / 10分'),
-      createMetricRow('伤害 / 10分'),
-      createMetricRow('治疗 / 10分'),
-      createMetricRow('承伤 / 10分')
-    ],
-    SUP: [
-      createMetricRow('击杀 / 10分'),
-      createMetricRow('助攻 / 10分'),
-      createMetricRow('死亡 / 10分'),
-      createMetricRow('伤害 / 10分'),
-      createMetricRow('治疗 / 10分'),
-      createMetricRow('承伤 / 10分')
-    ]
+    TANK: getDefaultRoleMetricRows(tr),
+    DPS: getDefaultRoleMetricRows(tr),
+    SUP: getDefaultRoleMetricRows(tr)
+  };
+}
+
+function relabelRows(currentRows, defaultRows) {
+  return defaultRows.map((row, idx) => ({
+    ...row,
+    a: safeArr(currentRows)[idx]?.a ?? row.a,
+    b: safeArr(currentRows)[idx]?.b ?? row.b
+  }));
+}
+
+function relabelRoleMetrics(currentRoleMetrics, defaultRoleMetrics) {
+  return {
+    TANK: relabelRows(currentRoleMetrics?.TANK, defaultRoleMetrics.TANK),
+    DPS: relabelRows(currentRoleMetrics?.DPS, defaultRoleMetrics.DPS),
+    SUP: relabelRows(currentRoleMetrics?.SUP, defaultRoleMetrics.SUP)
   };
 }
 
@@ -298,17 +325,21 @@ function buildTeamAnalytics(db) {
     });
   }
 
-  return Array.from(teamMap.values()).map(finalizeTeamRow).sort((a, b) => toText(a.teamShort).localeCompare(toText(b.teamShort)));
+  // Filter the calculated team pool to the playoff scope.
+  return Array.from(teamMap.values())
+    .map(finalizeTeamRow)
+    .filter(team => PLAYOFF_TEAMS.includes(team.teamShort))
+    .sort((a, b) => toText(a.teamShort).localeCompare(toText(b.teamShort)));
 }
 
-function buildTeamPreset(teamA, teamB) {
+function buildTeamPreset(teamA, teamB, tr) {
   const roleRows = role => [
-    createMetricRow('击杀 / 10分', teamA?.roles?.[role]?.elimsPer10 || '0.0', teamB?.roles?.[role]?.elimsPer10 || '0.0'),
-    createMetricRow('助攻 / 10分', teamA?.roles?.[role]?.assistsPer10 || '0.0', teamB?.roles?.[role]?.assistsPer10 || '0.0'),
-    createMetricRow('死亡 / 10分', teamA?.roles?.[role]?.deathsPer10 || '0.0', teamB?.roles?.[role]?.deathsPer10 || '0.0'),
-    createMetricRow('伤害 / 10分', teamA?.roles?.[role]?.damagePer10 || '0.0', teamB?.roles?.[role]?.damagePer10 || '0.0'),
-    createMetricRow('治疗 / 10分', teamA?.roles?.[role]?.healingPer10 || '0.0', teamB?.roles?.[role]?.healingPer10 || '0.0'),
-    createMetricRow('承伤 / 10分', teamA?.roles?.[role]?.mitigationPer10 || '0.0', teamB?.roles?.[role]?.mitigationPer10 || '0.0')
+    createMetricRow(tc(tr, 'metrics.elimsPer10'), teamA?.roles?.[role]?.elimsPer10 || '0.0', teamB?.roles?.[role]?.elimsPer10 || '0.0'),
+    createMetricRow(tc(tr, 'metrics.assistsPer10'), teamA?.roles?.[role]?.assistsPer10 || '0.0', teamB?.roles?.[role]?.assistsPer10 || '0.0'),
+    createMetricRow(tc(tr, 'metrics.deathsPer10'), teamA?.roles?.[role]?.deathsPer10 || '0.0', teamB?.roles?.[role]?.deathsPer10 || '0.0'),
+    createMetricRow(tc(tr, 'metrics.damagePer10'), teamA?.roles?.[role]?.damagePer10 || '0.0', teamB?.roles?.[role]?.damagePer10 || '0.0'),
+    createMetricRow(tc(tr, 'metrics.healingPer10'), teamA?.roles?.[role]?.healingPer10 || '0.0', teamB?.roles?.[role]?.healingPer10 || '0.0'),
+    createMetricRow(tc(tr, 'metrics.mitigationPer10'), teamA?.roles?.[role]?.mitigationPer10 || '0.0', teamB?.roles?.[role]?.mitigationPer10 || '0.0')
   ];
 
   return {
@@ -319,12 +350,12 @@ function buildTeamPreset(teamA, teamB) {
     timeA: teamA?.playTime || '-',
     timeB: teamB?.playTime || '-',
     overallMetrics: [
-      createMetricRow('全队击杀 / 10分', teamA?.overall?.elimsPer10 || '0.0', teamB?.overall?.elimsPer10 || '0.0'),
-      createMetricRow('全队助攻 / 10分', teamA?.overall?.assistsPer10 || '0.0', teamB?.overall?.assistsPer10 || '0.0'),
-      createMetricRow('全队死亡 / 10分', teamA?.overall?.deathsPer10 || '0.0', teamB?.overall?.deathsPer10 || '0.0'),
-      createMetricRow('全队伤害 / 10分', teamA?.overall?.damagePer10 || '0.0', teamB?.overall?.damagePer10 || '0.0'),
-      createMetricRow('全队治疗 / 10分', teamA?.overall?.healingPer10 || '0.0', teamB?.overall?.healingPer10 || '0.0'),
-      createMetricRow('全队承伤 / 10分', teamA?.overall?.mitigationPer10 || '0.0', teamB?.overall?.mitigationPer10 || '0.0')
+      createMetricRow(tc(tr, 'metrics.overallElimsPer10'), teamA?.overall?.elimsPer10 || '0.0', teamB?.overall?.elimsPer10 || '0.0'),
+      createMetricRow(tc(tr, 'metrics.overallAssistsPer10'), teamA?.overall?.assistsPer10 || '0.0', teamB?.overall?.assistsPer10 || '0.0'),
+      createMetricRow(tc(tr, 'metrics.overallDeathsPer10'), teamA?.overall?.deathsPer10 || '0.0', teamB?.overall?.deathsPer10 || '0.0'),
+      createMetricRow(tc(tr, 'metrics.overallDamagePer10'), teamA?.overall?.damagePer10 || '0.0', teamB?.overall?.damagePer10 || '0.0'),
+      createMetricRow(tc(tr, 'metrics.overallHealingPer10'), teamA?.overall?.healingPer10 || '0.0', teamB?.overall?.healingPer10 || '0.0'),
+      createMetricRow(tc(tr, 'metrics.overallMitigationPer10'), teamA?.overall?.mitigationPer10 || '0.0', teamB?.overall?.mitigationPer10 || '0.0')
     ],
     roleMetrics: {
       TANK: roleRows('TANK'),
@@ -380,34 +411,50 @@ const collapseHeadStyle = {
 };
 
 export default function TeamComparisonPanel({ db, dbStatus, density, densityTokens, is1080Compact }) {
+  const { t: tr, i18n } = useTranslation();
   const { matchData, updateWithHistory, setPreviewScene } = useMatchContext();
   const t = densityTokens || { panelPadding: '12px' };
   const rowH = is1080Compact ? '34px' : '38px';
 
   const [teamAId, setTeamAId] = useState('');
   const [teamBId, setTeamBId] = useState('');
+  const [activeCategory, setActiveCategory] = useState('OVERALL');
   const [expandedRoles, setExpandedRoles] = useState({ TANK: false, DPS: false, SUP: false });
 
-  const [formData, setFormData] = useState({
+  const languageKey = i18n.resolvedLanguage || i18n.language;
+
+  const [formData, setFormData] = useState(() => ({
     nameA: '',
     nameB: '',
     mapsA: '0',
     mapsB: '0',
     timeA: '-',
     timeB: '-',
-    overallMetrics: getDefaultOverallMetrics(),
-    roleMetrics: getDefaultRoleMetrics()
-  });
+    overallMetrics: getDefaultOverallMetrics(tr),
+    roleMetrics: getDefaultRoleMetrics(tr)
+  }));
 
   const teamPool = useMemo(() => buildTeamAnalytics(db), [db]);
   const selectedTeamA = useMemo(() => teamPool.find(t => t.teamId === teamAId) || null, [teamPool, teamAId]);
   const selectedTeamB = useMemo(() => teamPool.find(t => t.teamId === teamBId) || null, [teamPool, teamBId]);
 
   useEffect(() => {
-    if (!selectedTeamA && !selectedTeamB) return;
-    setFormData(buildTeamPreset(selectedTeamA, selectedTeamB));
-  }, [selectedTeamA, selectedTeamB]);
+    const defaultOverallMetrics = getDefaultOverallMetrics(tr);
+    const defaultRoleMetrics = getDefaultRoleMetrics(tr);
 
+    if (selectedTeamA || selectedTeamB) {
+      setFormData(buildTeamPreset(selectedTeamA, selectedTeamB, tr));
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      overallMetrics: relabelRows(prev.overallMetrics, defaultOverallMetrics),
+      roleMetrics: relabelRoleMetrics(prev.roleMetrics, defaultRoleMetrics)
+    }));
+  }, [selectedTeamA, selectedTeamB, languageKey, tr]);
+
+  // Auto-select the top two teams from the filtered team pool.
   const autoTopTwo = () => {
     const sorted = [...teamPool].sort(
       (a, b) => parseFloat(b?.overall?.damagePer10 || 0) - parseFloat(a?.overall?.damagePer10 || 0)
@@ -463,6 +510,10 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
     const payload = {
       teamAId,
       teamBId,
+      activeCategory,
+      scenePage: activeCategory,
+      outputCategory: activeCategory,
+      category: activeCategory,
       ...formData,
       stat1Label: overallRows[0]?.label || '',
       stat1A: overallRows[0]?.a || '',
@@ -484,7 +535,7 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
       stat6B: overallRows[5]?.b || ''
     };
 
-    updateWithHistory('Take Team Comparison', {
+    updateWithHistory(tc(tr, 'history.take'), {
       ...matchData,
       teamComparisonData: payload,
       dataGraphics: { type: 'TEAM_COMPARISON', payload },
@@ -496,22 +547,40 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '360px minmax(0,1fr)', gap: 10, alignItems: 'start' }}>
-      <ShellPanel title="自动填充" accent density={density} bodyStyle={{ padding: t.panelPadding }}>
+      <ShellPanel title={tc(tr, 'panels.autoFill')} accent density={density} bodyStyle={{ padding: t.panelPadding }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <button style={UI.chip(false)} onClick={autoTopTwo}>自动前二</button>
-            <button style={UI.chip(false)} onClick={swapSides}>交换左右</button>
+            <button style={UI.chip(false)} onClick={autoTopTwo}>{tc(tr, 'actions.autoTopTwo')}</button>
+            <button style={UI.chip(false)} onClick={swapSides}>{tc(tr, 'actions.swapSides')}</button>
           </div>
 
           <div>
-            <div style={labelStyle}>左侧队伍</div>
+            <div style={labelStyle}>{tc(tr, 'outputCategory')}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 6 }}>
+              {OUTPUT_CATEGORIES.map(item => (
+                <button
+                  key={item.key}
+                  type="button"
+                  style={{ ...UI.chip(activeCategory === item.key), minHeight: 42, padding: '0 6px' }}
+                  onClick={() => setActiveCategory(item.key)}
+                >
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2, lineHeight: 1.05 }}>
+                    <span>{tr(item.labelKey)}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div style={labelStyle}>{tc(tr, 'labels.leftTeam')}</div>
             <select
               style={{ ...UI.select, height: rowH, color: COLORS.yellow }}
               value={teamAId}
               onChange={e => setTeamAId(e.target.value)}
               disabled={dbStatus !== 'LOADED'}
             >
-              <option value="">-- 选择队伍 A --</option>
+              <option value="">{tc(tr, 'placeholders.selectTeamA')}</option>
               {teamPool.map(team => (
                 <option key={`TA_${team.teamId}`} value={team.teamId}>
                   {team.teamName}
@@ -521,14 +590,14 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
           </div>
 
           <div>
-            <div style={labelStyle}>右侧队伍</div>
+            <div style={labelStyle}>{tc(tr, 'labels.rightTeam')}</div>
             <select
               style={{ ...UI.select, height: rowH, color: COLORS.yellow }}
               value={teamBId}
               onChange={e => setTeamBId(e.target.value)}
               disabled={dbStatus !== 'LOADED'}
             >
-              <option value="">-- 选择队伍 B --</option>
+              <option value="">{tc(tr, 'placeholders.selectTeamB')}</option>
               {teamPool.map(team => (
                 <option key={`TB_${team.teamId}`} value={team.teamId}>
                   {team.teamName}
@@ -539,38 +608,38 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div style={sourceCardStyle}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>左侧来源</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>{tc(tr, 'labels.leftSource')}</div>
               <div style={{ fontSize: 18, color: COLORS.white, fontWeight: 900, lineHeight: 1.1 }}>
-                {selectedTeamA?.teamShort || '待选择'}
+                {selectedTeamA?.teamShort || tc(tr, 'source.pending')}
               </div>
               <div style={{ fontSize: 11, color: COLORS.yellow, fontWeight: 800 }}>
-                {selectedTeamA ? `${selectedTeamA.mapsPlayed} 图 · ${selectedTeamA.playTime}` : '-'}
+                {selectedTeamA ? tc(tr, 'source.mapsAndTime', { maps: selectedTeamA.mapsPlayed, time: selectedTeamA.playTime }) : '-'}
               </div>
               <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.56)', fontWeight: 700 }}>
-                {selectedTeamA ? `全队伤害 / 10分 ${selectedTeamA.overall.damagePer10}` : '暂无数据'}
+                {selectedTeamA ? tc(tr, 'source.teamDamagePer10', { value: selectedTeamA.overall.damagePer10 }) : tc(tr, 'source.noData')}
               </div>
             </div>
 
             <div style={sourceCardStyle}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>右侧来源</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>{tc(tr, 'labels.rightSource')}</div>
               <div style={{ fontSize: 18, color: COLORS.white, fontWeight: 900, lineHeight: 1.1 }}>
-                {selectedTeamB?.teamShort || '待选择'}
+                {selectedTeamB?.teamShort || tc(tr, 'source.pending')}
               </div>
               <div style={{ fontSize: 11, color: COLORS.yellow, fontWeight: 800 }}>
-                {selectedTeamB ? `${selectedTeamB.mapsPlayed} 图 · ${selectedTeamB.playTime}` : '-'}
+                {selectedTeamB ? tc(tr, 'source.mapsAndTime', { maps: selectedTeamB.mapsPlayed, time: selectedTeamB.playTime }) : '-'}
               </div>
               <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.56)', fontWeight: 700 }}>
-                {selectedTeamB ? `全队伤害 / 10分 ${selectedTeamB.overall.damagePer10}` : '暂无数据'}
+                {selectedTeamB ? tc(tr, 'source.teamDamagePer10', { value: selectedTeamB.overall.damagePer10 }) : tc(tr, 'source.noData')}
               </div>
             </div>
           </div>
         </div>
       </ShellPanel>
 
-      <ShellPanel title="资料编辑" accent density={density} bodyStyle={{ padding: t.panelPadding }}>
+      <ShellPanel title={tc(tr, 'panels.dataEditor')} accent density={density} bodyStyle={{ padding: t.panelPadding }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
           <div style={{ fontSize: 12, fontWeight: 900, color: COLORS.yellow, letterSpacing: '0.4px' }}>
-            团队整体数据
+            {tc(tr, 'labels.teamOverall')}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 10 }}>
@@ -599,9 +668,7 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
             {[
-              { key: 'TANK', title: '坦克'},
-              { key: 'DPS', title: '输出'},
-              { key: 'SUP', title: '辅助'}
+              ...ROLE_SECTIONS
             ].map(section => (
               <div key={section.key} style={roleSectionStyle}>
                 <button
@@ -611,10 +678,10 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
                     <div style={{ fontSize: 12, fontWeight: 900, color: COLORS.yellow, letterSpacing: '0.4px' }}>
-                      {section.title}
+                      {tr(section.titleKey)}
                     </div>
                     <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 700 }}>
-                      {section.summary}
+                      {tr(section.summaryKey)}
                     </div>
                   </div>
 
@@ -669,7 +736,7 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
             }}
             onClick={handleTake}
           >
-            推送队伍对比
+            {tc(tr, 'actions.take')}
           </button>
         </div>
       </ShellPanel>

@@ -15,9 +15,23 @@ import {
 } from '../../utils';
 import { createEditorUi } from '../../utils/editorUi';
 import { ShellPanel, Field, QuickStat, SectionHint } from '../common/SharedUI';
-
-// 引入图片处理工具
 import { processImageForStorage } from '../../utils/imageHelper';
+
+const ROLE_LABEL_KEYS = {
+  TANK: 'liveEditor.tank',
+  DAMAGE: 'liveEditor.dps',
+  SUPPORT: 'liveEditor.sup'
+};
+
+const getRoleLabel = (role, tr) => {
+  const normalized = String(role || '').toUpperCase();
+  return ROLE_LABEL_KEYS[normalized] ? tr(ROLE_LABEL_KEYS[normalized], normalized) : normalized;
+};
+
+const getHeroLabel = (hero, tr) => {
+  const key = String(hero || '').trim();
+  return key ? tr(`heroes.${key}`, key) : '';
+};
 
 const PlayerRow = React.memo(({
   player, idx, role, isDense, isUltra, density, t, ui, compactLabel, rowInput, rowNumberInput, rowSelect, 
@@ -98,7 +112,7 @@ const PlayerRow = React.memo(({
                   updateRosterPlayers(next);
                 }}
               >
-                {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{getRoleLabel(r, tr)}</option>)}
               </select>
             </div>
 
@@ -114,7 +128,7 @@ const PlayerRow = React.memo(({
                   updateRosterPlayers(next);
                 }}
               >
-                {heroOptions.map(hero => <option key={hero} value={hero}>{hero}</option>)}
+                {heroOptions.map(hero => <option key={hero} value={hero}>{getHeroLabel(hero, tr)}</option>)}
               </select>
             </div>
           </div>
@@ -167,7 +181,7 @@ const PlayerRow = React.memo(({
                 next[idx] = { ...next[idx], heroImage: e.target.value };
                 updateRosterPlayers(next);
               }}
-              placeholder="/assets/roster/damage/tracer.jpg"
+              placeholder="/assets/roster/damage/tracer.png"
             />
           </div>
         </div>
@@ -216,14 +230,14 @@ const PlayerRow = React.memo(({
           <div>
             <div style={compactLabel}>{tr('rosterEditor.role')}</div>
             <select style={rowSelect} value={role} onChange={e => { const nextRole = e.target.value; const nextHero = getRosterHeroOptions(nextRole)[0] || ''; const next = [...rosterPlayers]; next[idx] = { ...next[idx], role: nextRole, hero: nextHero, heroImage: getRosterHeroImagePath(nextRole, nextHero) }; updateRosterPlayers(next); }}>
-              {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+              {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{getRoleLabel(r, tr)}</option>)}
             </select>
           </div>
 
           <div>
             <div style={compactLabel}>{tr('rosterEditor.hero')}</div>
             <select style={rowSelect} value={player.hero || ''} onChange={e => { const nextHero = e.target.value; const next = [...rosterPlayers]; next[idx] = { ...next[idx], hero: nextHero, heroImage: getRosterHeroImagePath(role, nextHero) }; updateRosterPlayers(next); }}>
-              {heroOptions.map(hero => <option key={hero} value={hero}>{hero}</option>)}
+              {heroOptions.map(hero => <option key={hero} value={hero}>{getHeroLabel(hero, tr)}</option>)}
             </select>
           </div>
 
@@ -250,7 +264,7 @@ const PlayerRow = React.memo(({
 
         <div>
           <div style={compactLabel}>{tr('rosterEditor.imagePath')}</div>
-          <input style={rowInput} value={(player.heroImage || '').startsWith('blob:') ? tr('rosterEditor.localMemoryImage') : (player.heroImage || '')} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroImage: e.target.value }; updateRosterPlayers(next); }} placeholder="/assets/roster/damage/tracer.jpg" />
+          <input style={rowInput} value={(player.heroImage || '').startsWith('blob:') ? tr('rosterEditor.localMemoryImage') : (player.heroImage || '')} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroImage: e.target.value }; updateRosterPlayers(next); }} placeholder="/assets/roster/damage/tracer.png" />
         </div>
       </div>
     );
@@ -270,13 +284,13 @@ const PlayerRow = React.memo(({
 
       <div style={denseCell}>
         <select style={rowSelect} value={role} onChange={e => { const nextRole = e.target.value; const nextHero = getRosterHeroOptions(nextRole)[0] || ''; const next = [...rosterPlayers]; next[idx] = { ...next[idx], role: nextRole, hero: nextHero, heroImage: getRosterHeroImagePath(nextRole, nextHero) }; updateRosterPlayers(next); }}>
-          {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+          {ROSTER_ROLE_OPTIONS.map(r => <option key={r} value={r}>{getRoleLabel(r, tr)}</option>)}
         </select>
       </div>
 
       <div style={denseCell}>
         <select style={rowSelect} value={player.hero || ''} onChange={e => { const nextHero = e.target.value; const next = [...rosterPlayers]; next[idx] = { ...next[idx], hero: nextHero, heroImage: getRosterHeroImagePath(role, nextHero) }; updateRosterPlayers(next); }}>
-          {heroOptions.map(hero => <option key={hero} value={hero}>{hero}</option>)}
+          {heroOptions.map(hero => <option key={hero} value={hero}>{getHeroLabel(hero, tr)}</option>)}
         </select>
       </div>
 
@@ -297,7 +311,7 @@ const PlayerRow = React.memo(({
       </div>
 
       <div style={denseCell}>
-        <input style={rowInput} value={(player.heroImage || '').startsWith('blob:') ? tr('rosterEditor.localMemoryImage') : (player.heroImage || '')} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroImage: e.target.value }; updateRosterPlayers(next); }} placeholder="/assets/roster/damage/tracer.jpg" />
+        <input style={rowInput} value={(player.heroImage || '').startsWith('blob:') ? tr('rosterEditor.localMemoryImage') : (player.heroImage || '')} onChange={e => { const next = [...rosterPlayers]; next[idx] = { ...next[idx], heroImage: e.target.value }; updateRosterPlayers(next); }} placeholder="/assets/roster/damage/tracer.png" />
       </div>
 
       <div style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -320,7 +334,6 @@ const PlayerRow = React.memo(({
     </div>
   );
 });
-
 
 const RosterEditor = ({
   isDense,
@@ -372,9 +385,7 @@ const RosterEditor = ({
     }
     
     const oldImage = rosterPlayers[idx]?.heroImage;
-    if (oldImage && oldImage.startsWith('blob:')) {
-      URL.revokeObjectURL(oldImage);
-    }
+    if (oldImage && oldImage.startsWith('blob:')) URL.revokeObjectURL(oldImage);
     
     try {
       const base64Image = await processImageForStorage(file);
@@ -382,7 +393,7 @@ const RosterEditor = ({
       next[idx] = { ...next[idx], heroImage: base64Image };
       updateRosterPlayers(next);
     } catch (error) {
-      console.error("Image processing failed:", error);
+      console.error('Image processing failed:', error);
       showModal({ type: 'alert', title: 'Error', message: 'Image processing failed, please try again.', isDanger: true });
     }
     
@@ -456,9 +467,7 @@ const RosterEditor = ({
       title: tr('rosterEditor.deletePreset'),
       message: tr('rosterEditor.deletePresetMsg', { key: presetKey }),
       isDanger: true,
-      onConfirm: () => {
-        updateData({ ...matchData, rosterPresetLibrary: rosterPresetLibrary.filter(p => p.key !== presetKey) });
-      }
+      onConfirm: () => updateData({ ...matchData, rosterPresetLibrary: rosterPresetLibrary.filter(p => p.key !== presetKey) })
     });
   };
 
@@ -614,20 +623,19 @@ const RosterEditor = ({
               </div>
             </div>
 
-            
             <div style={{ marginTop: '4px' }}>
-               <button 
-                 style={{...rowActionBtn, width: '100%', backgroundColor: COLORS.red, color: COLORS.white, border: `1px solid ${COLORS.red}`}}
-                 onClick={() => {
-                   updateWithHistory(`TAKE ROSTER TEAM ${teamTarget}`, {
-                     ...matchData,
-                     liveRosterTeam: teamTarget, 
-                     globalScene: 'ROSTER'       
-                   });
-                 }}
-               >
-                 {tr('rosterEditor.takeToBroadcast')}
-               </button>
+              <button 
+                style={{ ...rowActionBtn, width: '100%', backgroundColor: COLORS.red, color: COLORS.white, border: `1px solid ${COLORS.red}` }}
+                onClick={() => {
+                  updateWithHistory(`TAKE ROSTER TEAM ${teamTarget}`, {
+                    ...matchData,
+                    liveRosterTeam: teamTarget, 
+                    globalScene: 'ROSTER'       
+                  });
+                }}
+              >
+                {tr('rosterEditor.takeToBroadcast')}
+              </button>
             </div>
           </div>
         </ShellPanel>
@@ -671,7 +679,7 @@ const RosterEditor = ({
                     rosterPlayers={rosterPlayers} updatePlayerPositionXY={updatePlayerPositionXY} pos={pos} heroOptions={heroOptions}
                     tr={tr} 
                   />
-                )
+                );
               })}
             </div>
 
@@ -704,9 +712,7 @@ const RosterEditor = ({
                   if (rosterPlayers.length <= 5) return showModal({ type: 'alert', title: tr('rosterEditor.limitMin'), message: tr('rosterEditor.minPlayers'), isDanger: true });
                   
                   const lastPlayer = rosterPlayers[rosterPlayers.length - 1];
-                  if (lastPlayer.heroImage && lastPlayer.heroImage.startsWith('blob:')) {
-                    URL.revokeObjectURL(lastPlayer.heroImage);
-                  }
+                  if (lastPlayer.heroImage && lastPlayer.heroImage.startsWith('blob:')) URL.revokeObjectURL(lastPlayer.heroImage);
                   
                   updateRosterPlayers(rosterPlayers.slice(0, -1));
                 }}
@@ -744,7 +750,6 @@ const RosterEditor = ({
                 </div>
               </div>
 
-              {/* 🚀 核心修改区域：将原来的单列改为响应式多列网格 (自动适配，通常是 2-3 列) */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px', maxHeight: '70vh', overflowY: 'auto', paddingRight: '6px', alignContent: 'start' }}>
                 {(matchData.rosterPresetLibrary || []).map((preset, idx) => (
                   <div 

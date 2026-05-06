@@ -32,8 +32,20 @@ import BroadcastCoverScene from './components/scenes/BroadcastCoverScene';
 // 引入数据包装屏组件
 import PlayerSpotlightScene from './components/scenes/graphics/PlayerSpotlightScene';
 import PlayerComparisonScene from './components/scenes/graphics/PlayerComparisonScene';
+import TeamComparisonScene from './components/scenes/graphics/TeamComparisonScene';
+import MapProfileScene from './components/scenes/graphics/MapProfileScene';
+// 🌟 新增：引入排行榜 Scene
+import LeaderboardScene from './components/scenes/graphics/LeaderboardScene';
 
-import { COLORS, getDensityTokens } from './constants/styles';
+const COLORS = {
+  mainDark: '#1a1a1a',
+  mainAccent: '#f4c320',
+  textLight: '#ffffff',
+  textMuted: '#a0a0a0',
+  danger: '#e74c3c'
+};
+
+import { getDensityTokens } from './constants/styles';
 import { LOGO_LIST } from './constants/logos';
 
 const APP_SCREENS = { INTRO: 'intro', NOTICE: 'notice', LOGIN: 'login', WORKSPACE: 'workspace' };
@@ -73,7 +85,11 @@ const SceneComponentMap = {
   WINNER: WinnerScene,
   COVER: BroadcastCoverScene,
   MVP_SCENE: PlayerSpotlightScene,
-  H2H_SCENE: PlayerComparisonScene
+  H2H_SCENE: PlayerComparisonScene,
+  TEAM_COMPARISON_SCENE: TeamComparisonScene,
+  MAP_PROFILE_SCENE: MapProfileScene, // 上一行的逗号已加
+  // 🌟 新增：注册排行榜 Scene
+  LEADERBOARD_SCENE: LeaderboardScene
 };
 
 const renderSceneByKey = (sceneKey, matchData, isActive = false) => {
@@ -171,7 +187,7 @@ function MainApp() {
 
     if (!lineup.length) {
       handleUpdateWithHistoryAndSync(
-        winner === 'A' ? 'TEAM A +1' : 'TEAM B +1',
+        winner === 'A' ? t('history.teamAPlus') : t('history.teamBPlus'),
         {
           ...matchData,
           scoreA: winner === 'A' ? (matchData.scoreA || 0) + 1 : matchData.scoreA || 0,
@@ -185,7 +201,7 @@ function MainApp() {
     lineup[idx] = { ...lineup[idx], winner };
     const nextScore = recountScoreFromMapLineup(lineup);
 
-    handleUpdateWithHistoryAndSync(`Set map ${idx + 1} winner -> ${winner}`, {
+    handleUpdateWithHistoryAndSync(t('history.setMapWinner', { map: idx + 1, winner }), {
       ...matchData,
       ...nextScore,
       mapLineup: lineup
@@ -200,17 +216,17 @@ function MainApp() {
     lineup[idx] = { ...lineup[idx], winner: null, winnerSide: null };
     const nextScore = recountScoreFromMapLineup(lineup);
 
-    handleUpdateWithHistoryAndSync(`Clear map ${idx + 1} winner`, {
+    handleUpdateWithHistoryAndSync(t('history.clearMapWinner', { map: idx + 1 }), {
       ...matchData,
       ...nextScore,
       mapLineup: lineup
     });
   };
 
-  const handleScoreAUp = () => handleUpdateWithHistoryAndSync('TEAM A +1', { ...matchData, scoreA: (matchData.scoreA || 0) + 1 });
-  const handleScoreADown = () => handleUpdateWithHistoryAndSync('TEAM A -1', { ...matchData, scoreA: Math.max(0, (matchData.scoreA || 0) - 1) });
-  const handleScoreBUp = () => handleUpdateWithHistoryAndSync('TEAM B +1', { ...matchData, scoreB: (matchData.scoreB || 0) + 1 });
-  const handleScoreBDown = () => handleUpdateWithHistoryAndSync('TEAM B -1', { ...matchData, scoreB: Math.max(0, (matchData.scoreB || 0) - 1) });
+  const handleScoreAUp = () => handleUpdateWithHistoryAndSync(t('history.teamAPlus'), { ...matchData, scoreA: (matchData.scoreA || 0) + 1 });
+  const handleScoreADown = () => handleUpdateWithHistoryAndSync(t('history.teamAMinus'), { ...matchData, scoreA: Math.max(0, (matchData.scoreA || 0) - 1) });
+  const handleScoreBUp = () => handleUpdateWithHistoryAndSync(t('history.teamBPlus'), { ...matchData, scoreB: (matchData.scoreB || 0) + 1 });
+  const handleScoreBDown = () => handleUpdateWithHistoryAndSync(t('history.teamBMinus'), { ...matchData, scoreB: Math.max(0, (matchData.scoreB || 0) - 1) });
 
   const setWinnerA = () => updateCurrentMapWinner('A');
   const setWinnerB = () => updateCurrentMapWinner('B');
@@ -219,13 +235,13 @@ function MainApp() {
   const nextMap = () => {
     const total = getSeriesMapTotal();
     const current = Number(matchData.currentMap) || 1;
-    handleUpdateWithHistoryAndSync('Next Map', { ...matchData, currentMap: clamp(current + 1, 1, total) });
+    handleUpdateWithHistoryAndSync(t('history.nextMap'), { ...matchData, currentMap: clamp(current + 1, 1, total) });
   };
 
   const prevMap = () => {
     const total = getSeriesMapTotal();
     const current = Number(matchData.currentMap) || 1;
-    handleUpdateWithHistoryAndSync('Previous Map', { ...matchData, currentMap: clamp(current - 1, 1, total) });
+    handleUpdateWithHistoryAndSync(t('history.previousMap'), { ...matchData, currentMap: clamp(current - 1, 1, total) });
   };
 
   const resetSeriesScore = () => {
@@ -233,7 +249,7 @@ function MainApp() {
       ? matchData.mapLineup.map(map => ({ ...map, winner: null, winnerSide: null }))
       : [];
 
-    handleUpdateWithHistoryAndSync('Reset Series Score', {
+    handleUpdateWithHistoryAndSync(t('history.resetSeriesScore'), {
       ...matchData,
       currentMap: 1,
       scoreA: 0,
@@ -247,7 +263,7 @@ function MainApp() {
 
   const toggleBans = () =>
     handleUpdateWithHistoryAndSync(
-      matchData.showBans ? 'Disable ban mode' : 'Enable ban mode',
+      matchData.showBans ? t('history.disableBanMode') : t('history.enableBanMode'),
       {
         ...matchData,
         showBans: !matchData.showBans,
@@ -266,7 +282,7 @@ function MainApp() {
 
   const toggleAutoBegin = () => {
     const nextVisible = !matchData.beginInfoVisible;
-    handleUpdateWithHistoryAndSync(nextVisible ? 'Auto Begin ON' : 'Auto Begin OFF', {
+    handleUpdateWithHistoryAndSync(nextVisible ? t('history.autoBeginOn') : t('history.autoBeginOff'), {
       ...matchData,
       beginInfoVisible: nextVisible,
       autoBeginTrigger: nextVisible ? (matchData.autoBeginTrigger || 0) + 1 : matchData.autoBeginTrigger || 0
@@ -274,7 +290,7 @@ function MainApp() {
   };
 
   const hudOn = () =>
-    handleUpdateWithHistoryAndSync('HUD ON', {
+    handleUpdateWithHistoryAndSync(t('history.hudOn'), {
       ...matchData,
       showTicker: true,
       showPlayers: true,
@@ -282,7 +298,7 @@ function MainApp() {
     });
 
   const hudOff = () =>
-    handleUpdateWithHistoryAndSync('HUD OFF', {
+    handleUpdateWithHistoryAndSync(t('history.hudOff'), {
       ...matchData,
       showTicker: false,
       showPlayers: false,
@@ -311,7 +327,7 @@ function MainApp() {
 
     const currentStats = matchData.statsTemplateData || {};
 
-    handleUpdateWithHistoryAndSync('Swap Teams', {
+    handleUpdateWithHistoryAndSync(t('history.swapTeams'), {
       ...matchData,
       teamA: matchData.teamB || '',
       teamB: matchData.teamA || '',
@@ -428,11 +444,14 @@ function MainApp() {
     HIGHLIGHT: t('scenes.HIGHLIGHTS'),
     STATS: t('scenes.MATCH_STATS'),
     ROSTER: t('scenes.TEAM_ROSTERS'),
-    DATA_GRAPHICS: t('scenes.DATA_GRAPHICS', '数据包装'), 
+    DATA_GRAPHICS: t('scenes.DATA_GRAPHICS'),
     WINNER: t('scenes.WINNER_SCREEN'),
     COVER: t('scenes.BROADCAST_COVER'),
-    MVP_SCENE: t('scenes.MVP_SCENE', '焦点选手 (MVP)'),
-    H2H_SCENE: t('scenes.H2H_SCENE', '选手对位 (H2H)')
+    MVP_SCENE: t('scenes.MVP_SCENE'),
+    H2H_SCENE: t('scenes.H2H_SCENE'),
+    TEAM_COMPARISON_SCENE: t('scenes.TEAM_COMPARISON_SCENE'),
+    MAP_PROFILE_SCENE: t('scenes.MAP_PROFILE_SCENE'),
+    LEADERBOARD_SCENE: t('scenes.LEADERBOARD_SCENE')
   };
 
   const silentMatchData = useMemo(() => ({
@@ -510,7 +529,7 @@ function MainApp() {
       isDanger: true,
       message: t('modals.nuclearReset.message'),
       onConfirm: () =>
-        handleUpdateWithHistoryAndSync('Nuclear Reset', {
+        handleUpdateWithHistoryAndSync(t('history.nuclearReset'), {
           ...matchData,
           currentMap: 1,
           showBans: false,
@@ -577,7 +596,7 @@ function MainApp() {
     videoProgress,
     showModal,
     setPreviewScene,
-    takeScene: handleTakeSceneAndSync // <--- ADDED THIS 暴露给子组件的切台遥控器
+    takeScene: handleTakeSceneAndSync 
   }), [matchData, history, videoProgress, setPreviewScene, handleTakeSceneAndSync]);
 
   return (

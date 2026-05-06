@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ShellPanel } from '../common/SharedUI';
 import { COLORS } from '../../constants/styles';
 
+// 🌟 只导入季后赛模式保留的核心数据面板
 import PlayerSpotlightPanel from './graphics/PlayerSpotlightPanel';
-import LowerThirdsPanel from './graphics/LowerThirdsPanel';
 import PlayerComparisonPanel from './graphics/PlayerComparisonPanel';
 import TeamComparisonPanel from './graphics/TeamComparisonPanel';
 import LeaderboardPanel from './graphics/LeaderboardPanel';
-import MapPoolPanel from './graphics/MapPoolPanel';
 import MapProfilePanel from './graphics/MapProfilePanel';
 
 const UI = {
@@ -33,24 +33,22 @@ const UI = {
 
 const EMPTY_DB = { players: [], teams: [], matches: [], player_totals: [], meta: null };
 
+// 🌟 导航栏裁剪：只保留季后赛所需的 5 个核心入口
 const GRAPHIC_TYPES = [
-  { key: 'PLAYER_SPOTLIGHT', label: '选手聚焦' },
-  { key: 'LOWER_THIRDS', label: '局内数据条' },
-  { key: 'PLAYER_COMPARISON', label: '选手对位' },
-  { key: 'TEAM_COMPARISON', label: '队伍对比' },
-  { key: 'LEADERBOARD', label: '榜单快照' },
-  { key: 'MAP_POOL', label: '地图池分析' },
-  { key: 'MAP_PROFILE', label: '单图资料卡' }
+  { key: 'PLAYER_SPOTLIGHT', labelKey: 'dataGraphicsEditor.tabs.playerSpotlight' },
+  { key: 'PLAYER_COMPARISON', labelKey: 'dataGraphicsEditor.tabs.playerComparison' },
+  { key: 'TEAM_COMPARISON', labelKey: 'dataGraphicsEditor.tabs.teamComparison' },
+  { key: 'MAP_PROFILE', labelKey: 'dataGraphicsEditor.tabs.mapProfile' },
+  { key: 'LEADERBOARD', labelKey: 'dataGraphicsEditor.tabs.leaderboard' }
 ];
 
+// 🌟 路由映射同步更新
 const ROUTE_COMPONENTS = {
   PLAYER_SPOTLIGHT: PlayerSpotlightPanel,
-  LOWER_THIRDS: LowerThirdsPanel,
   PLAYER_COMPARISON: PlayerComparisonPanel,
   TEAM_COMPARISON: TeamComparisonPanel,
-  LEADERBOARD: LeaderboardPanel,
-  MAP_POOL: MapPoolPanel,
-  MAP_PROFILE: MapProfilePanel
+  MAP_PROFILE: MapProfilePanel,
+  LEADERBOARD: LeaderboardPanel
 };
 
 const railNavItemStyle = active => ({
@@ -68,6 +66,7 @@ const railNavItemStyle = active => ({
 });
 
 export default function DataGraphicsEditor({ is1080Compact, density, densityTokens }) {
+  const { t: tr } = useTranslation();
   const t = densityTokens || { panelPadding: '12px' };
   const controlRowHeight = is1080Compact ? '36px' : '40px';
 
@@ -100,7 +99,7 @@ export default function DataGraphicsEditor({ is1080Compact, density, densityToke
         const parsed = JSON.parse(event.target.result);
         setDb(parsed || EMPTY_DB);
         setDbStatus('LOADED');
-        setDbUrl('LOCAL_FILE_IMPORTED');
+        setDbUrl(tr('dataGraphicsEditor.localFileImported'));
       } catch (err) {
         console.error('[SYS_ERR] JSON Parse Failed:', err);
         setDbStatus('ERROR');
@@ -118,6 +117,12 @@ export default function DataGraphicsEditor({ is1080Compact, density, densityToke
 
   const ActivePanel = ROUTE_COMPONENTS[graphicType] || PlayerSpotlightPanel;
 
+  const loadButtonText = dbStatus === 'LOADING'
+    ? tr('dataGraphicsEditor.loading')
+    : dbStatus === 'LOADED'
+      ? tr('dataGraphicsEditor.synced')
+      : tr('dataGraphicsEditor.fetchData');
+
   return (
     <div
       style={{
@@ -129,7 +134,7 @@ export default function DataGraphicsEditor({ is1080Compact, density, densityToke
     >
       <div style={{ position: 'sticky', top: 10, alignSelf: 'start' }}>
         <ShellPanel
-          title="全局导航"
+          title={tr('dataGraphicsEditor.globalNav')}
           accent
           density={density}
           bodyStyle={{ padding: t.panelPadding }}
@@ -146,7 +151,7 @@ export default function DataGraphicsEditor({ is1080Compact, density, densityToke
               }}
               value={dbUrl}
               onChange={e => setDbUrl(e.target.value)}
-              placeholder="数据源地址"
+              placeholder={tr('dataGraphicsEditor.dataSourcePlaceholder')}
             />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -163,7 +168,7 @@ export default function DataGraphicsEditor({ is1080Compact, density, densityToke
                 }}
                 onClick={handleLoadDb}
               >
-                {dbStatus === 'LOADING' ? '加载中' : dbStatus === 'LOADED' ? '已同步' : '抓取数据'}
+                {loadButtonText}
               </button>
 
               <label
@@ -178,7 +183,7 @@ export default function DataGraphicsEditor({ is1080Compact, density, densityToke
                   fontSize: '12px'
                 }}
               >
-                导入 JSON
+                {tr('dataGraphicsEditor.importJson')}
                 <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileUpload} />
               </label>
             </div>
@@ -195,14 +200,14 @@ export default function DataGraphicsEditor({ is1080Compact, density, densityToke
                   lineHeight: 1.4
                 }}
               >
-                {dbStatus === 'ERROR' ? '数据库加载失败，请检查链接或重新导入 JSON。' : '数据库未加载，请先抓取或导入数据。'}
+                {dbStatus === 'ERROR' ? tr('dataGraphicsEditor.loadError') : tr('dataGraphicsEditor.unloadedHint')}
               </div>
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {GRAPHIC_TYPES.map(tab => (
                 <button key={tab.key} style={railNavItemStyle(graphicType === tab.key)} onClick={() => setGraphicType(tab.key)}>
-                  {tab.label}
+                  {tr(tab.labelKey)}
                 </button>
               ))}
             </div>

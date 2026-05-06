@@ -45,15 +45,58 @@ const CASTER_KEYFRAMES = `
     0% { opacity: 0; transform: translateY(28px); }
     100% { opacity: 1; transform: translateY(0); }
   }
+  @keyframes interviewBoxIn {
+    0% { opacity: 0; transform: translateY(36px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes signalPulse {
+    0%, 100% { opacity: 0.36; transform: scaleX(0.9); }
+    50% { opacity: 1; transform: scaleX(1); }
+  }
 `;
 
+const DEFAULT_INTERVIEW_BOX = {
+  teamSide: 'A',
+  playerIndex: '',
+  speakerMode: 'PLAYER',
+  title: 'POST-MATCH INTERVIEW',
+  subtitle: 'VOICE INTERVIEW',
+  status: 'VOICE CONNECTED',
+  manualTeamName: '',
+  manualPlayerName: '',
+  manualPlayerRole: ''
+};
+
+const safeText = value => String(value ?? '').trim();
+
+const getPlayerName = player =>
+  safeText(player?.nickname) ||
+  safeText(player?.battleTag) ||
+  safeText(player?.id) ||
+  safeText(player?.name) ||
+  safeText(player?.playerName) ||
+  '';
+
+const getPlayerRole = player =>
+  safeText(player?.role) ||
+  safeText(player?.position) ||
+  safeText(player?.playerRole) ||
+  '';
+
+const buildFallbackShort = name =>
+  safeText(name)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(v => v[0])
+    .join('')
+    .slice(0, 4)
+    .toUpperCase();
+
 const CasterCard = React.memo(({ caster, delay, index, compact = false, multiMode = false }) => {
-  // 🚀 核心修复：将 caster.id 的优先级提到最高，强制对齐编辑器里修改的 "Display Name" 字段
   const displayName = caster?.id || caster?.label || `CASTER ${index + 1}`;
   const displayTitle = caster?.title || 'COMMENTATOR';
-  // 🚀 同步修复：社交账号如果没有填，默认占位符也跟着 id 走
   const displaySocial = caster?.social || `@${(caster?.id || `caster${index + 1}`).replace(/\s+/g, '_')}`;
-  
+
   const avatarKey = caster?.id || 'COMMENTATOR';
   const imgPath = caster?.avatar || `/assets/casters/${avatarKey}.jpg`;
 
@@ -72,7 +115,7 @@ const CasterCard = React.memo(({ caster, delay, index, compact = false, multiMod
           overflow: 'hidden',
           opacity: 0,
           transform: 'translateY(40px)',
-          willChange: 'transform, opacity', 
+          willChange: 'transform, opacity',
           animation: `slideUpBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${delay}s forwards`
         }}
       >
@@ -97,13 +140,10 @@ const CasterCard = React.memo(({ caster, delay, index, compact = false, multiMod
         >
           <img
             src={imgPath}
-            onError={e => { 
+            onError={e => {
               const fallback = '/assets/logos/OW.png';
-              if (!e.target.src.includes(fallback)) {
-                e.target.src = fallback;
-              } else {
-                e.target.style.display = 'none';
-              }
+              if (!e.target.src.includes(fallback)) e.target.src = fallback;
+              else e.target.style.display = 'none';
             }}
             alt={displayName}
             style={{
@@ -183,8 +223,17 @@ const CasterCard = React.memo(({ caster, delay, index, compact = false, multiMod
     >
       <div
         style={{
-          position: 'absolute', top: numberTop, left: numberLeft, fontSize: `${numberSize}px`, fontWeight: '900', color: 'transparent',
-          WebkitTextStroke: '2px rgba(255,255,255,0.035)', zIndex: 0, fontFamily: '"HarmonyOS Sans SC", sans-serif', pointerEvents: 'none', letterSpacing: '-8px'
+          position: 'absolute',
+          top: numberTop,
+          left: numberLeft,
+          fontSize: `${numberSize}px`,
+          fontWeight: '900',
+          color: 'transparent',
+          WebkitTextStroke: '2px rgba(255,255,255,0.035)',
+          zIndex: 0,
+          fontFamily: '"HarmonyOS Sans SC", sans-serif',
+          pointerEvents: 'none',
+          letterSpacing: '-8px'
         }}
       >
         {String(index + 1).padStart(2, '0')}
@@ -194,7 +243,7 @@ const CasterCard = React.memo(({ caster, delay, index, compact = false, multiMod
         <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 22px)', pointerEvents: 'none', zIndex: 2 }} />
         <img
           src={imgPath}
-          onError={e => { 
+          onError={e => {
             const fallback = '/assets/logos/OW.png';
             if (!e.target.src.includes(fallback)) e.target.src = fallback;
             else e.target.style.display = 'none';
@@ -240,7 +289,7 @@ const StaffRow = React.memo(({ role, name, delay, index }) => (
       borderLeft: `3px solid ${COLORS.yellow}`,
       opacity: 0,
       transform: 'translateY(28px)',
-      willChange: 'transform, opacity', 
+      willChange: 'transform, opacity',
       animation: `staffFadeIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) ${delay}s forwards`
     }}
   >
@@ -262,13 +311,292 @@ const StaffRow = React.memo(({ role, name, delay, index }) => (
   </div>
 ));
 
+const InterviewInfoBox = React.memo(({ matchData = {} }) => {
+  const box = { ...DEFAULT_INTERVIEW_BOX, ...(matchData.interviewBox || {}) };
+  const side = box.teamSide === 'B' ? 'B' : 'A';
+  const isA = side === 'A';
+  const speakerMode = box.speakerMode || 'PLAYER';
+
+  const teamName = safeText(isA ? matchData.teamA : matchData.teamB);
+  const teamShort = safeText(isA ? matchData.teamShortA : matchData.teamShortB) || buildFallbackShort(teamName) || `T${side}`;
+  const logo = safeText(isA ? matchData.logoA : matchData.logoB);
+
+  const rosterPlayers = Array.isArray(isA ? matchData.rosterPlayersA : matchData.rosterPlayersB)
+    ? (isA ? matchData.rosterPlayersA : matchData.rosterPlayersB)
+    : [];
+
+  const livePlayers = Array.isArray(isA ? matchData.playersA : matchData.playersB)
+    ? (isA ? matchData.playersA : matchData.playersB)
+    : [];
+
+  const playerIndex = box.playerIndex === 0 || box.playerIndex ? Number(box.playerIndex) : -1;
+  const rosterPlayer = playerIndex >= 0 ? rosterPlayers[playerIndex] : null;
+  const livePlayer = playerIndex >= 0 ? safeText(livePlayers[playerIndex]) : '';
+
+  const displayTeam = safeText(box.manualTeamName) || teamShort || teamName || `TEAM ${side}`;
+  const displayTeamFull = teamName || displayTeam;
+
+  const displayPlayer =
+    safeText(box.manualPlayerName) ||
+    (speakerMode === 'TEAM'
+      ? `${displayTeam} TEAM`
+      : speakerMode === 'REPRESENTATIVE'
+        ? `${displayTeam} REP`
+        : getPlayerName(rosterPlayer) || livePlayer || 'PLAYER');
+
+  const displayRole =
+    safeText(box.manualPlayerRole) ||
+    (speakerMode === 'TEAM'
+      ? 'TEAM STATEMENT'
+      : speakerMode === 'REPRESENTATIVE'
+        ? 'TEAM REPRESENTATIVE'
+        : getPlayerRole(rosterPlayer) || 'PLAYER');
+
+  const displayHero = speakerMode === 'PLAYER' ? safeText(rosterPlayer?.hero) : '';
+
+  const modeLabel =
+    speakerMode === 'TEAM'
+      ? 'TEAM VOICE'
+      : speakerMode === 'REPRESENTATIVE'
+        ? 'TEAM REPRESENTATIVE'
+        : box.title || 'POST-MATCH INTERVIEW';
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: '180px',
+        right: '180px',
+        bottom: '58px',
+        height: '138px',
+        zIndex: 16,
+        opacity: 0,
+        animation: 'interviewBoxIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.48s forwards'
+      }}
+    >
+      <div
+        style={{
+          height: '100%',
+          display: 'grid',
+          gridTemplateColumns: '260px 1fr 250px',
+          alignItems: 'stretch',
+          background: 'rgba(16,16,16,0.96)',
+          border: `1px solid ${COLORS.lineStrong}`,
+          borderTop: `3px solid ${COLORS.yellow}`,
+          boxShadow: `${UI.hardShadow}, ${UI.yellowGlow}`,
+          overflow: 'hidden',
+          position: 'relative'
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.014) 0 1px, transparent 1px 22px)',
+            pointerEvents: 'none',
+            opacity: 0.2
+          }}
+        />
+
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            background: COLORS.yellow,
+            color: COLORS.black,
+            padding: '18px 22px',
+            display: 'grid',
+            gridTemplateRows: 'auto 1fr auto',
+            gap: '6px'
+          }}
+        >
+          <div style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '2px', textTransform: 'uppercase', opacity: 0.72 }}>
+            {box.subtitle || 'VOICE INTERVIEW'}
+          </div>
+
+          <div style={{ alignSelf: 'center', minWidth: 0 }}>
+            <div style={{ fontSize: '40px', fontWeight: 900, lineHeight: 0.92, letterSpacing: '1px', textTransform: 'uppercase' }}>
+              {displayTeam}
+            </div>
+            <div
+              style={{
+                marginTop: '8px',
+                fontSize: '11px',
+                fontWeight: 900,
+                letterSpacing: '1.2px',
+                textTransform: 'uppercase',
+                opacity: 0.75,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
+            >
+              {displayTeamFull}
+            </div>
+          </div>
+
+          <div style={{ fontSize: '10px', fontWeight: 900, letterSpacing: '1.8px', textTransform: 'uppercase', opacity: 0.66 }}>
+            FRIES CUP
+          </div>
+        </div>
+
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            display: 'grid',
+            gridTemplateColumns: '98px 1fr',
+            gap: '20px',
+            alignItems: 'center',
+            padding: '18px 28px',
+            minWidth: 0
+          }}
+        >
+          <div
+            style={{
+              width: '88px',
+              height: '88px',
+              border: `1px solid ${COLORS.lineStrong}`,
+              background: 'rgba(255,255,255,0.03)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+              position: 'relative'
+            }}
+          >
+            {logo ? (
+              <img
+                src={logo}
+                alt={displayTeam}
+                onError={e => { e.currentTarget.style.display = 'none'; }}
+                style={{ maxWidth: '76%', maxHeight: '76%', objectFit: 'contain', display: 'block' }}
+              />
+            ) : (
+              <div style={{ color: COLORS.faintWhite, fontSize: '18px', fontWeight: 900, letterSpacing: '1px' }}>
+                {displayTeam}
+              </div>
+            )}
+          </div>
+
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <div style={{ width: '9px', height: '9px', background: COLORS.yellow }} />
+              <span style={{ fontSize: '13px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '1.8px', textTransform: 'uppercase' }}>
+                {modeLabel}
+              </span>
+            </div>
+
+            <div
+              style={{
+                fontSize: '40px',
+                fontWeight: 900,
+                color: COLORS.white,
+                lineHeight: 0.95,
+                letterSpacing: '0.6px',
+                textTransform: 'uppercase',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
+            >
+              {displayPlayer}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px', minWidth: 0 }}>
+              <div
+                style={{
+                  padding: '5px 9px',
+                  background: 'rgba(244,195,32,0.14)',
+                  border: '1px solid rgba(244,195,32,0.38)',
+                  color: COLORS.yellow,
+                  fontSize: '12px',
+                  fontWeight: 900,
+                  letterSpacing: '1.2px',
+                  textTransform: 'uppercase'
+                }}
+              >
+                {displayRole}
+              </div>
+
+              {displayHero && (
+                <div
+                  style={{
+                    color: COLORS.faintWhite,
+                    fontSize: '11px',
+                    fontWeight: 900,
+                    letterSpacing: '1.1px',
+                    textTransform: 'uppercase',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}
+                >
+                  HERO / {displayHero}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            padding: '18px 22px',
+            borderLeft: `1px solid ${COLORS.line}`,
+            display: 'grid',
+            gridTemplateRows: 'auto 1fr auto',
+            alignItems: 'center',
+            textAlign: 'right'
+          }}
+        >
+          <div style={{ fontSize: '10px', fontWeight: 900, color: COLORS.faintWhite, letterSpacing: '1.8px', textTransform: 'uppercase' }}>
+            AUDIO STATUS
+          </div>
+
+          <div
+  style={{
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: '10px'
+  }}
+>
+  <div
+    style={{
+      width: '9px',
+      height: '9px',
+      background: COLORS.yellow,
+      boxShadow: '0 0 12px rgba(244,195,32,0.22)'
+    }}
+  />
+  <div
+    style={{
+      width: '58px',
+      height: '2px',
+      background: 'rgba(255,255,255,0.22)'
+    }}
+  />
+</div>
+
+          <div style={{ fontSize: '15px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '1.4px', textTransform: 'uppercase' }}>
+            {box.status || 'VOICE CONNECTED'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function CasterScene({ matchData = {} }) {
   const displayMode = matchData.casterDisplayMode || 'CASTERS';
   const staffTitle = matchData.staffTitle || 'SPECIAL THANKS';
   const staffSubtitle = matchData.staffSubtitle || 'EVENT STAFF';
-  
-  const staffMembers = useMemo(() => 
-    (matchData.staffMembers || []).filter(m => (m.role || '').trim() || (m.name || '').trim()), 
+  const showInterviewBox = displayMode === 'CASTERS' && Boolean(matchData.showInterviewBox);
+
+  const staffMembers = useMemo(() =>
+    (matchData.staffMembers || []).filter(m => (m.role || '').trim() || (m.name || '').trim()),
   [matchData.staffMembers]);
 
   const casters = useMemo(() => {
@@ -290,7 +618,19 @@ export default function CasterScene({ matchData = {} }) {
     const normalizedArray = castersFromArray.map(normalizeCaster).filter(c => c.id || c.label || c.social || c.avatar);
     const normalizedLegacy = castersFromLegacy.map(normalizeCaster).filter(c => c.id || c.label || c.social || c.avatar);
     return normalizedArray.length ? normalizedArray : normalizedLegacy;
-  }, [matchData.casters, matchData.caster1, matchData.caster2, matchData.caster1Label, matchData.caster2Label, matchData.caster1Title, matchData.caster2Title, matchData.caster1Social, matchData.caster2Social, matchData.caster1Avatar, matchData.caster2Avatar]);
+  }, [
+    matchData.casters,
+    matchData.caster1,
+    matchData.caster2,
+    matchData.caster1Label,
+    matchData.caster2Label,
+    matchData.caster1Title,
+    matchData.caster2Title,
+    matchData.caster1Social,
+    matchData.caster2Social,
+    matchData.caster1Avatar,
+    matchData.caster2Avatar
+  ]);
 
   const casterCount = casters.length;
   const isGridMode = casterCount >= 3;
@@ -310,13 +650,28 @@ export default function CasterScene({ matchData = {} }) {
             FCUP_CASTER_INTERFACE
           </span>
         </div>
+
         <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '2px', color: 'rgba(255,255,255,0.38)' }}>
-          {displayMode === 'STAFF' ? 'STAFF_THANKS // STABLE' : 'CASTER_CARD // STABLE'}
+          {displayMode === 'STAFF'
+            ? 'STAFF_THANKS // STABLE'
+            : showInterviewBox
+              ? 'CASTER_CARD + INTERVIEW_BOX // STABLE'
+              : 'CASTER_CARD // STABLE'}
         </div>
       </div>
 
-      <div style={{ position: 'absolute', bottom: '220px', left: 0, height: '2px', backgroundColor: 'rgba(255,255,255,0.07)', willChange: 'width, opacity', animation: 'lineGrow 1.5s ease-out forwards' }} />
-      <div style={{ position: 'absolute', bottom: '60px', left: '80px', opacity: 1, zIndex: 10 }}>
+      <div style={{ position: 'absolute', bottom: showInterviewBox ? '214px' : '220px', left: 0, height: '2px', backgroundColor: 'rgba(255,255,255,0.07)', willChange: 'width, opacity', animation: 'lineGrow 1.5s ease-out forwards' }} />
+
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '42px',
+          left: '80px',
+          opacity: showInterviewBox ? 0 : 1,
+          pointerEvents: 'none',
+          zIndex: 10
+        }}
+      >
         <div style={{ width: '44px', height: '2px', backgroundColor: COLORS.yellow, marginBottom: '10px' }} />
         <div style={{ color: 'rgba(255,255,255,0.26)', fontSize: '11px', fontWeight: '900', letterSpacing: '1.8px', textTransform: 'uppercase' }}>
           CASTER_SYS // 1920.1080.FCUP
@@ -339,7 +694,21 @@ export default function CasterScene({ matchData = {} }) {
       )}
 
       {displayMode === 'CASTERS' && casterCount > 0 && !isGridMode && (
-        <div style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: casterCount === 1 ? '0' : '140px', zIndex: 5, position: 'relative' }}>
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: casterCount === 1 ? '0' : showInterviewBox ? '112px' : '140px',
+            zIndex: 5,
+            position: 'relative',
+            transform: showInterviewBox ? 'translateY(-122px) scale(0.84)' : 'none',
+            transformOrigin: 'center center',
+            transition: 'transform 0.35s ease, gap 0.35s ease'
+          }}
+        >
           {casters.map((caster, idx) => (
             <CasterCard key={caster.id || idx} caster={caster} delay={0.35 + idx * 0.18} index={idx} compact={false} />
           ))}
@@ -347,7 +716,23 @@ export default function CasterScene({ matchData = {} }) {
       )}
 
       {displayMode === 'CASTERS' && casterCount > 0 && isGridMode && (
-        <div style={{ position: 'absolute', top: casterCount === 4 ? '205px' : '200px', left: casterCount === 4 ? '70px' : '120px', right: casterCount === 4 ? '70px' : '120px', bottom: '120px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: casterCount === 4 ? '34px' : '42px', zIndex: 5 }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: showInterviewBox ? '112px' : (casterCount === 4 ? '205px' : '200px'),
+            left: casterCount === 4 ? '70px' : '120px',
+            right: casterCount === 4 ? '70px' : '120px',
+            bottom: showInterviewBox ? '235px' : '120px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: casterCount === 4 ? '34px' : '42px',
+            zIndex: 5,
+            transform: showInterviewBox ? 'scale(0.86)' : 'none',
+            transformOrigin: 'center center',
+            transition: 'top 0.35s ease, bottom 0.35s ease, transform 0.35s ease'
+          }}
+        >
           {casters.map((caster, idx) => (
             <CasterCard key={caster.id || idx} caster={caster} delay={0.22 + idx * 0.08} index={idx} compact multiMode />
           ))}
@@ -359,6 +744,10 @@ export default function CasterScene({ matchData = {} }) {
           <div style={{ color: COLORS.white, fontSize: '28px', fontWeight: '900', letterSpacing: '2px', textTransform: 'uppercase' }}>No Casters Loaded</div>
           <div style={{ color: COLORS.faintWhite, fontSize: '14px', marginTop: '12px', lineHeight: 1.7 }}>Please add at least one caster in the control panel.</div>
         </div>
+      )}
+
+      {showInterviewBox && (
+        <InterviewInfoBox matchData={matchData} />
       )}
 
       {displayMode === 'STAFF' && (

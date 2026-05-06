@@ -424,6 +424,8 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
   }, [isTournamentMode, matchData.hudMarginTop]);
 
   const beginArmedRef = useRef(matchData.beginInfoEnabled);
+  const lastAutoBeginTriggerRef = useRef(matchData.autoBeginTriggerAt || 0);
+
   useEffect(() => {
     beginArmedRef.current = matchData.beginInfoEnabled;
   }, [matchData.beginInfoEnabled]);
@@ -436,6 +438,20 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
       setRunState('IDLE');
     }
   }, [isActive]);
+
+  useEffect(() => {
+    const nextTrigger = matchData.autoBeginTriggerAt || 0;
+
+    if (!isActive) return;
+    if (!nextTrigger) return;
+    if (nextTrigger === lastAutoBeginTriggerRef.current) return;
+    if (matchData.showBanPhase) return;
+
+    lastAutoBeginTriggerRef.current = nextTrigger;
+
+    if (matchData.beginInfoEnabled) setRunState('INTRO');
+    else setRunState('HUD');
+  }, [isActive, matchData.autoBeginTriggerAt, matchData.showBanPhase, matchData.beginInfoEnabled]);
 
   const renderState = (runState === 'IDLE' && !isOverlay) ? 'HUD' : runState;
 

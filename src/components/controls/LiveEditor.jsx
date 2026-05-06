@@ -501,7 +501,34 @@ export default function LiveEditor({
 
                     <button style={{ ...ui.outlineBtn, padding: compactBtnPad || ui.outlineBtn.padding, minHeight: is1080Compact ? '38px' : '42px', fontSize: is1080Compact ? '11px' : undefined, backgroundColor: matchData.showBans ? 'rgba(255,77,77,0.16)' : 'transparent', color: matchData.showBans ? '#ff8f8f' : COLORS.softWhite, borderColor: matchData.showBans ? COLORS.banRed : 'rgba(255,255,255,0.14)', whiteSpace: 'nowrap' }} onClick={() => updateWithHistory(matchData.showBans ? 'Disable ban mode' : 'Enable ban mode', { ...matchData, showBans: !matchData.showBans, showBanPhase: !matchData.showBans ? matchData.showBanPhase : false })}>{tr('liveEditor.banMode')}</button>
 
-                    <button style={{ ...ui.btn, backgroundColor: 'rgba(255,77,77,0.92)', color: '#fff', padding: compactBtnPad || ui.btn.padding, minHeight: is1080Compact ? '38px' : '42px', fontSize: is1080Compact ? '11px' : undefined, border: `1px solid ${COLORS.banRed}`, whiteSpace: 'nowrap' }} onClick={() => updateWithHistory(matchData.showBanPhase ? 'Close ban phase' : 'Open ban phase', { ...matchData, showBanPhase: !matchData.showBanPhase, heroBanTriggerAt: !matchData.showBanPhase ? Date.now() : matchData.heroBanTriggerAt })}>
+                    <button
+                      style={{
+                        ...ui.btn,
+                        backgroundColor: 'rgba(255,77,77,0.92)',
+                        color: '#fff',
+                        padding: compactBtnPad || ui.btn.padding,
+                        minHeight: is1080Compact ? '38px' : '42px',
+                        fontSize: is1080Compact ? '11px' : undefined,
+                        border: `1px solid ${COLORS.banRed}`,
+                        whiteSpace: 'nowrap'
+                      }}
+                      onClick={() => {
+                        const isClosingBanPhase = !!matchData.showBanPhase;
+                        const now = Date.now();
+
+                        updateWithHistory(
+                          isClosingBanPhase ? 'Close ban phase and trigger auto begin' : 'Open ban phase',
+                          {
+                            ...matchData,
+                            showBanPhase: !isClosingBanPhase,
+                            heroBanTriggerAt: !isClosingBanPhase ? now : matchData.heroBanTriggerAt,
+                            autoBeginTriggerAt: isClosingBanPhase && matchData.beginInfoEnabled
+                              ? now
+                              : matchData.autoBeginTriggerAt
+                          }
+                        );
+                      }}
+                    >
                       {matchData.showBanPhase ? tr('liveEditor.closeBan') : tr('liveEditor.banPhase')}
                     </button>
                   </div>

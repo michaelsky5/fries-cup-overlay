@@ -3,6 +3,9 @@ import { useMatchContext } from '../../../contexts/MatchContext';
 import { ShellPanel } from '../../common/SharedUI';
 import { COLORS, labelStyle } from '../../../constants/styles';
 
+// 🌟 新增：季后赛 8 强白名单常量
+const PLAYOFF_TEAMS = ['NGP', 'TNS', 'YOU', 'ZS', 'HYW', 'SPC', 'XCFN.G', 'FG'];
+
 const UI = {
   input: {
     width: '100%',
@@ -91,6 +94,17 @@ function parseTopHeroes(value) {
     return value.split('/').map(v => v.trim()).filter(Boolean);
   }
   return [];
+}
+
+// 🌟 新增辅助函数：英雄名称转文件名 (处理大小写、空格、冒号、点号、音标等)
+function formatHeroFileName(heroName) {
+  if (!heroName || typeof heroName !== 'string') return '';
+  return heroName
+    .toLowerCase() // 1. 转小写
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // 2. 去除音标 (Lúcio -> lucio)
+    .replace(/\./g, '') // 3. 去除点 (D.Va -> dva)
+    .replace(/[^a-z0-9]+/g, '_') // 4. 非字母数字全转下划线 (Soldier: 76 -> soldier_76)
+    .replace(/^_+|_+$/g, ''); // 5. 清除首尾多余下划线
 }
 
 // 🌟 升级：为兜底数据生成器补充 hero 和 role 字段的提取
@@ -213,7 +227,7 @@ const compactCardStyle = {
   flexDirection: 'column',
   gap: 4,
   minHeight: 82
-}
+};
 
 const liveEditorStyle = {
   border: '1px solid rgba(255,255,255,0.08)',
@@ -222,11 +236,6 @@ const liveEditorStyle = {
   display: 'flex',
   flexDirection: 'column',
   gap: 8
-};
-
-const rowBoxStyle = {
-  border: '1px solid rgba(255,255,255,0.08)',
-  background: 'rgba(255,255,255,0.03)'
 };
 
 export default function PlayerComparisonPanel({ db, dbStatus, density, densityTokens, is1080Compact }) {
@@ -260,18 +269,20 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
           ...p,
           battletag: p?.battletag || p?.battle_tag || p?.battleTag || p?.player_name || '',
           kdr: toNum(p.total_dth) > 0 ? toNum(p.total_elim) / toNum(p.total_dth) : toNum(p.total_elim),
-          top_3_heroes: parseTopHeroes(p.top_3_heroes) // 🌟 挂载解析好的英雄数据
+          top_3_heroes: parseTopHeroes(p.top_3_heroes) // 挂载解析好的英雄数据
         }))
       : buildFallbackPlayerTotals(db?.players);
 
-    return [...source].sort((a, b) => {
-      const teamA = a?.team_short_name || '';
-      const teamB = b?.team_short_name || '';
-      if (teamA !== teamB) return teamA.localeCompare(teamB);
-      const nameA = getDisplayName(a);
-      const nameB = getDisplayName(b);
-      return nameA.localeCompare(nameB);
-    });
+    return [...source]
+      .filter(p => PLAYOFF_TEAMS.includes(p?.team_short_name)) // 🌟 核心拦截：彻底剔除非八强选手
+      .sort((a, b) => {
+        const teamA = a?.team_short_name || '';
+        const teamB = b?.team_short_name || '';
+        if (teamA !== teamB) return teamA.localeCompare(teamB);
+        const nameA = getDisplayName(a);
+        const nameB = getDisplayName(b);
+        return nameA.localeCompare(nameB);
+      });
   }, [db]);
 
   const teamOptions = useMemo(() => {
@@ -279,22 +290,29 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
 
     safeArr(db?.teams).forEach(team => {
       const id = team?.team_id || team?.id || team?.team_short_name || '';
-      if (!id) return;
+      const short = team?.team_short_name || team?.short || team?.team_name || '未知';
+      
+      // 🌟 核心拦截：仅将季后赛白名单队伍加入下拉选项
+      if (!id || !PLAYOFF_TEAMS.includes(short)) return;
+      
       map.set(id, {
         id,
         name: team?.team_name || team?.name || team?.team_short_name || '未知队伍',
-        short: team?.team_short_name || team?.short || team?.team_name || '未知'
+        short
       });
     });
 
     if (!map.size) {
       playerPool.forEach((player, idx) => {
         const id = getPlayerTeamId(player) || `team_${idx}`;
-        if (!map.has(id)) {
+        const short = player?.team_short_name || player?.team_name || '未知';
+        
+        // 🌟 兜底逻辑同理：非八强队伍直接跳过
+        if (!map.has(id) && PLAYOFF_TEAMS.includes(short)) {
           map.set(id, {
             id,
             name: player?.team_name || player?.team_short_name || '未知队伍',
-            short: player?.team_short_name || player?.team_name || '未知'
+            short
           });
         }
       });
@@ -371,6 +389,7 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
       return;
     }
 
+    // 🌟 因为 playerPool 已经被过滤为 8 强，此处的全局检索绝对安全
     const pool = playerPool
       .filter(p => String(p?.role || '').toUpperCase() === role)
       .sort((a, b) => toNum(b[sortKey]) - toNum(a[sortKey]));
@@ -409,9 +428,12 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
   };
 
   const handleTake = () => {
-    // 🌟 在发出推流指令前，安全地提取并打包双边选手的战网名、代表英雄、职责
-    const heroA = selectedPlayerA?.most_played_hero || (Array.isArray(selectedPlayerA?.top_3_heroes) ? selectedPlayerA.top_3_heroes[0] : '');
-    const heroB = selectedPlayerB?.most_played_hero || (Array.isArray(selectedPlayerB?.top_3_heroes) ? selectedPlayerB.top_3_heroes[0] : '');
+    // 🌟 提取前获取原名，并在打包进 payload 前彻底格式化文件名
+    const rawHeroA = selectedPlayerA?.most_played_hero || (Array.isArray(selectedPlayerA?.top_3_heroes) ? selectedPlayerA.top_3_heroes[0] : '');
+    const rawHeroB = selectedPlayerB?.most_played_hero || (Array.isArray(selectedPlayerB?.top_3_heroes) ? selectedPlayerB.top_3_heroes[0] : '');
+
+    const heroA = formatHeroFileName(rawHeroA);
+    const heroB = formatHeroFileName(rawHeroB);
 
     const payload = {
       teamAId,

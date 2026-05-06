@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../../contexts/MatchContext';
 import { ShellPanel } from '../../common/SharedUI';
 import { COLORS, labelStyle } from '../../../constants/styles';
+
+const PLAYOFF_TEAMS = ['NGP', 'TNS', 'YOU', 'ZS', 'HYW', 'SPC', 'XCFN.G', 'FG'];
 
 const UI = {
   input: {
@@ -61,7 +64,6 @@ function resolveWinnerId(winner, teamA, teamB) {
   return '';
 }
 
-// 🌟 修复 1：极致严谨的时钟字符串解析器
 function parseClockStringToMinutes(value) {
   if (typeof value !== 'string') return 0;
   const s = value.trim();
@@ -74,7 +76,6 @@ function parseClockStringToMinutes(value) {
   return 0;
 }
 
-// 🌟 修复 2：支持多级嵌套的数据穿透抓取
 function readStat(row, keys) {
   const targets = [row, row?.totals, row?.stats];
   for (const target of targets) {
@@ -89,7 +90,6 @@ function readStat(row, keys) {
   return 0;
 }
 
-// 🌟 修复 3：无死角的选手时间解析 (防0，防格式错乱)
 function extractPlayerMinutes(row) {
   const targets = [row, row?.totals, row?.stats];
   for (const target of targets) {
@@ -120,12 +120,11 @@ function extractMapMinutes(map) {
   return extractPlayerMinutes(map) || extractPlayerMinutes({ stats: map });
 }
 
-// 🌟 核心引擎重构：精准算出【队伍真实比赛时长】
+// 🌟 核心引擎重构：确保时间强制对齐为 5 个人的总和
 function sumStats(rawStats, fallbackMapMinutes = 0) {
-  const result = { elims: 0, assists: 0, deaths: 0, damage: 0, healing: 0, mitigation: 0, teamMapMinutes: 0 };
+  const result = { elims: 0, assists: 0, deaths: 0, damage: 0, healing: 0, mitigation: 0, rawPlayerMinutes: 0 };
   if (!rawStats) return result;
 
-  // 判定是否是字典聚合物（直接是队伍总数据）
   if (rawStats.elims !== undefined || rawStats.damage !== undefined || rawStats.eliminations !== undefined) {
     result.elims = readStat(rawStats, ['eliminations', 'elims', 'elim', 'kills']);
     result.assists = readStat(rawStats, ['assists', 'ast']);
@@ -133,10 +132,14 @@ function sumStats(rawStats, fallbackMapMinutes = 0) {
     result.damage = readStat(rawStats, ['damage', 'dmg']);
     result.healing = readStat(rawStats, ['healing', 'heal']);
     result.mitigation = readStat(rawStats, ['mitigation', 'blocked', 'block']);
-    // 队伍对象的时长，就是这张图打的时长
-    result.teamMapMinutes = extractMapMinutes(rawStats) || fallbackMapMinutes;
+    
+    let mapMins = extractMapMinutes(rawStats) || fallbackMapMinutes;
+    // 智能防御：如果抓到的时间小于30分钟，说明是单张地图的物理时间，需要乘5折算成五人总时间
+    if (mapMins > 0 && mapMins < 30) {
+        mapMins = mapMins * 5;
+    }
+    result.rawPlayerMinutes = mapMins;
   } else {
-    // 处理选手数组
     const rows = safeRows(rawStats);
     let totalPlayerMins = 0;
     rows.forEach(row => {
@@ -149,8 +152,7 @@ function sumStats(rawStats, fallbackMapMinutes = 0) {
       result.mitigation += readStat(row, ['mitigation', 'blocked', 'block']);
       totalPlayerMins += extractPlayerMinutes(row);
     });
-    // 如果没有地图宏观时长，就用 5个选手的总时间 / 5，反推出地图时长
-    result.teamMapMinutes = fallbackMapMinutes > 0 ? fallbackMapMinutes : (totalPlayerMins / 5);
+    result.rawPlayerMinutes = totalPlayerMins > 0 ? totalPlayerMins : (fallbackMapMinutes * 5);
   }
 
   return result;
@@ -161,11 +163,10 @@ function formatPct(won, played) {
   return `${((won / played) * 100).toFixed(1)}%`;
 }
 
-// 🌟 修复 4：团队 Per 10 公式纠正！去除了倍增漏洞！
-function formatPer10(total, teamMapMinutes, digits = 1) {
-  if (!teamMapMinutes || teamMapMinutes <= 0) return digits > 0 ? '0.0' : '0';
-  // 【正确公式】: 团队总数据 / 地图时长 * 10
-  return ((toNum(total) / teamMapMinutes) * 10).toFixed(digits);
+// 🌟 数学闭环：严格使用 (总数值 / 五人总时间) * 5个人 * 10分钟
+function formatPer10(total, rawPlayerMinutes, digits = 1) {
+  if (!rawPlayerMinutes || rawPlayerMinutes <= 0) return digits > 0 ? '0.0' : '0';
+  return ((toNum(total) / rawPlayerMinutes) * 5 * 10).toFixed(digits);
 }
 
 function buildMapProfileIndex(db) {
@@ -200,8 +201,7 @@ function buildMapProfileIndex(db) {
             teamId: team.id, teamName: team.name, teamShort: team.short,
             played: 0, won: 0, lost: 0,
             totals: { elims: 0, assists: 0, deaths: 0, damage: 0, healing: 0, mitigation: 0 },
-            teamMapMinutes: 0,
-            _rawPlayerSum: 0 
+            rawPlayerMinutes: 0
           };
         }
         const row = bucket.teams[team.id];
@@ -215,12 +215,11 @@ function buildMapProfileIndex(db) {
         row.totals.damage += stats.damage;
         row.totals.healing += stats.healing;
         row.totals.mitigation += stats.mitigation;
-        row.teamMapMinutes += stats.teamMapMinutes; // 累加队伍在这张图打过的总分钟数
+        row.rawPlayerMinutes += stats.rawPlayerMinutes; 
       });
     });
   });
 
-  // 阶段 2：降级兜底 - 从选手个人的 match_logs 反向拼凑地图数据
   safeArr(db?.players).forEach(player => {
     const teamId = player?.team_id || player?.team_short_name;
     if (!teamId) return;
@@ -239,15 +238,13 @@ function buildMapProfileIndex(db) {
           teamId, teamName: player?.team_name || teamId, teamShort: player?.team_short_name || teamId,
           played: 1, won: 0, lost: 0,
           totals: { elims: 0, assists: 0, deaths: 0, damage: 0, healing: 0, mitigation: 0 },
-          teamMapMinutes: 0,
-          _rawPlayerSum: 0 
+          rawPlayerMinutes: 0
         };
       }
 
       const row = bucket.teams[teamId];
 
-      // 仅在主阶段解析失败时，才用这种粗暴的拼凑法
-      if (row.teamMapMinutes <= 0 || row._isFallback) {
+      if (row.rawPlayerMinutes <= 0 || row._isFallback) {
         row._isFallback = true;
         row.totals.elims += readStat(log, ['elims', 'eliminations', 'kills']);
         row.totals.assists += readStat(log, ['assists', 'ast']);
@@ -255,8 +252,7 @@ function buildMapProfileIndex(db) {
         row.totals.damage += readStat(log, ['damage', 'dmg']);
         row.totals.healing += readStat(log, ['healing', 'heal']);
         row.totals.mitigation += readStat(log, ['blocked', 'mitigation']);
-        row._rawPlayerSum += extractPlayerMinutes(log);
-        row.teamMapMinutes = row._rawPlayerSum / 5; // 动态折算回队伍时长
+        row.rawPlayerMinutes += extractPlayerMinutes(log);
       }
     });
   });
@@ -264,14 +260,15 @@ function buildMapProfileIndex(db) {
   return mapIndex;
 }
 
-function createDefaultRows() {
+function createDefaultRows(tr) {
+  const tt = (key, fallback) => (typeof tr === 'function' ? tr(key, { defaultValue: fallback }) : fallback);
   return [
-    { label: '地图胜率', valA: '0%', valB: '0%' },
-    { label: '击杀 / 10分', valA: '0.0', valB: '0.0' },
-    { label: '助攻 / 10分', valA: '0.0', valB: '0.0' },
-    { label: '死亡 / 10分', valA: '0.0', valB: '0.0' },
-    { label: '伤害 / 10分', valA: '0', valB: '0' },
-    { label: '治疗 / 10分', valA: '0', valB: '0' }
+    { label: tt('dataGraphicsPanels.metrics.mapWinRate', '地图胜率'), valA: '0%', valB: '0%' },
+    { label: tt('dataGraphicsPanels.metrics.elimPer10', '击杀 / 10分'), valA: '0.0', valB: '0.0' },
+    { label: tt('dataGraphicsPanels.metrics.astPer10', '助攻 / 10分'), valA: '0.0', valB: '0.0' },
+    { label: tt('dataGraphicsPanels.metrics.dthPer10', '死亡 / 10分'), valA: '0.0', valB: '0.0' },
+    { label: tt('dataGraphicsPanels.metrics.dmgPer10', '伤害 / 10分'), valA: '0', valB: '0' },
+    { label: tt('dataGraphicsPanels.metrics.healPer10', '治疗 / 10分'), valA: '0', valB: '0' }
   ];
 }
 
@@ -306,6 +303,7 @@ const metricCardStyle = {
 };
 
 export default function MapProfilePanel({ db, dbStatus, density, densityTokens, is1080Compact }) {
+  const { t: tr } = useTranslation();
   const { matchData, updateWithHistory, setPreviewScene, takeScene } = useMatchContext();
   const t = densityTokens || { panelPadding: '12px' };
   const rowH = is1080Compact ? '32px' : '36px';
@@ -316,22 +314,26 @@ export default function MapProfilePanel({ db, dbStatus, density, densityTokens, 
   const [teamBId, setTeamBId] = useState('');
 
   const [formData, setFormData] = useState({
-    mapName: '地图名称',
-    mapType: '模式',
+    mapName: tr('dataGraphicsPanels.mapProfile.defaultMapName', { defaultValue: '地图名称' }),
+    mapType: tr('dataGraphicsPanels.mapProfile.defaultMode', { defaultValue: '模式' }),
     globalPlays: '0',
-    teamA: '队伍 A',
-    teamB: '队伍 B',
+    teamA: tr('dataGraphicsPanels.mapProfile.defaultTeamA', { defaultValue: '队伍 A' }),
+    teamB: tr('dataGraphicsPanels.mapProfile.defaultTeamB', { defaultValue: '队伍 B' }),
+    fullNameA: '', 
+    fullNameB: '', 
     recordA: '0-0',
     recordB: '0-0',
-    rows: createDefaultRows()
+    rows: createDefaultRows(tr)
   });
 
   const teamOptions = useMemo(() => {
-    return safeArr(db?.teams).map(team => ({
-      id: getTeamId(team),
-      name: team?.team_name || '',
-      short: team?.team_short_name || ''
-    }));
+    return safeArr(db?.teams)
+      .filter(team => PLAYOFF_TEAMS.includes(team?.team_short_name || team?.short || team?.team_name))
+      .map(team => ({
+        id: getTeamId(team),
+        name: team?.team_name || team?.name || '',
+        short: team?.team_short_name || team?.short || team?.team_name || ''
+      }));
   }, [db]);
 
   const mapProfileIndex = useMemo(() => buildMapProfileIndex(db), [db]);
@@ -362,24 +364,25 @@ export default function MapProfilePanel({ db, dbStatus, density, densityTokens, 
     const rowB = mapBucket?.teams?.[teamBId] || null;
 
     setFormData({
-      mapName: mapBucket?.mapName || mapName || '地图名称',
-      mapType: mapBucket?.mapType || mapType || '模式',
+      mapName: mapBucket?.mapName || mapName || tr('dataGraphicsPanels.mapProfile.defaultMapName', { defaultValue: '地图名称' }),
+      mapType: mapBucket?.mapType || mapType || tr('dataGraphicsPanels.mapProfile.defaultMode', { defaultValue: '模式' }),
       globalPlays: mapBucket ? String(mapBucket.globalPlays) : '0',
-      teamA: teamA?.short || '队伍 A',
-      teamB: teamB?.short || '队伍 B',
+      teamA: teamA?.short || tr('dataGraphicsPanels.mapProfile.defaultTeamA', { defaultValue: '队伍 A' }),
+      teamB: teamB?.short || tr('dataGraphicsPanels.mapProfile.defaultTeamB', { defaultValue: '队伍 B' }),
+      fullNameA: rowA?.teamName || teamA?.name || '', 
+      fullNameB: rowB?.teamName || teamB?.name || '', 
       recordA: rowA ? `${rowA.won}-${rowA.lost}` : '0-0',
       recordB: rowB ? `${rowB.won}-${rowB.lost}` : '0-0',
       rows: [
-        { label: '地图胜率', valA: rowA ? formatPct(rowA.won, rowA.played) : '0%', valB: rowB ? formatPct(rowB.won, rowB.played) : '0%' },
-        // 🌟 正确调用新版 formatPer10，传入 teamMapMinutes，不带 slotCount 杂质
-        { label: '击杀 / 10分', valA: rowA ? formatPer10(rowA.totals.elims, rowA.teamMapMinutes, 1) : '0.0', valB: rowB ? formatPer10(rowB.totals.elims, rowB.teamMapMinutes, 1) : '0.0' },
-        { label: '助攻 / 10分', valA: rowA ? formatPer10(rowA.totals.assists, rowA.teamMapMinutes, 1) : '0.0', valB: rowB ? formatPer10(rowB.totals.assists, rowB.teamMapMinutes, 1) : '0.0' },
-        { label: '死亡 / 10分', valA: rowA ? formatPer10(rowA.totals.deaths, rowA.teamMapMinutes, 1) : '0.0', valB: rowB ? formatPer10(rowB.totals.deaths, rowB.teamMapMinutes, 1) : '0.0' },
-        { label: '伤害 / 10分', valA: rowA ? formatPer10(rowA.totals.damage, rowA.teamMapMinutes, 0) : '0', valB: rowB ? formatPer10(rowB.totals.damage, rowB.teamMapMinutes, 0) : '0' },
-        { label: '治疗 / 10分', valA: rowA ? formatPer10(rowA.totals.healing, rowA.teamMapMinutes, 0) : '0', valB: rowB ? formatPer10(rowB.totals.healing, rowB.teamMapMinutes, 0) : '0' }
+        { label: tr('dataGraphicsPanels.metrics.mapWinRate', { defaultValue: '地图胜率' }), valA: rowA ? formatPct(rowA.won, rowA.played) : '0%', valB: rowB ? formatPct(rowB.won, rowB.played) : '0%' },
+        { label: tr('dataGraphicsPanels.metrics.elimPer10', { defaultValue: '击杀 / 10分' }), valA: rowA ? formatPer10(rowA.totals.elims, rowA.rawPlayerMinutes, 1) : '0.0', valB: rowB ? formatPer10(rowB.totals.elims, rowB.rawPlayerMinutes, 1) : '0.0' },
+        { label: tr('dataGraphicsPanels.metrics.astPer10', { defaultValue: '助攻 / 10分' }), valA: rowA ? formatPer10(rowA.totals.assists, rowA.rawPlayerMinutes, 1) : '0.0', valB: rowB ? formatPer10(rowB.totals.assists, rowB.rawPlayerMinutes, 1) : '0.0' },
+        { label: tr('dataGraphicsPanels.metrics.dthPer10', { defaultValue: '死亡 / 10分' }), valA: rowA ? formatPer10(rowA.totals.deaths, rowA.rawPlayerMinutes, 1) : '0.0', valB: rowB ? formatPer10(rowB.totals.deaths, rowB.rawPlayerMinutes, 1) : '0.0' },
+        { label: tr('dataGraphicsPanels.metrics.dmgPer10', { defaultValue: '伤害 / 10分' }), valA: rowA ? formatPer10(rowA.totals.damage, rowA.rawPlayerMinutes, 0) : '0', valB: rowB ? formatPer10(rowB.totals.damage, rowB.rawPlayerMinutes, 0) : '0' },
+        { label: tr('dataGraphicsPanels.metrics.healPer10', { defaultValue: '治疗 / 10分' }), valA: rowA ? formatPer10(rowA.totals.healing, rowA.rawPlayerMinutes, 0) : '0', valB: rowB ? formatPer10(rowB.totals.healing, rowB.rawPlayerMinutes, 0) : '0' }
       ]
     });
-  }, [mapType, mapName, teamAId, teamBId, teamOptions, mapProfileIndex]);
+  }, [mapType, mapName, teamAId, teamBId, teamOptions, mapProfileIndex, tr]);
 
   const updateRow = (index, field, value) => {
     setFormData(prev => ({
@@ -393,6 +396,8 @@ export default function MapProfilePanel({ db, dbStatus, density, densityTokens, 
       ...prev,
       teamA: prev.teamB,
       teamB: prev.teamA,
+      fullNameA: prev.fullNameB,
+      fullNameB: prev.fullNameA,
       recordA: prev.recordB,
       recordB: prev.recordA,
       rows: prev.rows.map(row => ({
@@ -420,17 +425,17 @@ export default function MapProfilePanel({ db, dbStatus, density, densityTokens, 
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '360px minmax(0,1fr)', gap: 10, alignItems: 'start' }}>
-      <ShellPanel title="自动填充" accent density={density} bodyStyle={{ padding: t.panelPadding }}>
+      <ShellPanel title={tr('dataGraphicsPanels.common.autoFill', { defaultValue: '自动填充' })} accent density={density} bodyStyle={{ padding: t.panelPadding }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div>
-            <div style={labelStyle}>目标类型</div>
+            <div style={labelStyle}>{tr('dataGraphicsPanels.mapProfile.targetType', { defaultValue: '目标类型' })}</div>
             <select
               style={{ ...UI.select, height: rowH, color: COLORS.yellow }}
               value={mapType}
               onChange={e => setMapType(e.target.value)}
               disabled={dbStatus !== 'LOADED'}
             >
-              <option value="">-- 选择类型 --</option>
+              <option value="">{tr('dataGraphicsPanels.mapProfile.selectType', { defaultValue: '-- 选择类型 --' })}</option>
               {mapTypes.map(type => (
                 <option key={type} value={type}>
                   {type}
@@ -440,14 +445,14 @@ export default function MapProfilePanel({ db, dbStatus, density, densityTokens, 
           </div>
 
           <div>
-            <div style={labelStyle}>目标地图</div>
+            <div style={labelStyle}>{tr('dataGraphicsPanels.mapProfile.targetMap', { defaultValue: '目标地图' })}</div>
             <select
               style={{ ...UI.select, height: rowH, color: COLORS.yellow }}
               value={mapName}
               onChange={e => setMapName(e.target.value)}
               disabled={dbStatus !== 'LOADED'}
             >
-              <option value="">-- 选择地图 --</option>
+              <option value="">{tr('dataGraphicsPanels.mapProfile.selectMap', { defaultValue: '-- 选择地图 --' })}</option>
               {filteredMaps.map(m => (
                 <option key={m.mapName} value={m.mapName}>
                   {m.mapName}
@@ -458,14 +463,14 @@ export default function MapProfilePanel({ db, dbStatus, density, densityTokens, 
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div>
-              <div style={labelStyle}>左侧队伍</div>
+              <div style={labelStyle}>{tr('dataGraphicsPanels.common.leftTeam', { defaultValue: '左侧队伍' })}</div>
               <select
                 style={{ ...UI.select, height: rowH }}
                 value={teamAId}
                 onChange={e => setTeamAId(e.target.value)}
                 disabled={dbStatus !== 'LOADED'}
               >
-                <option value="">-- 选择队伍 A --</option>
+                <option value="">{tr('dataGraphicsPanels.common.selectTeamA', { defaultValue: '-- 选择队伍 A --' })}</option>
                 {teamOptions.map(t => (
                   <option key={`PRF_A_${t.id}`} value={t.id}>
                     {t.name}
@@ -475,14 +480,14 @@ export default function MapProfilePanel({ db, dbStatus, density, densityTokens, 
             </div>
 
             <div>
-              <div style={labelStyle}>右侧队伍</div>
+              <div style={labelStyle}>{tr('dataGraphicsPanels.common.rightTeam', { defaultValue: '右侧队伍' })}</div>
               <select
                 style={{ ...UI.select, height: rowH }}
                 value={teamBId}
                 onChange={e => setTeamBId(e.target.value)}
                 disabled={dbStatus !== 'LOADED'}
               >
-                <option value="">-- 选择队伍 B --</option>
+                <option value="">{tr('dataGraphicsPanels.common.selectTeamB', { defaultValue: '-- 选择队伍 B --' })}</option>
                 {teamOptions.map(t => (
                   <option key={`PRF_B_${t.id}`} value={t.id}>
                     {t.name}
@@ -503,34 +508,34 @@ export default function MapProfilePanel({ db, dbStatus, density, densityTokens, 
             }}
             onClick={swapSides}
           >
-            交换左右
+            {tr('dataGraphicsPanels.common.swapSides', { defaultValue: '交换左右' })}
           </button>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div style={sourceCardStyle}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>左侧来源</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>{tr('dataGraphicsPanels.common.leftSource', { defaultValue: '左侧来源' })}</div>
               <div style={{ fontSize: 18, color: COLORS.white, fontWeight: 900, lineHeight: 1.1 }}>
                 {formData.teamA}
               </div>
               <div style={{ fontSize: 11, color: COLORS.yellow, fontWeight: 800 }}>
-                战绩 {formData.recordA}
+                {tr('dataGraphicsPanels.mapProfile.record', { defaultValue: '战绩' })} {formData.recordA}
               </div>
             </div>
 
             <div style={sourceCardStyle}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>右侧来源</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>{tr('dataGraphicsPanels.common.rightSource', { defaultValue: '右侧来源' })}</div>
               <div style={{ fontSize: 18, color: COLORS.white, fontWeight: 900, lineHeight: 1.1 }}>
                 {formData.teamB}
               </div>
               <div style={{ fontSize: 11, color: COLORS.yellow, fontWeight: 800 }}>
-                战绩 {formData.recordB}
+                {tr('dataGraphicsPanels.mapProfile.record', { defaultValue: '战绩' })} {formData.recordB}
               </div>
             </div>
           </div>
         </div>
       </ShellPanel>
 
-      <ShellPanel title="资料编辑" accent density={density} bodyStyle={{ padding: t.panelPadding }}>
+      <ShellPanel title={tr('dataGraphicsPanels.mapProfile.editTitle', { defaultValue: '资料编辑' })} accent density={density} bodyStyle={{ padding: t.panelPadding }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
           <div style={headStripStyle}>
             <input
@@ -561,18 +566,27 @@ export default function MapProfilePanel({ db, dbStatus, density, densityTokens, 
               alignItems: 'stretch'
             }}
           >
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8 }}>
+            {/* 🌟 核心：队伍A的简称与全称均支持手改 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8 }}>
+                <input
+                  style={{ ...UI.input, height: 34, fontSize: 16 }}
+                  value={formData.teamA}
+                  onChange={e => setFormData({ ...formData, teamA: e.target.value })}
+                  placeholder={tr('dataGraphicsPanels.common.shortName', { defaultValue: '简称' })}
+                />
+                <input
+                  style={{ ...UI.input, height: 34, fontSize: 13 }}
+                  value={formData.recordA}
+                  onChange={e => setFormData({ ...formData, recordA: e.target.value })}
+                  placeholder="0-0"
+                />
+              </div>
               <input
-                style={{ ...UI.input, height: 34, fontSize: 16 }}
-                value={formData.teamA}
-                onChange={e => setFormData({ ...formData, teamA: e.target.value })}
-                placeholder="队伍 A"
-              />
-              <input
-                style={{ ...UI.input, height: 34, fontSize: 13 }}
-                value={formData.recordA}
-                onChange={e => setFormData({ ...formData, recordA: e.target.value })}
-                placeholder="0-0"
+                  style={{ ...UI.input, height: 26, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}
+                  value={formData.fullNameA}
+                  onChange={e => setFormData({ ...formData, fullNameA: e.target.value })}
+                  placeholder={tr('dataGraphicsPanels.mapProfile.fullNameAPlaceholder', { defaultValue: '队伍 A 全称编辑' })}
               />
             </div>
 
@@ -591,18 +605,27 @@ export default function MapProfilePanel({ db, dbStatus, density, densityTokens, 
               VS
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8 }}>
+            {/* 🌟 核心：队伍B的简称与全称均支持手改 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8 }}>
+                <input
+                  style={{ ...UI.input, height: 34, fontSize: 16 }}
+                  value={formData.teamB}
+                  onChange={e => setFormData({ ...formData, teamB: e.target.value })}
+                  placeholder={tr('dataGraphicsPanels.common.shortName', { defaultValue: '简称' })}
+                />
+                <input
+                  style={{ ...UI.input, height: 34, fontSize: 13 }}
+                  value={formData.recordB}
+                  onChange={e => setFormData({ ...formData, recordB: e.target.value })}
+                  placeholder="0-0"
+                />
+              </div>
               <input
-                style={{ ...UI.input, height: 34, fontSize: 16 }}
-                value={formData.teamB}
-                onChange={e => setFormData({ ...formData, teamB: e.target.value })}
-                placeholder="队伍 B"
-              />
-              <input
-                style={{ ...UI.input, height: 34, fontSize: 13 }}
-                value={formData.recordB}
-                onChange={e => setFormData({ ...formData, recordB: e.target.value })}
-                placeholder="0-0"
+                  style={{ ...UI.input, height: 26, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}
+                  value={formData.fullNameB}
+                  onChange={e => setFormData({ ...formData, fullNameB: e.target.value })}
+                  placeholder={tr('dataGraphicsPanels.mapProfile.fullNameBPlaceholder', { defaultValue: '队伍 B 全称编辑' })}
               />
             </div>
           </div>
@@ -643,7 +666,7 @@ export default function MapProfilePanel({ db, dbStatus, density, densityTokens, 
             }}
             onClick={handleTake}
           >
-            推送单图资料卡
+            {tr('dataGraphicsPanels.mapProfile.takeButton', { defaultValue: '推送单图资料卡' })}
           </button>
         </div>
       </ShellPanel>

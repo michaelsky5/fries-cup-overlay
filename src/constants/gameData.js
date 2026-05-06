@@ -1,5 +1,5 @@
-export const MAP_DATA = {
-  'CONTROL': ['ILIOS', 'LIJIANG TOWER', 'NEPAL', 'OASIS', 'BUSAN', 'ANTARCTIC PENINSULA', 'SAMOA'],
+export const MAP_DATA = { 
+  'CONTROL': ['ILIOS', 'LIJIANG TOWER', 'NEPAL', 'OASIS', 'BUSAN', 'ANTARCTIC PENINSULA', 'SAMOA'], 
   'ESCORT': ['DORADO', 'ROUTE 66', 'WATCHPOINT: GIBRALTAR', 'HAVANA', 'JUNKERTOWN', 'RIALTO', 'SHAMBALI MONASTERY', 'CIRCUIT ROYAL'],
   'HYBRID': ['BLIZZARD WORLD', 'EICHENWALDE', 'HOLLYWOOD', "KING'S ROW", 'NUMBANI', 'MIDTOWN', 'PARAÍSO'],
   'PUSH': ['COLOSSEO', 'NEW QUEEN STREET', 'ESPERANÇA', 'RUNASAPI'],
@@ -9,7 +9,7 @@ export const MAP_DATA = {
 
 export const HERO_DATA = {
   tank: ['domina', 'doomfist', 'dva', 'hazard', 'junker_queen', 'mauga', 'orisa', 'ramattra', 'reinhardt', 'roadhog', 'sigma', 'winston', 'wrecking_ball', 'zarya'],
-  damage: ['anran', 'ashe', 'bastion', 'cassidy', 'echo', 'emre', 'freja', 'genji', 'hanzo', 'junkrat', 'mei', 'pharah', 'reaper', 'sojourn', 'soldier_76', 'sombra', 'symmetra', 'torbjorn', 'tracer', 'vendetta', 'venture', 'widowmaker'],
+  damage: ['anran', 'ashe', 'bastion', 'cassidy', 'echo', 'emre', 'freja', 'genji', 'hanzo', 'junkrat', 'mei', 'pharah', 'reaper', 'sojourn', 'soldier_76', 'sierra', 'sombra', 'symmetra', 'torbjorn', 'tracer', 'vendetta', 'venture', 'widowmaker'],
   support: ['ana', 'baptiste', 'brigitte', 'illari', 'jetpack_cat', 'juno', 'kiriko', 'lifeweaver', 'lucio', 'mercy', 'mizuki', 'moira', 'wuyang', 'zenyatta']
 };
 

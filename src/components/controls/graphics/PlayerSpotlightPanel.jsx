@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../../contexts/MatchContext';
 import { ShellPanel } from '../../common/SharedUI';
 import { COLORS, labelStyle } from '../../../constants/styles';
+
+const PLAYOFF_TEAMS = ['NGP', 'TNS', 'YOU', 'ZS', 'HYW', 'SPC', 'XCFN.G', 'FG'];
 
 const UI = {
   input: {
@@ -45,6 +48,11 @@ const UI = {
 const safeArr = v => Array.isArray(v) ? v : [];
 const toNum = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 
+function isInTeamScope(shortName, scope) {
+  if (scope === 'ALL') return true;
+  return PLAYOFF_TEAMS.includes(String(shortName || '').trim());
+}
+
 function normalizeRole(role) {
   const r = String(role || '').toUpperCase();
   if (r === 'SUPPORT' || r === 'SUP') return 'SUP';
@@ -67,6 +75,23 @@ function getDisplayName(player) {
 
 function getPlayerTeamId(player) {
   return player?.team_id || player?.team_short_name || '';
+}
+
+function getPlayerTeamShort(player) {
+  return player?.team_short_name || player?.teamName || player?.team_name || player?.team_id || '';
+}
+
+function isPlayerInTeam(player, teamId) {
+  if (!teamId) return true;
+
+  const candidates = [
+    player?.team_id,
+    player?.team_short_name,
+    player?.teamName,
+    player?.team_name
+  ].filter(Boolean).map(String);
+
+  return candidates.includes(String(teamId));
 }
 
 function formatPlayerOptionLabel(player) {
@@ -96,9 +121,7 @@ function getMapKeyFromLog(log, idx) {
 
 function parseTopHeroes(value) {
   if (Array.isArray(value)) return value.filter(Boolean);
-  if (typeof value === 'string') {
-    return value.split('/').map(v => v.trim()).filter(Boolean);
-  }
+  if (typeof value === 'string') return value.split('/').map(v => v.trim()).filter(Boolean);
   return [];
 }
 
@@ -131,11 +154,7 @@ function buildFallbackPlayerTotals(players = []) {
     });
 
     const per10 = value => (totalMinutes > 0 ? (value / totalMinutes) * 10 : 0);
-    const topHeroes = Object.entries(heroCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([hero]) => hero);
-
+    const topHeroes = Object.entries(heroCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([hero]) => hero);
     const kd = totalDth > 0 ? totalElim / totalDth : totalElim;
 
     return {
@@ -177,6 +196,7 @@ function buildRoleScopedEntries(db) {
 
     logs.forEach((log, logIdx) => {
       const role = normalizeRole(log?.role || player?.role);
+
       if (!groups.has(role)) {
         groups.set(role, {
           player_id: player?.player_id || `p_${playerIdx}`,
@@ -219,11 +239,7 @@ function buildRoleScopedEntries(db) {
       if (seen.has(key)) return;
       seen.add(key);
 
-      const topHeroes = Object.entries(group.heroCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([hero]) => hero);
-
+      const topHeroes = Object.entries(group.heroCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([hero]) => hero);
       const per10 = value => (group.raw_time_mins > 0 ? (value / group.raw_time_mins) * 10 : 0);
       const kdr = group.total_dth > 0 ? group.total_elim / group.total_dth : group.total_elim;
 
@@ -296,9 +312,11 @@ function buildRoleScopedEntries(db) {
     const teamA = a?.team_short_name || '';
     const teamB = b?.team_short_name || '';
     if (teamA !== teamB) return teamA.localeCompare(teamB);
+
     const nameA = getDisplayName(a);
     const nameB = getDisplayName(b);
     if (nameA !== nameB) return nameA.localeCompare(nameB);
+
     return (b?.raw_time_mins || 0) - (a?.raw_time_mins || 0);
   });
 }
@@ -352,11 +370,13 @@ function buildRoleBench(roleEntries) {
 
     const getRank = (entry, key, asc = false) => {
       if (!entry || pool.length <= 1) return 1;
+
       const sorted = [...pool].sort((a, b) => {
         const av = toNum(a[key]);
         const bv = toNum(b[key]);
         return asc ? av - bv : bv - av;
       });
+
       const r = sorted.findIndex(p => String(p.player_id) === String(entry.player_id)) + 1;
       return r > 0 ? r : pool.length;
     };
@@ -373,12 +393,13 @@ function buildRoleBench(roleEntries) {
   return result;
 }
 
-function buildStyleProfile(roleEntry, roleBenchMap) {
-  if (!roleEntry) return { tag: '待分析', desc: '等待载入选手数据。' };
+function buildStyleProfile(roleEntry, roleBenchMap, tr) {
+  const tt = (key, fallback) => (typeof tr === 'function' ? tr(key, { defaultValue: fallback }) : fallback);
+  if (!roleEntry) return { tag: tt('dataGraphicsPanels.playerSpotlight.stylePending', '待分析'), desc: tt('dataGraphicsPanels.playerSpotlight.descPending', '等待载入选手数据。') };
 
   const role = normalizeRole(roleEntry?.role);
   const bench = roleBenchMap.get(role);
-  if (!bench) return { tag: '均衡型选手', desc: '整体能力分布较为均衡。' };
+  if (!bench) return { tag: tt('dataGraphicsPanels.playerSpotlight.styleBalancedPlayer', '均衡型选手'), desc: tt('dataGraphicsPanels.playerSpotlight.descBalanced', '整体能力分布较为均衡。') };
 
   const dmg = bench.getPercentile(roleEntry, 'avg_dmg');
   const heal = bench.getPercentile(roleEntry, 'avg_heal');
@@ -387,80 +408,84 @@ function buildStyleProfile(roleEntry, roleBenchMap) {
   const survive = bench.getPercentile(roleEntry, 'avg_dth', true);
 
   if (role === 'DPS') {
-    if (dmg >= 80 && elim >= 80) return { tag: '高压进攻核心', desc: '高伤害与高击杀并存，是典型的前压型输出点。' };
-    if (survive >= 75 && dmg >= 65) return { tag: '稳定压制输出', desc: '能维持稳定生存，同时持续制造火力压力。' };
-    return { tag: '机动火力点', desc: '更偏灵活转线与局部终结，打法机动。' };
+    if (dmg >= 80 && elim >= 80) return { tag: tt('dataGraphicsPanels.playerSpotlight.styleDpsPressure', '高压进攻核心'), desc: tt('dataGraphicsPanels.playerSpotlight.descDpsPressure', '高伤害与高击杀并存，是典型的前压型输出点。') };
+    if (survive >= 75 && dmg >= 65) return { tag: tt('dataGraphicsPanels.playerSpotlight.styleDpsStable', '稳定压制输出'), desc: tt('dataGraphicsPanels.playerSpotlight.descDpsStable', '能维持稳定生存，同时持续制造火力压力。') };
+    return { tag: tt('dataGraphicsPanels.playerSpotlight.styleDpsMobile', '机动火力点'), desc: tt('dataGraphicsPanels.playerSpotlight.descDpsMobile', '更偏灵活转线与局部终结，打法机动。') };
   }
 
   if (role === 'TANK') {
-    if (mit >= 80 && survive >= 70) return { tag: '前线承压核心', desc: '承担大量前线压力，是队伍正面框架。' };
-    if (dmg >= 75) return { tag: '推进型前排', desc: '更擅长用主动推进和输出施压来打开空间。' };
-    return { tag: '均衡前线', desc: '综合能力分布均衡，承担稳定前排职责。' };
+    if (mit >= 80 && survive >= 70) return { tag: tt('dataGraphicsPanels.playerSpotlight.styleTankPressure', '前线承压核心'), desc: tt('dataGraphicsPanels.playerSpotlight.descTankPressure', '承担大量前线压力，是队伍正面框架。') };
+    if (dmg >= 75) return { tag: tt('dataGraphicsPanels.playerSpotlight.styleTankPush', '推进型前排'), desc: tt('dataGraphicsPanels.playerSpotlight.descTankPush', '更擅长用主动推进和输出施压来打开空间。') };
+    return { tag: tt('dataGraphicsPanels.playerSpotlight.styleTankBalanced', '均衡前线'), desc: tt('dataGraphicsPanels.playerSpotlight.descTankBalanced', '综合能力分布均衡，承担稳定前排职责。') };
   }
 
   if (role === 'SUP') {
-    if (heal >= 80 && survive >= 70) return { tag: '稳定后排支援', desc: '以后排续航与稳定存活构成团队支撑。' };
-    if (heal >= 65 && elim >= 60) return { tag: '进攻型支援', desc: '在保证功能性的同时，具备更主动的火力倾向。' };
-    return { tag: '团队支点', desc: '更偏向团队协同与节奏支援。' };
+    if (heal >= 80 && survive >= 70) return { tag: tt('dataGraphicsPanels.playerSpotlight.styleSupStable', '稳定后排支援'), desc: tt('dataGraphicsPanels.playerSpotlight.descSupStable', '以后排续航与稳定存活构成团队支撑。') };
+    if (heal >= 65 && elim >= 60) return { tag: tt('dataGraphicsPanels.playerSpotlight.styleSupAggressive', '进攻型支援'), desc: tt('dataGraphicsPanels.playerSpotlight.descSupAggressive', '在保证功能性的同时，具备更主动的火力倾向。') };
+    return { tag: tt('dataGraphicsPanels.playerSpotlight.styleSupPivot', '团队支点'), desc: tt('dataGraphicsPanels.playerSpotlight.descSupPivot', '更偏向团队协同与节奏支援。') };
   }
 
-  return { tag: '均衡型选手', desc: '整体能力分布较为均衡。' };
+  return { tag: tt('dataGraphicsPanels.playerSpotlight.styleBalancedPlayer', '均衡型选手'), desc: tt('dataGraphicsPanels.playerSpotlight.descBalanced', '整体能力分布较为均衡。') };
 }
 
-function buildFiveStats(roleEntry, roleBenchMap) {
+function buildFiveStats(roleEntry, roleBenchMap, tr) {
+  const tt = (key, fallback) => (typeof tr === 'function' ? tr(key, { defaultValue: fallback }) : fallback);
   const role = normalizeRole(roleEntry?.role);
   const bench = roleBenchMap.get(role);
 
   const createMetric = (label, key, dec = 1, asc = false) => {
     const val = toNum(roleEntry?.[key]);
-    let avg = 0, max = 1, rank = 1, total = 1;
-    
+    let avg = 0;
+    let max = 1;
+    let rank = 1;
+    let total = 1;
+
     if (bench) {
-      const bKey = key.replace('avg_', ''); 
+      const bKey = key.replace('avg_', '');
       avg = bench.avg[bKey] || 0;
       max = bench.max[bKey] || 1;
       rank = bench.getRank(roleEntry, key, asc);
       total = bench.total;
     }
-    
+
     return { label, value: val.toFixed(dec), avg: avg.toFixed(dec), max: max.toFixed(dec), rank, total };
   };
 
   if (role === 'SUP') {
     return [
-      createMetric('治疗 / 10分', 'avg_heal', 0),
-      createMetric('助攻 / 10分', 'avg_ast', 1),
-      createMetric('击杀 / 10分', 'avg_elim', 1),
-      createMetric('死亡 / 10分', 'avg_dth', 1, true),
-      createMetric('伤害 / 10分', 'avg_dmg', 0)
+      createMetric(tt('dataGraphicsPanels.metrics.healPer10', '治疗 / 10分'), 'avg_heal', 0),
+      createMetric(tt('dataGraphicsPanels.metrics.astPer10', '助攻 / 10分'), 'avg_ast', 1),
+      createMetric(tt('dataGraphicsPanels.metrics.elimPer10', '击杀 / 10分'), 'avg_elim', 1),
+      createMetric(tt('dataGraphicsPanels.metrics.dthPer10', '死亡 / 10分'), 'avg_dth', 1, true),
+      createMetric(tt('dataGraphicsPanels.metrics.dmgPer10', '伤害 / 10分'), 'avg_dmg', 0)
     ];
   }
 
   if (role === 'TANK') {
     return [
-      createMetric('击杀 / 10分', 'avg_elim', 1),
-      createMetric('助攻 / 10分', 'avg_ast', 1),
-      createMetric('死亡 / 10分', 'avg_dth', 1, true),
-      createMetric('伤害 / 10分', 'avg_dmg', 0),
-      createMetric('承伤 / 10分', 'avg_block', 0)
+      createMetric(tt('dataGraphicsPanels.metrics.elimPer10', '击杀 / 10分'), 'avg_elim', 1),
+      createMetric(tt('dataGraphicsPanels.metrics.astPer10', '助攻 / 10分'), 'avg_ast', 1),
+      createMetric(tt('dataGraphicsPanels.metrics.dthPer10', '死亡 / 10分'), 'avg_dth', 1, true),
+      createMetric(tt('dataGraphicsPanels.metrics.dmgPer10', '伤害 / 10分'), 'avg_dmg', 0),
+      createMetric(tt('dataGraphicsPanels.metrics.mitPer10', '承伤 / 10分'), 'avg_block', 0)
     ];
   }
 
   return [
-    createMetric('击杀 / 10分', 'avg_elim', 1),
-    createMetric('助攻 / 10分', 'avg_ast', 1),
-    createMetric('死亡 / 10分', 'avg_dth', 1, true),
-    createMetric('伤害 / 10分', 'avg_dmg', 0),
-    createMetric('K / D', 'kdr', 2)
+    createMetric(tt('dataGraphicsPanels.metrics.elimPer10', '击杀 / 10分'), 'avg_elim', 1),
+    createMetric(tt('dataGraphicsPanels.metrics.astPer10', '助攻 / 10分'), 'avg_ast', 1),
+    createMetric(tt('dataGraphicsPanels.metrics.dthPer10', '死亡 / 10分'), 'avg_dth', 1, true),
+    createMetric(tt('dataGraphicsPanels.metrics.dmgPer10', '伤害 / 10分'), 'avg_dmg', 0),
+    createMetric(tt('dataGraphicsPanels.metrics.kd', 'K / D'), 'kdr', 2)
   ];
 }
 
-function buildSpotlightPreset(rosterPlayer, roleEntry, roleBenchMap) {
-  const style = buildStyleProfile(roleEntry, roleBenchMap);
+function buildSpotlightPreset(rosterPlayer, roleEntry, roleBenchMap, tr) {
+  const tt = (key, fallback) => (typeof tr === 'function' ? tr(key, { defaultValue: fallback }) : fallback);
+  const style = buildStyleProfile(roleEntry, roleBenchMap, tr);
   const heroPool = Array.isArray(roleEntry?.top_3_heroes) ? roleEntry.top_3_heroes.filter(Boolean).join(' / ') : '';
-  const metrics = buildFiveStats(roleEntry, roleBenchMap);
+  const metrics = buildFiveStats(roleEntry, roleBenchMap, tr);
 
-  // 🌟 完全挂接 PlayerDetailPage.jsx 的 6 轴雷达图计算逻辑
   let radarData = [];
   const role = normalizeRole(roleEntry?.role);
   const bench = roleBenchMap.get(role);
@@ -471,7 +496,7 @@ function buildSpotlightPreset(rosterPlayer, roleEntry, roleBenchMap) {
       const m = toNum(maxVal) || 1;
       return Math.min(100, Math.max(0, (v / m) * 100)) || 0;
     };
-    
+
     const getSurvScore = (dth, maxDth) => {
       const d = toNum(dth);
       const m = toNum(maxDth) || 1;
@@ -481,17 +506,17 @@ function buildSpotlightPreset(rosterPlayer, roleEntry, roleBenchMap) {
     };
 
     radarData = [
-      { subject: '伤害', score: getScore(roleEntry?.avg_dmg, bench.max.dmg), avgScore: getScore(bench.avg.dmg, bench.max.dmg), fullMark: 100 },
-      { subject: '击杀', score: getScore(roleEntry?.avg_elim, bench.max.elim), avgScore: getScore(bench.avg.elim, bench.max.elim), fullMark: 100 },
-      { subject: '助攻', score: getScore(roleEntry?.avg_ast, bench.max.ast), avgScore: getScore(bench.avg.ast, bench.max.ast), fullMark: 100 },
-      { subject: '治疗', score: getScore(roleEntry?.avg_heal, bench.max.heal), avgScore: getScore(bench.avg.heal, bench.max.heal), fullMark: 100 },
-      { subject: '阻挡', score: getScore(roleEntry?.avg_block, bench.max.mit), avgScore: getScore(bench.avg.mit, bench.max.mit), fullMark: 100 },
-      { subject: '生存', score: getSurvScore(roleEntry?.avg_dth, bench.max.dth), avgScore: getSurvScore(bench.avg.dth, bench.max.dth), fullMark: 100 }
+      { subject: tt('dataGraphicsPanels.radar.damage', '伤害'), score: getScore(roleEntry?.avg_dmg, bench.max.dmg), avgScore: getScore(bench.avg.dmg, bench.max.dmg), fullMark: 100 },
+      { subject: tt('dataGraphicsPanels.radar.elim', '击杀'), score: getScore(roleEntry?.avg_elim, bench.max.elim), avgScore: getScore(bench.avg.elim, bench.max.elim), fullMark: 100 },
+      { subject: tt('dataGraphicsPanels.radar.ast', '助攻'), score: getScore(roleEntry?.avg_ast, bench.max.ast), avgScore: getScore(bench.avg.ast, bench.max.ast), fullMark: 100 },
+      { subject: tt('dataGraphicsPanels.radar.heal', '治疗'), score: getScore(roleEntry?.avg_heal, bench.max.heal), avgScore: getScore(bench.avg.heal, bench.max.heal), fullMark: 100 },
+      { subject: tt('dataGraphicsPanels.radar.mit', '阻挡'), score: getScore(roleEntry?.avg_block, bench.max.mit), avgScore: getScore(bench.avg.mit, bench.max.mit), fullMark: 100 },
+      { subject: tt('dataGraphicsPanels.radar.survival', '生存'), score: getSurvScore(roleEntry?.avg_dth, bench.max.dth), avgScore: getSurvScore(bench.avg.dth, bench.max.dth), fullMark: 100 }
     ];
   }
 
   return {
-    cardTag: '焦点选手',
+    cardTag: tr('dataGraphicsPanels.playerSpotlight.focusPlayer', { defaultValue: '焦点选手' }),
     displayName: getDisplayName(rosterPlayer || roleEntry),
     battletag: getBattleTag(rosterPlayer || roleEntry),
     teamShort: rosterPlayer?.team_short_name || roleEntry?.team_short_name || '',
@@ -505,7 +530,7 @@ function buildSpotlightPreset(rosterPlayer, roleEntry, roleBenchMap) {
     signatureHero: roleEntry?.most_played_hero || '',
     topHeroes: heroPool,
     metrics,
-    radarData // 暴露 radarData
+    radarData
   };
 }
 
@@ -549,16 +574,18 @@ const metricCardStyle = {
 };
 
 export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTokens, is1080Compact }) {
+  const { t: tr } = useTranslation();
   const { matchData, updateWithHistory, setPreviewScene, takeScene } = useMatchContext();
   const t = densityTokens || { panelPadding: '12px' };
   const rowH = is1080Compact ? '32px' : '36px';
 
+  const [teamScope, setTeamScope] = useState('PLAYOFF');
   const [teamId, setTeamId] = useState('');
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [selectedDataRole, setSelectedDataRole] = useState('');
 
   const [formData, setFormData] = useState({
-    cardTag: '焦点选手',
+    cardTag: tr('dataGraphicsPanels.playerSpotlight.focusPlayer', { defaultValue: '焦点选手' }),
     displayName: '',
     battletag: '',
     teamShort: '',
@@ -572,24 +599,29 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
     signatureHero: '',
     topHeroes: '',
     metrics: [
-      { label: '击杀 / 10分', value: '', avg: '', max: '', rank: '', total: '' },
-      { label: '助攻 / 10分', value: '', avg: '', max: '', rank: '', total: '' },
-      { label: '死亡 / 10分', value: '', avg: '', max: '', rank: '', total: '' },
-      { label: '伤害 / 10分', value: '', avg: '', max: '', rank: '', total: '' },
-      { label: 'K / D', value: '', avg: '', max: '', rank: '', total: '' }
+      { label: tr('dataGraphicsPanels.metrics.elimPer10', { defaultValue: '击杀 / 10分' }), value: '', avg: '', max: '', rank: '', total: '' },
+      { label: tr('dataGraphicsPanels.metrics.astPer10', { defaultValue: '助攻 / 10分' }), value: '', avg: '', max: '', rank: '', total: '' },
+      { label: tr('dataGraphicsPanels.metrics.dthPer10', { defaultValue: '死亡 / 10分' }), value: '', avg: '', max: '', rank: '', total: '' },
+      { label: tr('dataGraphicsPanels.metrics.dmgPer10', { defaultValue: '伤害 / 10分' }), value: '', avg: '', max: '', rank: '', total: '' },
+      { label: tr('dataGraphicsPanels.metrics.kd', { defaultValue: 'K / D' }), value: '', avg: '', max: '', rank: '', total: '' }
     ],
-    radarData: [] // 初始化 radarData
+    radarData: []
   });
 
   const rosterPlayers = useMemo(() => {
-    const base = safeArr(db?.players);
+    const base = safeArr(db?.players).filter(p => isInTeamScope(getPlayerTeamShort(p), teamScope));
     if (base.length) return base;
 
     const seen = new Set();
+
     return safeArr(db?.player_totals).reduce((acc, row, idx) => {
+      const shortName = row?.team_short_name || '';
+      if (!isInTeamScope(shortName, teamScope)) return acc;
+
       const pid = row?.player_id || row?.id || row?.nickname || `pt_${idx}`;
       if (seen.has(pid)) return acc;
       seen.add(pid);
+
       acc.push({
         player_id: pid,
         display_name: row?.display_name || row?.nickname || row?.player_name || 'Unknown',
@@ -598,12 +630,13 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
         battletag: row?.battletag || row?.battle_tag || row?.battleTag || row?.player_name || '',
         team_id: row?.team_id || row?.team_short_name || '',
         team_name: row?.team_name || '',
-        team_short_name: row?.team_short_name || '',
+        team_short_name: shortName,
         role: normalizeRole(row?.role)
       });
+
       return acc;
     }, []);
-  }, [db]);
+  }, [db, teamScope]);
 
   const roleScopedEntries = useMemo(() => buildRoleScopedEntries(db), [db]);
   const roleBenchMap = useMemo(() => buildRoleBench(roleScopedEntries), [roleScopedEntries]);
@@ -613,34 +646,45 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
 
     safeArr(db?.teams).forEach(team => {
       const id = team?.team_id || team?.id || team?.team_short_name || '';
-      if (!id) return;
+      const short = team?.team_short_name || team?.short || team?.team_name || tr('dataGraphicsPanels.common.unknown', { defaultValue: '未知' });
+
+      if (!id || !isInTeamScope(short, teamScope)) return;
+
       map.set(id, {
         id,
-        name: team?.team_name || team?.name || team?.team_short_name || '未知队伍',
-        short: team?.team_short_name || team?.short || team?.team_name || '未知'
+        name: team?.team_name || team?.name || team?.team_short_name || tr('dataGraphicsPanels.common.unknownTeam', { defaultValue: '未知队伍' }),
+        short
       });
     });
 
-    if (!map.size) {
-      rosterPlayers.forEach((player, idx) => {
-        const id = getPlayerTeamId(player) || `team_${idx}`;
-        if (!map.has(id)) {
-          map.set(id, {
-            id,
-            name: player?.team_name || player?.team_short_name || '未知队伍',
-            short: player?.team_short_name || player?.team_name || '未知'
-          });
-        }
-      });
-    }
+    rosterPlayers.forEach((player, idx) => {
+      const id = getPlayerTeamId(player) || `team_${idx}`;
+      const short = player?.team_short_name || player?.team_name || tr('dataGraphicsPanels.common.unknown', { defaultValue: '未知' });
+
+      if (!map.has(id) && isInTeamScope(short, teamScope)) {
+        map.set(id, {
+          id,
+          name: player?.team_name || player?.team_short_name || tr('dataGraphicsPanels.common.unknownTeam', { defaultValue: '未知队伍' }),
+          short
+        });
+      }
+    });
 
     return Array.from(map.values()).sort((a, b) => a.short.localeCompare(b.short));
-  }, [db, rosterPlayers]);
+  }, [db, rosterPlayers, teamScope]);
 
   const filteredPlayers = useMemo(
-    () => rosterPlayers.filter(player => !teamId || getPlayerTeamId(player) === teamId),
+    () => rosterPlayers.filter(player => isPlayerInTeam(player, teamId)),
     [rosterPlayers, teamId]
   );
+
+  useEffect(() => {
+    if (teamId && !teamOptions.some(team => String(team.id) === String(teamId))) {
+      setTeamId('');
+      setSelectedPlayerId('');
+      setSelectedDataRole('');
+    }
+  }, [teamScope, teamOptions, teamId]);
 
   useEffect(() => {
     if (selectedPlayerId && !filteredPlayers.some((p, idx) => getSafeId(p, idx) === selectedPlayerId)) {
@@ -715,29 +759,36 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
 
   useEffect(() => {
     if (!activeRosterPlayer || !activeRoleEntry) return;
-    setFormData(buildSpotlightPreset(activeRosterPlayer, activeRoleEntry, roleBenchMap));
-  }, [activeRosterPlayer, activeRoleEntry, roleBenchMap]);
+    setFormData(buildSpotlightPreset(activeRosterPlayer, activeRoleEntry, roleBenchMap, tr));
+  }, [activeRosterPlayer, activeRoleEntry, roleBenchMap, tr]);
+
+  const handleScopeChange = scope => {
+    setTeamScope(scope);
+    setTeamId('');
+    setSelectedPlayerId('');
+    setSelectedDataRole('');
+  };
 
   const applyQuickPreset = type => {
     if (!activeRosterPlayer || !activeRoleEntry) return;
 
     if (type === 'RESET') {
-      setFormData(buildSpotlightPreset(activeRosterPlayer, activeRoleEntry, roleBenchMap));
+      setFormData(buildSpotlightPreset(activeRosterPlayer, activeRoleEntry, roleBenchMap, tr));
       return;
     }
 
     if (type === 'MVP') {
-      setFormData(prev => ({ ...prev, cardTag: '本场 MVP' }));
+      setFormData(prev => ({ ...prev, cardTag: tr('dataGraphicsPanels.playerSpotlight.mvp', { defaultValue: '本场 MVP' }) }));
       return;
     }
 
     if (type === 'FOCUS') {
-      setFormData(prev => ({ ...prev, cardTag: '焦点选手' }));
+      setFormData(prev => ({ ...prev, cardTag: tr('dataGraphicsPanels.playerSpotlight.focusPlayer', { defaultValue: '焦点选手' }) }));
       return;
     }
 
     if (type === 'STAR') {
-      setFormData(prev => ({ ...prev, cardTag: '明星选手' }));
+      setFormData(prev => ({ ...prev, cardTag: tr('dataGraphicsPanels.playerSpotlight.starPlayer', { defaultValue: '明星选手' }) }));
     }
   };
 
@@ -750,6 +801,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
 
   const handleTake = () => {
     const payload = {
+      teamScope,
       teamId,
       playerId: selectedPlayerId,
       dataRole: formData.dataRole,
@@ -770,17 +822,33 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '360px minmax(0,1fr)', gap: 10, alignItems: 'start' }}>
-      <ShellPanel title="自动填充" accent density={density} bodyStyle={{ padding: t.panelPadding }}>
+      <ShellPanel title={tr('dataGraphicsPanels.common.autoFill', { defaultValue: '自动填充' })} accent density={density} bodyStyle={{ padding: t.panelPadding }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div>
-            <div style={labelStyle}>先选队伍</div>
+            <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.playerScope', { defaultValue: '选手范围' })}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <button style={UI.chip(teamScope === 'PLAYOFF')} onClick={() => handleScopeChange('PLAYOFF')}>
+                八强
+              </button>
+              <button style={UI.chip(teamScope === 'ALL')} onClick={() => handleScopeChange('ALL')}>
+                全部
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.selectTeamFirst', { defaultValue: '先选队伍' })}</div>
             <select
               style={{ ...UI.select, height: rowH, color: COLORS.yellow, padding: '0 10px', fontWeight: 900 }}
               value={teamId}
-              onChange={e => setTeamId(e.target.value)}
+              onChange={e => {
+                setTeamId(e.target.value);
+                setSelectedPlayerId('');
+                setSelectedDataRole('');
+              }}
               disabled={dbStatus !== 'LOADED'}
             >
-              <option value="">-- 选择队伍 --</option>
+              <option value="">{tr('dataGraphicsPanels.playerSpotlight.selectTeam', { defaultValue: '-- 选择队伍 --' })}</option>
               {teamOptions.map(team => (
                 <option key={`TEAM_${team.id}`} value={team.id}>
                   {team.short}
@@ -790,14 +858,17 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
           </div>
 
           <div>
-            <div style={labelStyle}>再选选手</div>
+            <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.selectPlayerThen', { defaultValue: '再选选手' })}</div>
             <select
               style={{ ...UI.select, height: rowH, color: COLORS.yellow, padding: '0 10px', fontWeight: 900 }}
               value={selectedPlayerId}
-              onChange={e => setSelectedPlayerId(e.target.value)}
+              onChange={e => {
+                setSelectedPlayerId(e.target.value);
+                setSelectedDataRole('');
+              }}
               disabled={dbStatus !== 'LOADED'}
             >
-              <option value="">{dbStatus === 'LOADED' ? '-- 选择要自动填充的选手 --' : '-- 等待数据库 --'}</option>
+              <option value="">{dbStatus === 'LOADED' ? tr('dataGraphicsPanels.playerSpotlight.selectAutofillPlayer', { defaultValue: '-- 选择要自动填充的选手 --' }) : tr('dataGraphicsPanels.common.waitingDb', { defaultValue: '-- 等待数据库 --' })}</option>
               {filteredPlayers.map((p, idx) => (
                 <option key={getSafeId(p, idx)} value={getSafeId(p, idx)}>
                   {formatPlayerOptionLabel(p)}
@@ -807,19 +878,19 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
           </div>
 
           <div>
-            <div style={labelStyle}>数据职责</div>
+            <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.dataRole', { defaultValue: '数据职责' })}</div>
             <select
               style={{ ...UI.select, height: rowH, color: COLORS.yellow, padding: '0 10px', fontWeight: 900 }}
               value={selectedDataRole}
               onChange={e => setSelectedDataRole(e.target.value)}
               disabled={!selectedPlayerId}
             >
-              <option value="">-- 选择数据职责 --</option>
+              <option value="">{tr('dataGraphicsPanels.playerSpotlight.selectDataRole', { defaultValue: '-- 选择数据职责 --' })}</option>
               {roleEntriesForPlayer.map(entry => {
                 const role = normalizeRole(entry.role);
                 return (
                   <option key={`${entry.player_id}_${role}`} value={role}>
-                    {role} · {entry.maps_played || 0} 图 · {formatTimePlayed(entry.raw_time_mins, entry.total_time_played)}
+                    {role} · {entry.maps_played || 0} {tr('dataGraphicsPanels.common.mapsUnit', { defaultValue: '图' })} · {formatTimePlayed(entry.raw_time_mins, entry.total_time_played)}
                   </option>
                 );
               })}
@@ -827,22 +898,51 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <button style={UI.chip(false)} onClick={() => applyQuickPreset('RESET')}>重置预设</button>
-            <button style={UI.chip(true)} onClick={() => applyQuickPreset('MVP')}>本场 MVP</button>
-            <button style={UI.chip(false)} onClick={() => applyQuickPreset('FOCUS')}>焦点选手</button>
-            <button style={UI.chip(false)} onClick={() => applyQuickPreset('STAR')}>明星选手</button>
+            <button
+              type="button"
+              style={UI.chip(false)}
+              onClick={() => applyQuickPreset('RESET')}
+            >
+              {tr('dataGraphicsPanels.common.resetPreset', { defaultValue: '重置预设' })}
+            </button>
+
+            <button
+              type="button"
+              style={UI.chip(formData.cardTag === tr('dataGraphicsPanels.playerSpotlight.mvp', { defaultValue: '本场 MVP' }))}
+              onClick={() => applyQuickPreset('MVP')}
+            >
+              {tr('dataGraphicsPanels.playerSpotlight.mvp', { defaultValue: '本场 MVP' })}
+            </button>
+
+            <button
+              type="button"
+              style={UI.chip(formData.cardTag === tr('dataGraphicsPanels.playerSpotlight.focusPlayer', { defaultValue: '焦点选手' }))}
+              onClick={() => applyQuickPreset('FOCUS')}
+            >
+              {tr('dataGraphicsPanels.playerSpotlight.focusPlayer', { defaultValue: '焦点选手' })}
+            </button>
+          
+            <button
+              type="button"
+              style={UI.chip(formData.cardTag === tr('dataGraphicsPanels.playerSpotlight.starPlayer', { defaultValue: '明星选手' }))}
+              onClick={() => applyQuickPreset('STAR')}
+            >
+              {tr('dataGraphicsPanels.playerSpotlight.starPlayer', { defaultValue: '明星选手' })}
+            </button>
           </div>
 
           <div style={compactCardStyle}>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>当前来源</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>{tr('dataGraphicsPanels.common.currentSource', { defaultValue: '当前来源' })}</div>
             <div style={{ fontSize: 18, color: COLORS.white, fontWeight: 900, lineHeight: 1.1, wordBreak: 'break-word' }}>
-              {getDisplayName(activeRosterPlayer) || '待选择'}
+              {getDisplayName(activeRosterPlayer) || tr('dataGraphicsPanels.common.pendingSelect', { defaultValue: '待选择' })}
             </div>
             <div style={{ fontSize: 11, color: COLORS.yellow, fontWeight: 800 }}>
-              {activeRosterPlayer ? `${activeRosterPlayer.team_short_name || '-'} · 报名 ${normalizeRole(activeRosterPlayer.role) || '-'}` : '-'}
+              {activeRosterPlayer ? (<>
+                {activeRosterPlayer.team_short_name || '-'} · {tr('dataGraphicsPanels.playerSpotlight.registered', { defaultValue: '报名' })} {normalizeRole(activeRosterPlayer.role) || '-'}
+              </>) : '-'}
             </div>
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.58)', fontWeight: 700 }}>
-              {activeRoleEntry ? `数据职责 ${normalizeRole(activeRoleEntry.role)} · ${activeRoleEntry.maps_played || 0} 图` : '未选择数据职责'}
+              {activeRoleEntry ? `${tr('dataGraphicsPanels.playerSpotlight.dataRole', { defaultValue: '数据职责' })} ${normalizeRole(activeRoleEntry.role)} · ${activeRoleEntry.maps_played || 0} ${tr('dataGraphicsPanels.common.mapsUnit', { defaultValue: '图' })}` : tr('dataGraphicsPanels.playerSpotlight.noDataRole', { defaultValue: '未选择数据职责' })}
             </div>
             {!!getBattleTag(activeRosterPlayer) && (
               <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.52)', fontWeight: 700 }}>
@@ -853,12 +953,12 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
         </div>
       </ShellPanel>
 
-      <ShellPanel title="资料卡编辑" accent density={density} bodyStyle={{ padding: t.panelPadding }}>
+      <ShellPanel title={tr('dataGraphicsPanels.playerSpotlight.editTitle', { defaultValue: '资料卡编辑' })} accent density={density} bodyStyle={{ padding: t.panelPadding }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
           <div style={editorBlockStyle}>
             <div style={{ display: 'grid', gridTemplateColumns: '140px minmax(0,1fr)', gap: 10, alignItems: 'stretch' }}>
               <div style={metaCellStyle}>
-                <div style={labelStyle}>卡片标签</div>
+                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.cardTag', { defaultValue: '卡片标签' })}</div>
                 <input
                   style={{ ...UI.input, height: 34, padding: '0 10px', textAlign: 'center', color: COLORS.yellow, fontWeight: 900 }}
                   value={formData.cardTag}
@@ -867,7 +967,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
               </div>
 
               <div style={metaCellStyle}>
-                <div style={labelStyle}>显示名称</div>
+                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.displayName', { defaultValue: '显示名称' })}</div>
                 <input
                   style={{ ...UI.input, height: 34, padding: '0 12px', textAlign: 'left', fontSize: 18, fontWeight: 900 }}
                   value={formData.displayName}
@@ -878,7 +978,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
 
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) 90px 90px 90px 84px 104px', gap: 10 }}>
               <div style={metaCellStyle}>
-                <div style={labelStyle}>战网名</div>
+                <div style={labelStyle}>{tr('dataGraphicsPanels.common.battleTag', { defaultValue: '战网名' })}</div>
                 <input
                   style={{ ...UI.input, height: 34, padding: '0 10px', textAlign: 'left' }}
                   value={formData.battletag}
@@ -887,7 +987,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
               </div>
 
               <div style={metaCellStyle}>
-                <div style={labelStyle}>队伍</div>
+                <div style={labelStyle}>{tr('dataGraphicsPanels.common.team', { defaultValue: '队伍' })}</div>
                 <input
                   style={{ ...UI.input, height: 34, padding: '0 8px', textAlign: 'center', color: COLORS.yellow }}
                   value={formData.teamShort}
@@ -896,7 +996,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
               </div>
 
               <div style={metaCellStyle}>
-                <div style={labelStyle}>报名职责</div>
+                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.registeredRole', { defaultValue: '报名职责' })}</div>
                 <input
                   style={{ ...UI.input, height: 34, padding: '0 8px', textAlign: 'center' }}
                   value={formData.registeredRole}
@@ -905,7 +1005,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
               </div>
 
               <div style={metaCellStyle}>
-                <div style={labelStyle}>数据职责</div>
+                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.dataRole', { defaultValue: '数据职责' })}</div>
                 <input
                   style={{ ...UI.input, height: 34, padding: '0 8px', textAlign: 'center', color: COLORS.yellow }}
                   value={formData.dataRole}
@@ -914,7 +1014,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
               </div>
 
               <div style={metaCellStyle}>
-                <div style={labelStyle}>地图数</div>
+                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.mapsPlayed', { defaultValue: '地图数' })}</div>
                 <input
                   style={{ ...UI.input, height: 34, padding: '0 8px', textAlign: 'center' }}
                   value={formData.mapsPlayed}
@@ -923,7 +1023,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
               </div>
 
               <div style={metaCellStyle}>
-                <div style={labelStyle}>上场时间</div>
+                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.playTime', { defaultValue: '上场时间' })}</div>
                 <input
                   style={{ ...UI.input, height: 34, padding: '0 8px', textAlign: 'center', color: COLORS.yellow }}
                   value={formData.playTime}
@@ -937,7 +1037,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
             <div style={editorBlockStyle}>
               <div style={{ display: 'grid', gridTemplateColumns: '180px minmax(0,1fr)', gap: 8 }}>
                 <div>
-                  <div style={labelStyle}>风格标签</div>
+                  <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.styleTag', { defaultValue: '风格标签' })}</div>
                   <input
                     style={{ ...UI.input, height: rowH, padding: '0 10px', textAlign: 'center', color: COLORS.yellow, fontWeight: 900 }}
                     value={formData.styleTag}
@@ -946,7 +1046,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
                 </div>
 
                 <div>
-                  <div style={labelStyle}>风格描述</div>
+                  <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.styleDesc', { defaultValue: '风格描述' })}</div>
                   <input
                     style={{ ...UI.input, height: rowH, padding: '0 10px', textAlign: 'left' }}
                     value={formData.styleDesc}
@@ -958,7 +1058,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
 
             <div style={editorBlockStyle}>
               <div>
-                <div style={labelStyle}>英雄池概览</div>
+                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.heroPool', { defaultValue: '英雄池概览' })}</div>
                 <input
                   style={{ ...UI.input, height: rowH, padding: '0 10px', textAlign: 'left' }}
                   value={formData.heroPool}
@@ -971,7 +1071,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
             {formData.metrics.map((row, idx) => (
               <div key={`metric_${idx}`} style={metricCardStyle}>
-                <div style={labelStyle}>数据槽 {idx + 1}</div>
+                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.metricSlot', { defaultValue: '数据槽 {{num}}', num: idx + 1 })}</div>
                 <input
                   style={{
                     ...UI.input,
@@ -1013,7 +1113,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
             }}
             onClick={handleTake}
           >
-            推送选手图文
+            {tr('dataGraphicsPanels.playerSpotlight.takeButton', { defaultValue: '推送选手图文' })}
           </button>
         </div>
       </ShellPanel>
