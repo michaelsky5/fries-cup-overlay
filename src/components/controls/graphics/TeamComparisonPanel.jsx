@@ -4,8 +4,33 @@ import { useMatchContext } from '../../../contexts/MatchContext';
 import { ShellPanel } from '../../common/SharedUI';
 import { COLORS, labelStyle } from '../../../constants/styles';
 
-// Playoff team allowlist
+const TEAM_LOGO_MODULES = import.meta.glob('../../../assets/logos/*.{png,jpg,jpeg,webp,svg}', {
+  eager: true,
+  import: 'default'
+});
+
+const normalizeLogoKey = value =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\.(png|jpg|jpeg|webp|svg)$/i, '')
+    .replace(/[^a-z0-9]/g, '');
+
+const TEAM_LOGO_BY_KEY = Object.entries(TEAM_LOGO_MODULES).reduce((acc, [path, url]) => {
+  const filename = path.split('/').pop() || '';
+  const key = normalizeLogoKey(filename);
+  if (key) acc[key] = url;
+  return acc;
+}, {});
+
+const getTeamLogoFromAssets = teamShort => {
+  const key = normalizeLogoKey(teamShort);
+  return key ? TEAM_LOGO_BY_KEY[key] || '' : '';
+};
+
+
 const PLAYOFF_TEAMS = ['NGP', 'TNS', 'YOU', 'ZS', 'HYW', 'SPC', 'XCFN.G', 'FG'];
+const PLAYOFF_TEAM_SET = new Set(PLAYOFF_TEAMS.map(v => String(v).trim().toUpperCase()));
 
 const UI = {
   input: {
@@ -54,6 +79,12 @@ const UI = {
 const safeArr = v => Array.isArray(v) ? v : [];
 const toNum = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const toText = v => (v === null || v === undefined ? '' : String(v));
+const cleanText = v => toText(v).trim();
+
+const isUnknownName = v => {
+  const text = cleanText(v).toLowerCase();
+  return !text || text === 'unknown' || text === 'unknown team' || text === 'team unknown';
+};
 
 const ROLE_SLOTS = { TANK: 1, DPS: 2, SUP: 2 };
 
@@ -75,21 +106,103 @@ const ROLE_SECTIONS = [
 const tc = (tr, key, options) => tr(`${TC_I18N}.${key}`, options);
 
 function normalizeRole(role) {
-  const r = toText(role).trim().toUpperCase();
+  const r = cleanText(role).toUpperCase();
   if (r === 'SUPPORT' || r === 'SUP') return 'SUP';
   if (r === 'DAMAGE' || r === 'DPS') return 'DPS';
   if (r === 'TANK') return 'TANK';
   return '';
 }
 
-function getTeamId(team) {
-  return team?.team_id || team?.id || '';
+function getEntityTeamId(entity) {
+  return cleanText(entity?.team_id || entity?.teamId || entity?.id || '');
+}
+
+function getEntityTeamShort(entity) {
+  return cleanText(
+    entity?.team_short_name ||
+    entity?.teamShortName ||
+    entity?.teamShort ||
+    entity?.shortName ||
+    entity?.short ||
+    entity?.abbr ||
+    entity?.tag ||
+    ''
+  );
+}
+
+function getEntityTeamName(entity) {
+  const candidates = [
+    entity?.team_name,
+    entity?.teamName,
+    entity?.team_full_name,
+    entity?.teamFullName,
+    entity?.full_name,
+    entity?.fullName,
+    entity?.name,
+    entity?.team_club,
+    entity?.teamClub,
+    entity?.clubName,
+    entity?.club_name
+  ];
+
+  return cleanText(candidates.find(v => !isUnknownName(v)) || '');
+}
+
+function buildTeamRegistry(teams = []) {
+  const byId = new Map();
+  const byShort = new Map();
+
+  safeArr(teams).forEach(team => {
+    const teamId = getEntityTeamId(team);
+    const teamShort = getEntityTeamShort(team);
+    const teamName = getEntityTeamName(team);
+
+    if (!teamId && !teamShort) return;
+
+    const meta = {
+      teamId: teamId || teamShort,
+      teamName: teamName || teamShort || teamId,
+      teamShort: teamShort || teamName || teamId,
+      teamLogo: getTeamLogoFromAssets(teamShort) || cleanText(team?.team_logo || team?.teamLogo || team?.logo || '')
+    };
+
+    if (meta.teamId) byId.set(meta.teamId, meta);
+    if (meta.teamShort) byShort.set(meta.teamShort.toUpperCase(), meta);
+  });
+
+  return { byId, byShort };
+}
+
+function resolveTeamMeta(entity, registry) {
+  const rawId = getEntityTeamId(entity);
+  const rawShort = getEntityTeamShort(entity);
+  const rawName = getEntityTeamName(entity);
+
+  const officialById = rawId ? registry.byId.get(rawId) : null;
+  const officialByShort = rawShort ? registry.byShort.get(rawShort.toUpperCase()) : null;
+  const official = officialById || officialByShort || null;
+
+  const teamId = official?.teamId || rawId || rawShort || rawName;
+  const teamShort = official?.teamShort || rawShort || rawId || rawName;
+  const teamName = official?.teamName || rawName || rawShort || rawId;
+
+  return {
+    teamId: cleanText(teamId),
+    teamName: cleanText(teamName),
+    teamShort: cleanText(teamShort),
+    teamLogo: getTeamLogoFromAssets(teamShort) || cleanText(official?.teamLogo || entity?.team_logo || entity?.teamLogo || entity?.logo || '')
+  };
 }
 
 function getMapKeyFromLog(log, idx) {
-  const matchId = log?.matchId || log?.match_id || log?.matchDisplayName || log?.match_display_name || 'MATCH';
+  const matchId = log?.matchId || log?.match_id || log?.rawMatchId || log?.raw_match_id || log?.matchDisplayName || log?.match_display_name || 'MATCH';
   const mapOrder = log?.mapOrder ?? log?.map_order ?? idx;
   return `${matchId}__${mapOrder}`;
+}
+
+function getPlayerLogs(player) {
+  if (Array.isArray(player?.match_logs) && player.match_logs.length) return player.match_logs;
+  return [...safeArr(player?.live_match_logs), ...safeArr(player?.historical_match_logs)];
 }
 
 function formatTimePlayed(rawTimeMins) {
@@ -177,11 +290,16 @@ function relabelRoleMetrics(currentRoleMetrics, defaultRoleMetrics) {
   };
 }
 
-function createTeamRow(team) {
+function createTeamRow(meta) {
+  const teamId = cleanText(meta?.teamId || meta?.team_id || meta?.id || meta?.teamShort || meta?.team_short_name);
+  const teamShort = cleanText(meta?.teamShort || meta?.team_short_name || meta?.short || meta?.teamName || meta?.team_name);
+  const teamName = cleanText(meta?.teamName || meta?.team_name || meta?.name || teamShort || teamId);
+
   return {
-    teamId: toText(getTeamId(team)),
-    teamName: toText(team?.team_name || team?.name || ''),
-    teamShort: toText(team?.team_short_name || team?.short || team?.team_name || ''),
+    teamId,
+    teamName,
+    teamShort,
+    teamLogo: cleanText(meta?.teamLogo || meta?.team_logo || ''),
     mapsSet: new Set(),
     overallRawPlayerMinutes: 0,
     overallTotals: emptyTotals(),
@@ -193,14 +311,23 @@ function createTeamRow(team) {
   };
 }
 
+function mergeTeamIdentity(teamRow, meta) {
+  if (!teamRow || !meta) return;
+  if (meta.teamId) teamRow.teamId = meta.teamId;
+  if (meta.teamShort) teamRow.teamShort = meta.teamShort;
+  if (meta.teamName && !isUnknownName(meta.teamName)) teamRow.teamName = meta.teamName;
+  if (meta.teamLogo) teamRow.teamLogo = meta.teamLogo;
+}
+
 function finalizeTeamRow(team) {
   const mapsPlayed = team.mapsSet.size;
   const teamEquivalentMinutes = team.overallRawPlayerMinutes > 0 ? team.overallRawPlayerMinutes / 5 : 0;
 
   return {
-    teamId: toText(team.teamId),
-    teamName: toText(team.teamName),
-    teamShort: toText(team.teamShort),
+    teamId: cleanText(team.teamId),
+    teamName: cleanText(team.teamName || team.teamShort || team.teamId),
+    teamShort: cleanText(team.teamShort || team.teamName || team.teamId),
+    teamLogo: cleanText(team.teamLogo),
     mapsPlayed,
     playTime: formatTimePlayed(teamEquivalentMinutes),
     overall: {
@@ -242,29 +369,24 @@ function finalizeTeamRow(team) {
 
 function buildTeamAnalytics(db) {
   const teamMap = new Map();
-  const rosterPlayers = safeArr(db?.players);
-  const totalRows = safeArr(db?.player_totals);
+  const registry = buildTeamRegistry(db?.teams);
 
   safeArr(db?.teams).forEach(team => {
-    const id = getTeamId(team);
-    if (!id) return;
-    teamMap.set(id, createTeamRow(team));
+    const meta = resolveTeamMeta(team, registry);
+    if (!meta.teamId) return;
+    teamMap.set(meta.teamId, createTeamRow(meta));
   });
 
-  rosterPlayers.forEach(player => {
-    const teamId = getTeamId(player) || player?.team_short_name || '';
-    if (!teamId) return;
+  safeArr(db?.players).forEach(player => {
+    const meta = resolveTeamMeta(player, registry);
+    if (!meta.teamId) return;
 
-    if (!teamMap.has(teamId)) {
-      teamMap.set(teamId, createTeamRow({
-        team_id: teamId,
-        team_name: player?.team_name || player?.team_short_name || '',
-        team_short_name: player?.team_short_name || player?.team_name || ''
-      }));
-    }
+    if (!teamMap.has(meta.teamId)) teamMap.set(meta.teamId, createTeamRow(meta));
 
-    const teamRow = teamMap.get(teamId);
-    const logs = safeArr(player?.match_logs).filter(log => toNum(log?.playtimeMinutes) > 0);
+    const teamRow = teamMap.get(meta.teamId);
+    mergeTeamIdentity(teamRow, meta);
+
+    const logs = getPlayerLogs(player).filter(log => toNum(log?.playtimeMinutes) > 0);
 
     logs.forEach((log, idx) => {
       const role = normalizeRole(log?.role || player?.role);
@@ -276,10 +398,11 @@ function buildTeamAnalytics(db) {
         deaths: toNum(log?.totals?.deaths),
         damage: toNum(log?.totals?.damage),
         healing: toNum(log?.totals?.healing),
-        mitigation: toNum(log?.totals?.blocked)
+        mitigation: toNum(log?.totals?.blocked ?? log?.totals?.mitigation)
       };
 
       const minutes = toNum(log?.playtimeMinutes);
+
       teamRow.mapsSet.add(getMapKeyFromLog(log, idx));
       teamRow.overallRawPlayerMinutes += minutes;
       addTotals(teamRow.overallTotals, totals);
@@ -291,21 +414,19 @@ function buildTeamAnalytics(db) {
 
   const hasLogData = Array.from(teamMap.values()).some(team => team.overallRawPlayerMinutes > 0);
 
-  if (!hasLogData && totalRows.length) {
-    totalRows.forEach((row, idx) => {
-      const teamId = row?.team_id || row?.team_short_name || `team_${idx}`;
+  if (!hasLogData && safeArr(db?.player_totals).length) {
+    safeArr(db?.player_totals).forEach((row, idx) => {
+      const meta = resolveTeamMeta(row, registry);
+      const teamId = meta.teamId || row?.team_id || row?.team_short_name || `team_${idx}`;
       const role = normalizeRole(row?.role);
+
       if (!role || !ROLE_SLOTS[role]) return;
 
-      if (!teamMap.has(teamId)) {
-        teamMap.set(teamId, createTeamRow({
-          team_id: teamId,
-          team_name: row?.team_name || row?.team_short_name || '',
-          team_short_name: row?.team_short_name || row?.team_name || ''
-        }));
-      }
+      if (!teamMap.has(teamId)) teamMap.set(teamId, createTeamRow({ ...meta, teamId }));
 
       const teamRow = teamMap.get(teamId);
+      mergeTeamIdentity(teamRow, meta);
+
       const minutes = Math.max(1, toNum(row?.raw_time_mins));
       const totals = {
         elims: (toNum(row?.avg_elim) * minutes) / 10,
@@ -325,14 +446,13 @@ function buildTeamAnalytics(db) {
     });
   }
 
-  // Filter the calculated team pool to the playoff scope.
   return Array.from(teamMap.values())
     .map(finalizeTeamRow)
-    .filter(team => PLAYOFF_TEAMS.includes(team.teamShort))
-    .sort((a, b) => toText(a.teamShort).localeCompare(toText(b.teamShort)));
+    .filter(team => PLAYOFF_TEAM_SET.has(cleanText(team.teamShort).toUpperCase()))
+    .sort((a, b) => cleanText(a.teamShort).localeCompare(cleanText(b.teamShort)));
 }
 
-function buildTeamPreset(teamA, teamB, tr) {
+function buildTeamPreset(teamA, teamB, tr, currentMatchData = {}) {
   const roleRows = role => [
     createMetricRow(tc(tr, 'metrics.elimsPer10'), teamA?.roles?.[role]?.elimsPer10 || '0.0', teamB?.roles?.[role]?.elimsPer10 || '0.0'),
     createMetricRow(tc(tr, 'metrics.assistsPer10'), teamA?.roles?.[role]?.assistsPer10 || '0.0', teamB?.roles?.[role]?.assistsPer10 || '0.0'),
@@ -342,13 +462,44 @@ function buildTeamPreset(teamA, teamB, tr) {
     createMetricRow(tc(tr, 'metrics.mitigationPer10'), teamA?.roles?.[role]?.mitigationPer10 || '0.0', teamB?.roles?.[role]?.mitigationPer10 || '0.0')
   ];
 
+  const shortA = teamA?.teamShort || '';
+  const shortB = teamB?.teamShort || '';
+  const fullNameA = teamA?.teamName || shortA || '';
+  const fullNameB = teamB?.teamName || shortB || '';
+
+  const logoA = getTeamLogoFromAssets(shortA) || teamA?.teamLogo || currentMatchData.logoA || '';
+  const logoB = getTeamLogoFromAssets(shortB) || teamB?.teamLogo || currentMatchData.logoB || '';
+
   return {
-    nameA: teamA?.teamShort || teamA?.teamName || '',
-    nameB: teamB?.teamShort || teamB?.teamName || '',
+    nameA: shortA,
+    nameB: shortB,
+
+    fullNameA,
+    fullNameB,
+    teamAName: fullNameA,
+    teamBName: fullNameB,
+    teamNameA: fullNameA,
+    teamNameB: fullNameB,
+    teamFullNameA: fullNameA,
+    teamFullNameB: fullNameB,
+
+    shortA,
+    shortB,
+    teamShortA: shortA,
+    teamShortB: shortB,
+
+    logoA,
+    logoB,
+    teamLogoA: logoA,
+    teamLogoB: logoB,
+    logoPathA: logoA,
+    logoPathB: logoB,
+
     mapsA: String(teamA?.mapsPlayed || 0),
     mapsB: String(teamB?.mapsPlayed || 0),
     timeA: teamA?.playTime || '-',
     timeB: teamB?.playTime || '-',
+
     overallMetrics: [
       createMetricRow(tc(tr, 'metrics.overallElimsPer10'), teamA?.overall?.elimsPer10 || '0.0', teamB?.overall?.elimsPer10 || '0.0'),
       createMetricRow(tc(tr, 'metrics.overallAssistsPer10'), teamA?.overall?.assistsPer10 || '0.0', teamB?.overall?.assistsPer10 || '0.0'),
@@ -357,6 +508,7 @@ function buildTeamPreset(teamA, teamB, tr) {
       createMetricRow(tc(tr, 'metrics.overallHealingPer10'), teamA?.overall?.healingPer10 || '0.0', teamB?.overall?.healingPer10 || '0.0'),
       createMetricRow(tc(tr, 'metrics.overallMitigationPer10'), teamA?.overall?.mitigationPer10 || '0.0', teamB?.overall?.mitigationPer10 || '0.0')
     ],
+
     roleMetrics: {
       TANK: roleRows('TANK'),
       DPS: roleRows('DPS'),
@@ -410,9 +562,28 @@ const collapseHeadStyle = {
   cursor: 'pointer'
 };
 
+const sourceTeamNameStyle = {
+  fontSize: 13,
+  color: COLORS.white,
+  fontWeight: 900,
+  lineHeight: 1.15,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis'
+};
+
+const sourceTeamShortStyle = {
+  fontSize: 18,
+  color: COLORS.yellow,
+  fontWeight: 900,
+  letterSpacing: '0.8px',
+  lineHeight: 1
+};
+
 export default function TeamComparisonPanel({ db, dbStatus, density, densityTokens, is1080Compact }) {
   const { t: tr, i18n } = useTranslation();
   const { matchData, updateWithHistory, setPreviewScene } = useMatchContext();
+
   const t = densityTokens || { panelPadding: '12px' };
   const rowH = is1080Compact ? '34px' : '38px';
 
@@ -426,10 +597,33 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
   const [formData, setFormData] = useState(() => ({
     nameA: '',
     nameB: '',
+
+    fullNameA: '',
+    fullNameB: '',
+    teamAName: '',
+    teamBName: '',
+    teamNameA: '',
+    teamNameB: '',
+    teamFullNameA: '',
+    teamFullNameB: '',
+
+    shortA: '',
+    shortB: '',
+    teamShortA: '',
+    teamShortB: '',
+
+    logoA: matchData.logoA || '',
+    logoB: matchData.logoB || '',
+    teamLogoA: matchData.logoA || '',
+    teamLogoB: matchData.logoB || '',
+    logoPathA: matchData.logoA || '',
+    logoPathB: matchData.logoB || '',
+
     mapsA: '0',
     mapsB: '0',
     timeA: '-',
     timeB: '-',
+
     overallMetrics: getDefaultOverallMetrics(tr),
     roleMetrics: getDefaultRoleMetrics(tr)
   }));
@@ -443,22 +637,28 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
     const defaultRoleMetrics = getDefaultRoleMetrics(tr);
 
     if (selectedTeamA || selectedTeamB) {
-      setFormData(buildTeamPreset(selectedTeamA, selectedTeamB, tr));
+      setFormData(buildTeamPreset(selectedTeamA, selectedTeamB, tr, matchData));
       return;
     }
 
     setFormData(prev => ({
       ...prev,
+      logoA: prev.logoA || matchData.logoA || '',
+      logoB: prev.logoB || matchData.logoB || '',
+      teamLogoA: prev.teamLogoA || matchData.logoA || '',
+      teamLogoB: prev.teamLogoB || matchData.logoB || '',
+      logoPathA: prev.logoPathA || matchData.logoA || '',
+      logoPathB: prev.logoPathB || matchData.logoB || '',
       overallMetrics: relabelRows(prev.overallMetrics, defaultOverallMetrics),
       roleMetrics: relabelRoleMetrics(prev.roleMetrics, defaultRoleMetrics)
     }));
-  }, [selectedTeamA, selectedTeamB, languageKey, tr]);
+  }, [selectedTeamA, selectedTeamB, languageKey, tr, matchData.logoA, matchData.logoB]);
 
-  // Auto-select the top two teams from the filtered team pool.
   const autoTopTwo = () => {
     const sorted = [...teamPool].sort(
       (a, b) => parseFloat(b?.overall?.damagePer10 || 0) - parseFloat(a?.overall?.damagePer10 || 0)
     );
+
     if (sorted[0]) setTeamAId(sorted[0].teamId);
     if (sorted[1]) setTeamBId(sorted[1].teamId);
   };
@@ -466,12 +666,36 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
   const swapSides = () => {
     setFormData(prev => ({
       ...prev,
+
       nameA: prev.nameB,
       nameB: prev.nameA,
+
+      fullNameA: prev.fullNameB,
+      fullNameB: prev.fullNameA,
+      teamAName: prev.teamBName,
+      teamBName: prev.teamAName,
+      teamNameA: prev.teamNameB,
+      teamNameB: prev.teamNameA,
+      teamFullNameA: prev.teamFullNameB,
+      teamFullNameB: prev.teamFullNameA,
+
+      shortA: prev.shortB,
+      shortB: prev.shortA,
+      teamShortA: prev.teamShortB,
+      teamShortB: prev.teamShortA,
+
+      logoA: prev.logoB,
+      logoB: prev.logoA,
+      teamLogoA: prev.teamLogoB,
+      teamLogoB: prev.teamLogoA,
+      logoPathA: prev.logoPathB,
+      logoPathB: prev.logoPathA,
+
       mapsA: prev.mapsB,
       mapsB: prev.mapsA,
       timeA: prev.timeB,
       timeB: prev.timeA,
+
       overallMetrics: safeArr(prev.overallMetrics).map(row => ({ ...row, a: row.b, b: row.a })),
       roleMetrics: {
         TANK: getSafeRoleMetrics(prev.roleMetrics, 'TANK').map(row => ({ ...row, a: row.b, b: row.a })),
@@ -507,6 +731,7 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
 
   const handleTake = () => {
     const overallRows = safeArr(formData.overallMetrics);
+
     const payload = {
       teamAId,
       teamBId,
@@ -514,7 +739,33 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
       scenePage: activeCategory,
       outputCategory: activeCategory,
       category: activeCategory,
+
       ...formData,
+
+      nameA: formData.nameA || formData.teamShortA || '',
+      nameB: formData.nameB || formData.teamShortB || '',
+
+      shortA: formData.shortA || formData.nameA || '',
+      shortB: formData.shortB || formData.nameB || '',
+      teamShortA: formData.teamShortA || formData.shortA || formData.nameA || '',
+      teamShortB: formData.teamShortB || formData.shortB || formData.nameB || '',
+
+      fullNameA: formData.fullNameA || formData.teamAName || formData.nameA || '',
+      fullNameB: formData.fullNameB || formData.teamBName || formData.nameB || '',
+      teamAName: formData.teamAName || formData.fullNameA || formData.nameA || '',
+      teamBName: formData.teamBName || formData.fullNameB || formData.nameB || '',
+      teamNameA: formData.teamNameA || formData.fullNameA || formData.nameA || '',
+      teamNameB: formData.teamNameB || formData.fullNameB || formData.nameB || '',
+      teamFullNameA: formData.teamFullNameA || formData.fullNameA || formData.nameA || '',
+      teamFullNameB: formData.teamFullNameB || formData.fullNameB || formData.nameB || '',
+
+      logoA: formData.logoA || matchData.logoA || '',
+      logoB: formData.logoB || matchData.logoB || '',
+      teamLogoA: formData.teamLogoA || formData.logoA || matchData.logoA || '',
+      teamLogoB: formData.teamLogoB || formData.logoB || matchData.logoB || '',
+      logoPathA: formData.logoPathA || formData.logoA || matchData.logoA || '',
+      logoPathB: formData.logoPathB || formData.logoB || matchData.logoB || '',
+
       stat1Label: overallRows[0]?.label || '',
       stat1A: overallRows[0]?.a || '',
       stat1B: overallRows[0]?.b || '',
@@ -550,8 +801,12 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
       <ShellPanel title={tc(tr, 'panels.autoFill')} accent density={density} bodyStyle={{ padding: t.panelPadding }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <button style={UI.chip(false)} onClick={autoTopTwo}>{tc(tr, 'actions.autoTopTwo')}</button>
-            <button style={UI.chip(false)} onClick={swapSides}>{tc(tr, 'actions.swapSides')}</button>
+            <button style={UI.chip(false)} onClick={autoTopTwo}>
+              {tc(tr, 'actions.autoTopTwo')}
+            </button>
+            <button style={UI.chip(false)} onClick={swapSides}>
+              {tc(tr, 'actions.swapSides')}
+            </button>
           </div>
 
           <div>
@@ -583,7 +838,7 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
               <option value="">{tc(tr, 'placeholders.selectTeamA')}</option>
               {teamPool.map(team => (
                 <option key={`TA_${team.teamId}`} value={team.teamId}>
-                  {team.teamName}
+                  {team.teamShort ? `${team.teamShort} · ${team.teamName}` : team.teamName}
                 </option>
               ))}
             </select>
@@ -600,7 +855,7 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
               <option value="">{tc(tr, 'placeholders.selectTeamB')}</option>
               {teamPool.map(team => (
                 <option key={`TB_${team.teamId}`} value={team.teamId}>
-                  {team.teamName}
+                  {team.teamShort ? `${team.teamShort} · ${team.teamName}` : team.teamName}
                 </option>
               ))}
             </select>
@@ -608,9 +863,14 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div style={sourceCardStyle}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>{tc(tr, 'labels.leftSource')}</div>
-              <div style={{ fontSize: 18, color: COLORS.white, fontWeight: 900, lineHeight: 1.1 }}>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>
+                {tc(tr, 'labels.leftSource')}
+              </div>
+              <div style={sourceTeamShortStyle}>
                 {selectedTeamA?.teamShort || tc(tr, 'source.pending')}
+              </div>
+              <div style={sourceTeamNameStyle} title={selectedTeamA?.teamName || ''}>
+                {selectedTeamA?.teamName || '-'}
               </div>
               <div style={{ fontSize: 11, color: COLORS.yellow, fontWeight: 800 }}>
                 {selectedTeamA ? tc(tr, 'source.mapsAndTime', { maps: selectedTeamA.mapsPlayed, time: selectedTeamA.playTime }) : '-'}
@@ -621,9 +881,14 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
             </div>
 
             <div style={sourceCardStyle}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>{tc(tr, 'labels.rightSource')}</div>
-              <div style={{ fontSize: 18, color: COLORS.white, fontWeight: 900, lineHeight: 1.1 }}>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>
+                {tc(tr, 'labels.rightSource')}
+              </div>
+              <div style={sourceTeamShortStyle}>
                 {selectedTeamB?.teamShort || tc(tr, 'source.pending')}
+              </div>
+              <div style={sourceTeamNameStyle} title={selectedTeamB?.teamName || ''}>
+                {selectedTeamB?.teamName || '-'}
               </div>
               <div style={{ fontSize: 11, color: COLORS.yellow, fontWeight: 800 }}>
                 {selectedTeamB ? tc(tr, 'source.mapsAndTime', { maps: selectedTeamB.mapsPlayed, time: selectedTeamB.playTime }) : '-'}
@@ -667,9 +932,7 @@ export default function TeamComparisonPanel({ db, dbStatus, density, densityToke
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
-            {[
-              ...ROLE_SECTIONS
-            ].map(section => (
+            {ROLE_SECTIONS.map(section => (
               <div key={section.key} style={roleSectionStyle}>
                 <button
                   type="button"
