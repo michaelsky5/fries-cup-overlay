@@ -1,6 +1,5 @@
 import React, { useRef, useState, useMemo } from 'react';
 import html2canvas from 'html2canvas';
-// 引入 i18n
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -11,7 +10,6 @@ import {
 import { createEditorUi } from '../../utils/editorUi';
 import {
   ShellPanel,
-  Field,
   TabButton,
   QuickStat,
   MonitorFrame,
@@ -28,12 +26,12 @@ import CountdownEditor from '../controls/CountdownEditor';
 import VideoEditor from '../controls/VideoEditor';
 import HighlightEditor from '../controls/HighlightEditor';
 import CoverEditor from '../controls/CoverEditor';
-import DataGraphicsEditor from '../controls/DataGraphicsEditor'; // 👇 1. 引入刚才写好的数据包装组件
-import OBSConnector from '../controls/OBSConnector'; 
+import DataGraphicsEditor from '../controls/DataGraphicsEditor';
+import OBSConnector from '../controls/OBSConnector';
 
 import RightSidebar from './RightSidebar';
 import StingerTransition from '../scenes/StingerTransition';
-import BroadcastCoverScene from '../scenes/BroadcastCoverScene'; 
+import BroadcastCoverScene from '../scenes/BroadcastCoverScene';
 
 function ConsoleWorkspace({
   density,
@@ -44,8 +42,6 @@ function ConsoleWorkspace({
   isShort,
   pagePadding,
   blockGap,
-  sideColWidth,
-  rightColWidth,
   showRightColumn,
   showEmbeddedRightPanels,
   topGridTemplate,
@@ -82,10 +78,9 @@ function ConsoleWorkspace({
   renderPreviewMonitorScene,
   renderProgramMonitorScene,
   sceneLabelMap = {},
-  
+
   openShortcutModal
 }) {
-  // 初始化翻译函数为 tr，避免与下方的密度 tokens t 冲突
   const { t: tr } = useTranslation();
 
   const t = useMemo(() => densityTokens || {
@@ -98,12 +93,12 @@ function ConsoleWorkspace({
 
   const ui = useMemo(() => createEditorUi(t, density), [t, density]);
   const headerPanelBodyStyle = { padding: t.panelPadding };
-  
-  const editorEnv = useMemo(() => ({ 
-    density, 
-    densityTokens, 
-    isDense, 
-    isUltra 
+
+  const editorEnv = useMemo(() => ({
+    density,
+    densityTokens,
+    isDense,
+    isUltra
   }), [density, densityTokens, isDense, isUltra]);
 
   const isTakeDisabled = isTransitioning || previewScene === matchData.globalScene;
@@ -116,22 +111,37 @@ function ConsoleWorkspace({
   const quickSummaryGap = isSelectorTight ? '5px' : isDense || isUltra ? '6px' : '8px';
   const quickSummaryCols = isUltra ? '1fr' : isSelectorTight ? '1fr' : '1fr 1fr';
 
-  // 👇 2. 在侧边栏排序数组中插入 'DATA_GRAPHICS'
   const OPTIMAL_TAB_ORDER = [
     'LIVE',
     'MAP_POOL',
     'ROSTER',
     'STATS',
-    'DATA_GRAPHICS', 
+    'DATA_GRAPHICS',
     'CASTERS',
     'COUNTDOWN',
     'HIGHLIGHT',
     'VIDEO',
     'COVER',
     'TEAM_DB',
+    'WINNER',
+    'MVP_SCENE',
+    'H2H_SCENE',
+    'TEAM_COMPARISON_SCENE',
+    'MAP_PROFILE_SCENE',
+    'LEADERBOARD_SCENE'
   ];
 
-  // Easy Mode 下允许自动上墙的页面。管理页 / 数据包装编辑页不自动 TAKE。
+  const ESSENTIAL_SCENE_KEYS = [
+    'LIVE',
+    'MAP_POOL',
+    'ROSTER',
+    'STATS',
+    'CASTERS',
+    'COUNTDOWN',
+    'HIGHLIGHT',
+    'VIDEO'
+  ];
+
   const AUTO_TAKE_TABS = new Set([
     'LIVE',
     'MAP_POOL',
@@ -146,8 +156,41 @@ function ConsoleWorkspace({
 
   const displayTabs = OPTIMAL_TAB_ORDER.filter(tab => availableTabs.includes(tab));
 
+  const [previewSceneScope, setPreviewSceneScope] = useState('ESSENTIAL');
   const [isExporting, setIsExporting] = useState(false);
   const coverSceneRef = useRef(null);
+
+  const previewSceneEntries = useMemo(() => {
+    const sourceEntries = Object.keys(sceneLabelMap).length > 0
+      ? Object.entries(sceneLabelMap)
+      : OPTIMAL_TAB_ORDER.map(key => [key, key]);
+
+    const sortedEntries = sourceEntries
+      .filter(([key]) => key !== 'TEAM_DB')
+      .sort(([keyA], [keyB]) => {
+        const indexA = OPTIMAL_TAB_ORDER.indexOf(keyA);
+        const indexB = OPTIMAL_TAB_ORDER.indexOf(keyB);
+        const orderA = indexA !== -1 ? indexA : 999;
+        const orderB = indexB !== -1 ? indexB : 999;
+        return orderA - orderB;
+      });
+
+    if (previewSceneScope === 'ALL') return sortedEntries;
+
+    const coreEntries = sortedEntries.filter(([key]) => ESSENTIAL_SCENE_KEYS.includes(key));
+    const hasCurrentPreview = coreEntries.some(([key]) => key === previewScene);
+
+    if (hasCurrentPreview || !previewScene) return coreEntries;
+
+    const currentPreviewEntry = sortedEntries.find(([key]) => key === previewScene);
+
+    if (!currentPreviewEntry) return coreEntries;
+
+    return [
+      currentPreviewEntry,
+      ...coreEntries.filter(([key]) => key !== previewScene)
+    ];
+  }, [sceneLabelMap, previewSceneScope, previewScene]);
 
   const handleExportCover = async () => {
     if (!coverSceneRef.current) return;
@@ -155,8 +198,8 @@ function ConsoleWorkspace({
       setIsExporting(true);
       const canvas = await html2canvas(coverSceneRef.current, {
         useCORS: true,
-        scale: 1, 
-        backgroundColor: COLORS.mainDark || '#111',
+        scale: 1,
+        backgroundColor: COLORS.mainDark || '#111'
       });
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
@@ -196,14 +239,14 @@ function ConsoleWorkspace({
         }
       `}</style>
 
-      <div 
+      <div
         ref={coverSceneRef}
-        style={{ 
-          position: 'absolute', 
-          top: 0, 
-          left: 0, 
-          width: '1920px', 
-          height: '1080px', 
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '1920px',
+          height: '1080px',
           pointerEvents: 'none',
           opacity: 0.001,
           zIndex: -100,
@@ -236,7 +279,6 @@ function ConsoleWorkspace({
           minHeight: 0
         }}
       >
-        {/* ================= TOP NAVIGATION BAR ================= */}
         <div
           style={{
             minHeight: '44px',
@@ -272,7 +314,6 @@ function ConsoleWorkspace({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            
             <OBSConnector />
 
             <div style={{ width: '1px', height: '16px', backgroundColor: COLORS.lineStrong, margin: '0 4px' }} />
@@ -284,7 +325,7 @@ function ConsoleWorkspace({
                 borderColor: isUnlocked ? COLORS.red : COLORS.lineStrong,
                 color: isUnlocked ? COLORS.red : COLORS.softWhite,
                 cursor: 'pointer',
-                height: '26px', 
+                height: '26px',
                 padding: '0 10px'
               }}
             >
@@ -292,18 +333,18 @@ function ConsoleWorkspace({
             </button>
 
             {isUnlocked && (
-              <button 
-                style={{ 
-                  ...ui.outlineBtn, 
-                  cursor: 'pointer', 
-                  height: '26px', 
-                  padding: '0 10px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
+              <button
+                style={{
+                  ...ui.outlineBtn,
+                  cursor: 'pointer',
+                  height: '26px',
+                  padding: '0 10px',
+                  display: 'flex',
+                  alignItems: 'center',
                   gap: '6px',
                   borderColor: 'rgba(244,195,32,0.3)',
                   color: COLORS.yellow
-                }} 
+                }}
                 onClick={openShortcutModal}
                 title="Shortcut Settings"
               >
@@ -329,10 +370,8 @@ function ConsoleWorkspace({
                 {isLogOpen ? tr('workspace.logOn') : tr('workspace.logOff')}
               </button>
             )}
-
           </div>
         </div>
-        {/* ======================================================= */}
 
         <div
           style={{
@@ -387,16 +426,44 @@ function ConsoleWorkspace({
                     <div style={{ minWidth: 0 }}>
                       <div
                         style={{
-                          fontSize: '10px',
-                          color: COLORS.softWhite,
-                          marginBottom: '5px',
-                          fontWeight: '900',
-                          letterSpacing: '1.6px',
-                          textTransform: 'uppercase',
-                          lineHeight: 1
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '6px',
+                          marginBottom: '5px'
                         }}
                       >
-                        {tr('workspace.preview')}
+                        <div
+                          style={{
+                            fontSize: '10px',
+                            color: COLORS.softWhite,
+                            fontWeight: '900',
+                            letterSpacing: '1.6px',
+                            textTransform: 'uppercase',
+                            lineHeight: 1
+                          }}
+                        >
+                          {tr('workspace.preview')}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setPreviewSceneScope(prev => prev === 'ESSENTIAL' ? 'ALL' : 'ESSENTIAL')}
+                          style={{
+                            height: '20px',
+                            padding: '0 7px',
+                            border: `1px solid ${previewSceneScope === 'ALL' ? COLORS.yellow : 'rgba(255,255,255,0.16)'}`,
+                            background: previewSceneScope === 'ALL' ? 'rgba(244,195,32,0.14)' : 'rgba(255,255,255,0.04)',
+                            color: previewSceneScope === 'ALL' ? COLORS.yellow : COLORS.softWhite,
+                            fontSize: '9px',
+                            fontWeight: '900',
+                            letterSpacing: '0.8px',
+                            cursor: 'pointer',
+                            fontFamily: '"HarmonyOS Sans SC", sans-serif'
+                          }}
+                        >
+                          {previewSceneScope === 'ALL' ? 'ALL' : 'CORE'}
+                        </button>
                       </div>
 
                       <select
@@ -412,27 +479,9 @@ function ConsoleWorkspace({
                         value={previewScene}
                         onChange={e => setPreviewScene(e.target.value)}
                       >
-                        {Object.keys(sceneLabelMap).length > 0 ? (
-                          Object.entries(sceneLabelMap)
-                            .sort(([keyA], [keyB]) => {
-                              const indexA = OPTIMAL_TAB_ORDER.indexOf(keyA);
-                              const indexB = OPTIMAL_TAB_ORDER.indexOf(keyB);
-                              const orderA = indexA !== -1 ? indexA : 999;
-                              const orderB = indexB !== -1 ? indexB : 999;
-                              return orderA - orderB;
-                            })
-                            .filter(([key]) => key !== 'TEAM_DB')
-                            .map(([key, label]) => (
-                              <option key={key} value={key}>{label}</option>
-                            ))
-                        ) : (
-                          <>
-                            {OPTIMAL_TAB_ORDER.filter(key => key !== 'TEAM_DB').map(key => (
-                              <option key={key} value={key}>{key}</option>
-                            ))}
-                            <option value="WINNER">WINNER</option>
-                          </>
-                        )}
+                        {previewSceneEntries.map(([key, label]) => (
+                          <option key={key} value={key}>{label}</option>
+                        ))}
                       </select>
                     </div>
 
@@ -565,7 +614,7 @@ function ConsoleWorkspace({
                           appearance: 'none',
                           WebkitAppearance: 'none',
                           MozAppearance: 'none',
-                          backgroundColor: 'rgba(0,0,0,0.3)',
+                          backgroundColor: 'rgba(0,0,0,0.3)'
                         }}
                         value={matchData.stingerLogo || '/assets/logos/fc_logo.png'}
                         onChange={e => updateData({ ...matchData, stingerLogo: e.target.value })}
@@ -997,7 +1046,6 @@ function ConsoleWorkspace({
 
         <div style={{ minHeight: 0, padding: `${blockGap}px ${pagePadding}px ${pagePadding}px` }}>
           <div style={{ display: 'grid', gridTemplateColumns: mainGridTemplate, gap: blockGap, height: '100%', minHeight: 0 }}>
-            {/* Left Sidebar */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: blockGap, minWidth: 0, minHeight: 0, height: '100%' }}>
               <div style={{ flex: '1 1 0', minHeight: 0, overflow: 'hidden' }}>
                 <ShellPanel
@@ -1035,7 +1083,7 @@ function ConsoleWorkspace({
                             takeScene(tab, '[AUTO-TAKE] Menu');
                           }
                         }}
-                        label={sceneLabelMap[tab] || tab} 
+                        label={sceneLabelMap[tab] || tab}
                         index={idx + 1}
                         compact={isSelectorTight}
                         density={isSelectorTight ? 'compact' : density}
@@ -1062,7 +1110,7 @@ function ConsoleWorkspace({
                     }}
                   >
                     <QuickStat label={tr('workspace.matchFormat')} value={matchData.matchFormat} compact density={density} />
-                    <QuickStat label={tr('workspace.currentMap')} value={`${tr('workspace.currentMap').split(' ')[1] || 'MAP'} ${matchData.currentMap}`} compact density={density} />
+                    <QuickStat label={tr('workspace.currentMap')} value={`${tr('workspace.mapShort')} ${matchData.currentMap}`} compact density={density} />
                     <QuickStat label={tr('workspace.score')} value={`${matchData.scoreA} : ${matchData.scoreB}`} valueColor={COLORS.yellow} compact density={density} />
                     <QuickStat label={tr('workspace.ticker')} value={matchData.showTicker ? tr('workspace.active') : tr('workspace.off')} valueColor={matchData.showTicker ? COLORS.yellow : COLORS.softWhite} compact density={density} />
                   </div>
@@ -1070,7 +1118,6 @@ function ConsoleWorkspace({
               </div>
             </div>
 
-            {/* Center Editor */}
             <div
               style={{
                 minWidth: 0,
@@ -1101,7 +1148,6 @@ function ConsoleWorkspace({
                 </div>
               )}
 
-              {/* 👇 3. 把组件挂载到渲染层里 */}
               {activeTab === 'LIVE' && <LiveEditor {...editorEnv} isShort={isShort} handleSwapTeams={handleSwapTeams} />}
               {activeTab === 'TEAM_DB' && <TeamDBEditor {...editorEnv} />}
               {activeTab === 'MAP_POOL' && <MapPoolEditor {...editorEnv} />}
@@ -1110,17 +1156,17 @@ function ConsoleWorkspace({
               {activeTab === 'VIDEO' && <VideoEditor {...editorEnv} />}
               {activeTab === 'HIGHLIGHT' && <HighlightEditor {...editorEnv} />}
               {activeTab === 'STATS' && <StatsEditor {...editorEnv} />}
-              {activeTab === 'DATA_GRAPHICS' && <DataGraphicsEditor {...editorEnv} />} 
+              {activeTab === 'DATA_GRAPHICS' && <DataGraphicsEditor {...editorEnv} />}
               {activeTab === 'ROSTER' && <RosterEditor {...editorEnv} blockGap={blockGap} />}
-              
+
               {activeTab === 'COVER' && (
-                <CoverEditor 
-                  {...editorEnv} 
-                  matchData={matchData} 
-                  updateData={updateData} 
-                  blockGap={blockGap} 
-                  onExport={handleExportCover}   
-                  isExporting={isExporting}     
+                <CoverEditor
+                  {...editorEnv}
+                  matchData={matchData}
+                  updateData={updateData}
+                  blockGap={blockGap}
+                  onExport={handleExportCover}
+                  isExporting={isExporting}
                 />
               )}
 
@@ -1136,7 +1182,6 @@ function ConsoleWorkspace({
               )}
             </div>
 
-            {/* Right Sidebar */}
             {showRightColumn && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: blockGap, minWidth: 0, minHeight: 0 }}>
                 <RightSidebar
