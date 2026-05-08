@@ -1,7 +1,7 @@
 import { inputStyle, selectStyle, btnStyle, outlineBtn, actionBtn, getDensityTokens } from '../constants/styles';
 
 export function createEditorUi(densityTokens, density = 'standard') {
-  const t = densityTokens || getDensityTokens(density);
+  const t = { ...getDensityTokens(density), ...(densityTokens || {}) };
 
   const isUltra = density === 'ultra';
   const isCompact = density === 'compact' || density === 'ultra';

@@ -10,7 +10,7 @@ function isEditableTarget(target) {
 
 function matchShortcut(e, config) {
   if (!config?.code) return false;
-  const isCtrl = e.ctrlKey || e.metaKey; // 完美兼容 Mac 的 Cmd 键
+  const isCtrl = e.ctrlKey || e.metaKey;
   return (
     e.code === config.code &&
     e.altKey === !!config.altKey &&
@@ -19,13 +19,31 @@ function matchShortcut(e, config) {
   );
 }
 
+const TABS_BY_NUMBER = [
+  'LIVE',
+  'MAP_POOL',
+  'ROSTER',
+  'STATS',
+  'CASTERS',
+  'COUNTDOWN',
+  'HIGHLIGHT',
+  'VIDEO',
+  'COVER',
+  'TEAM_DB'
+];
+
+const ALWAYS_ALLOWED_WHEN_LOCKED = new Set([
+  'TOGGLE_LOCK',
+  'OPEN_SHORTCUTS'
+]);
+
 export function useKeyboardShortcuts({
   isUnlocked,
   presetModalTarget,
   setPresetModalTarget,
   takeScene,
   previewSceneRef,
-  setPreviewScene, // 【新增】引入这个，用于傻瓜模式下的状态同步
+  setPreviewScene,
   setActiveTab,
   handleUndo,
 
@@ -60,9 +78,11 @@ export function useKeyboardShortcuts({
   voiceOff
 }) {
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      // 1. 局部弹窗优先退出
+    const handleKeyDown = e => {
+      // 1. 局部预设弹窗：Esc 优先关闭
       if (presetModalTarget && e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
         setPresetModalTarget?.(null);
         return;
       }
@@ -70,57 +90,21 @@ export function useKeyboardShortcuts({
       // 2. 任意系统级弹窗打开时，封锁全局快捷键
       if (document.body.classList.contains('fc-modal-open')) return;
 
-      // 3. 在可编辑区域内不触发快捷键
+      // 3. 输入框 / 下拉框 / 按钮 / 链接 / 可编辑区域内不触发全局快捷键
       if (isEditableTarget(e.target)) return;
 
-      // 4. 无修饰键的 1-9 / 0 切换顶部 Tab
-      if (
-        isUnlocked &&
-        ((e.key >= '1' && e.key <= '9') || e.key === '0') &&
-        !e.altKey &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.shiftKey
-      ) {
-        const tabs = [
-          'LIVE',
-          'MAP_POOL',
-          'ROSTER',
-          'STATS',
-          'CASTERS',
-          'COUNTDOWN',
-          'HIGHLIGHT',
-          'VIDEO',
-          'COVER',
-          'TEAM_DB'
-        ];
-        const targetTab = e.key === '0' ? tabs[9] : tabs[parseInt(e.key, 10) - 1];
-        
-        if (targetTab) {
-          e.preventDefault();
-          setActiveTab?.(targetTab);
-          
-          // 【修复】：对齐鼠标点击逻辑。如果在 Easy Mode，快捷键切 Tab 也要自动上墙
-          if (!isUnlocked) {
-            setPreviewScene?.(targetTab);
-            takeScene?.(targetTab, `[AUTO-TAKE] Shortcut ${e.key}`);
-          }
-        }
-        return;
-      }
-
-      // 5. 动态读取当前快捷键配置
+      // 4. 动态读取当前快捷键配置
       const currentShortcuts = {
         ...DEFAULT_SHORTCUTS,
         ...(matchData?.shortcuts || {})
       };
 
       const safeTakeScene = (sceneId, logText) => {
-        if (!takeScene) return;
+        if (!takeScene || !sceneId) return;
         takeScene(sceneId, logText);
       };
 
-      // 6. 动作映射表
+      // 5. 动作映射表
       const actionMap = {
         // =========================
         // 全局与控制
@@ -194,26 +178,51 @@ export function useKeyboardShortcuts({
         }
       };
 
-      // 7. 逐个匹配当前快捷键
+      // 6. 无修饰键数字：只在解锁状态切顶部 Tab
+      if (
+        isUnlocked &&
+        ((e.key >= '1' && e.key <= '9') || e.key === '0') &&
+        !e.altKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.shiftKey
+      ) {
+        const targetTab = e.key === '0' ? TABS_BY_NUMBER[9] : TABS_BY_NUMBER[parseInt(e.key, 10) - 1];
+
+        if (targetTab) {
+          e.preventDefault();
+          e.stopPropagation();
+          setActiveTab?.(targetTab);
+        }
+
+        return;
+      }
+
+      // 7. 匹配自定义快捷键
       for (const [actionId, config] of Object.entries(currentShortcuts)) {
         if (!matchShortcut(e, config)) continue;
 
         e.preventDefault();
+        e.stopPropagation();
+
+        // 锁定状态下只允许解除锁定 / 打开快捷键设置
+        if (!isUnlocked && !ALWAYS_ALLOWED_WHEN_LOCKED.has(actionId)) return;
+
         const actionFunc = actionMap[actionId];
         if (actionFunc) actionFunc();
         return;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, [
     isUnlocked,
     presetModalTarget,
     setPresetModalTarget,
     takeScene,
     previewSceneRef,
-    setPreviewScene, // 【新增依赖】
+    setPreviewScene,
     setActiveTab,
     handleUndo,
     matchData,

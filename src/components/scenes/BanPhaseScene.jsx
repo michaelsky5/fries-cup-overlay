@@ -20,8 +20,10 @@ const UI = {
   insetLine: 'inset 0 0 0 1px rgba(255,255,255,0.04)'
 };
 
+const hasBanValue = bans => Array.isArray(bans) && bans.some(Boolean);
+
 const getBanInfo = bans => {
-  const raw = bans?.[0] || '';
+  const raw = Array.isArray(bans) ? (bans.find(Boolean) || '') : '';
   if (!raw) return { role: 'damage', hero: 'tbd' };
   if (!raw.includes('/')) return { role: 'damage', hero: raw };
   const [role, hero] = raw.split('/');
@@ -167,7 +169,6 @@ function TeamBanCard({ side = 'left', order = 1, teamName, banInfo, reveal = fal
       <div style={{ position: 'absolute', top: 102, left: 18, right: 18, bottom: 104, overflow: 'hidden', border: `1px solid rgba(255,255,255,0.05)`, background: isTbd ? 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.00) 100%)' : 'transparent' }}>
         {!isTbd ? (
           <>
-            {/* 🌟 核心修复 1：将双向 transition 替换为单向播放的 animation，彻底消灭倒放闪烁 */}
             <img
               src={imgSrc}
               alt={heroName}
@@ -187,7 +188,6 @@ function TeamBanCard({ side = 'left', order = 1, teamName, banInfo, reveal = fal
             <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,0.016) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px)', backgroundSize: '52px 52px', opacity: 0.18 }} />
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.00) 18%, rgba(255,255,255,0.00) 100%)' }} />
 
-            {/* 🌟 核心修复 2：扫光层改为 animation forwards，保证触发时只往右边扫一次 */}
             <div
               style={{
                 position: 'absolute', top: 0, bottom: 0, width: '24%',
@@ -208,7 +208,6 @@ function TeamBanCard({ side = 'left', order = 1, teamName, banInfo, reveal = fal
         )}
       </div>
 
-      {/* 底部信息栏 */}
       <div style={{ position: 'absolute', left: 18, right: 18, bottom: 18, minHeight: 78, background: 'linear-gradient(180deg, rgba(24,24,24,0.98) 0%, rgba(16,16,16,0.99) 100%)', borderTop: `2px solid ${COLORS.yellow}`, borderLeft: `1px solid ${COLORS.line}`, borderRight: `1px solid ${COLORS.line}`, borderBottom: `1px solid ${COLORS.line}`, display: 'grid', alignContent: 'center', padding: '12px 16px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)' }}>
         <div style={{ display: 'grid', gap: 4, justifyItems: isLeft ? 'start' : 'end' }}>
           <div style={{ color: COLORS.softWhite, fontSize: 11, fontWeight: 800, letterSpacing: 1.4, textTransform: 'uppercase' }}>
@@ -228,8 +227,18 @@ export default function BanPhaseScene({ matchData, triggerAt }) {
   const [revealA, setRevealA] = useState(false);
   const [revealB, setRevealB] = useState(false);
 
-  const banA = useMemo(() => getBanInfo(matchData?.bansA), [matchData?.bansA]);
-  const banB = useMemo(() => getBanInfo(matchData?.bansB), [matchData?.bansB]);
+  const currentMapData = useMemo(() => {
+    const currentMap = Number(matchData?.currentMap || 1);
+    const currentMapIndex = Math.max(0, currentMap - 1);
+    return Array.isArray(matchData?.mapLineup) ? matchData.mapLineup[currentMapIndex] : null;
+  }, [matchData?.currentMap, matchData?.mapLineup]);
+
+  const sourceBansA = hasBanValue(currentMapData?.bansA) ? currentMapData.bansA : matchData?.bansA;
+  const sourceBansB = hasBanValue(currentMapData?.bansB) ? currentMapData.bansB : matchData?.bansB;
+
+  const banA = useMemo(() => getBanInfo(sourceBansA), [sourceBansA]);
+  const banB = useMemo(() => getBanInfo(sourceBansB), [sourceBansB]);
+
   const orderMode = matchData?.banOrderMode || 'A_FIRST';
   const isAFirst = orderMode === 'A_FIRST';
 
@@ -272,11 +281,10 @@ export default function BanPhaseScene({ matchData, triggerAt }) {
         inset: 0,
         overflow: 'hidden',
         background: `linear-gradient(180deg, ${COLORS.black} 0%, #202020 100%)`,
-        animation: 'banSceneBgFade 0.4s ease forwards', // 🌟 增加全场景的柔和渐入
+        animation: 'banSceneBgFade 0.4s ease forwards',
         willChange: 'opacity'
       }}
     >
-      {/* 🌟 注入独立的高性能 CSS 引擎 */}
       <style>{`
         @keyframes banSceneBgFade {
           0% { opacity: 0; }
@@ -315,7 +323,7 @@ export default function BanPhaseScene({ matchData, triggerAt }) {
           style={{
             fontSize: '250px', fontWeight: '900', lineHeight: 0.9, letterSpacing: '8px', color: 'transparent',
             WebkitTextStroke: '2px rgba(255,255,255,0.08)', textTransform: 'uppercase', userSelect: 'none',
-            animation: 'banTextDrop 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards', // 🌟 给巨大的 BAN 字加入进场下落效果
+            animation: 'banTextDrop 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
             willChange: 'transform, opacity'
           }}
         >
@@ -323,7 +331,6 @@ export default function BanPhaseScene({ matchData, triggerAt }) {
         </div>
       </div>
 
-      {/* 🌟 这个 Grid 布局使用了 alignItems: 'stretch'，保证了左右卡片和中间的线完美等高，非常精妙！ */}
       <div style={{ position: 'absolute', inset: '150px 120px 92px', display: 'grid', gridTemplateColumns: '1fr 42px 1fr', gap: 28, alignItems: 'stretch' }}>
         <TeamBanCard side="left" order={orderA} teamName={matchData.teamA} banInfo={banA} reveal={revealA} />
         

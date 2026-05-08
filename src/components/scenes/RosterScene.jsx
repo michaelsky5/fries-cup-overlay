@@ -27,11 +27,40 @@ const normalizePlayer = p => ({ nickname: safeText(p?.nickname), battleTag: safe
 const normalizeCoach = c => ({ nickname: safeText(c?.nickname), battleTag: safeText(c?.battleTag) });
 
 const getRosterData = matchData => {
-  const presetKey = safeText(matchData.rosterPresetKey).toUpperCase(), preset = ROSTER_PRESETS[presetKey];
-  if (preset) return { teamName: safeText(preset.teamName) || 'TEAM', teamLogo: safeText(preset.teamLogo) || '/assets/logos/OW.jpg', players: (preset.players || []).map(normalizePlayer).filter(p => ['TANK', 'DAMAGE', 'SUPPORT'].includes(p.role)).slice(0, 7), staff: { clubName: safeText(preset.clubName), showClubName: !!safeText(preset.clubName), manager: normalizeCoach(preset.manager), coaches: Array.isArray(preset.coaches) ? preset.coaches.map(normalizeCoach).filter(c => c.nickname || c.battleTag) : [] } };
+  const presetKey = safeText(matchData.rosterPresetKey).toUpperCase();
+  const preset = ROSTER_PRESETS[presetKey];
 
-  const target = matchData.rosterTeamTarget || 'A', players = target === 'B' ? (matchData.rosterPlayersB || []) : (matchData.rosterPlayersA || []), staff = target === 'B' ? (matchData.rosterStaffB || {}) : (matchData.rosterStaffA || {}), teamName = target === 'B' ? (matchData.teamB || 'TEAM B') : (matchData.teamA || 'TEAM A'), teamLogo = target === 'B' ? (matchData.logoB || '/assets/logos/OW.jpg') : (matchData.logoA || '/assets/logos/OW.jpg');
-  return { teamName, teamLogo, players: players.map(normalizePlayer).filter(p => ['TANK', 'DAMAGE', 'SUPPORT'].includes(p.role)).slice(0, 7), staff: { clubName: safeText(staff.clubName), showClubName: !!staff.showClubName, manager: normalizeCoach(staff.manager), coaches: Array.isArray(staff.coaches) ? staff.coaches.map(normalizeCoach).filter(c => c.nickname || c.battleTag) : [] } };
+  if (preset) {
+    return {
+      teamName: safeText(preset.teamName) || 'TEAM',
+      teamLogo: safeText(preset.teamLogo) || '/assets/logos/OW.jpg',
+      players: (preset.players || []).map(normalizePlayer).filter(p => ['TANK', 'DAMAGE', 'SUPPORT'].includes(p.role)).slice(0, 7),
+      staff: {
+        clubName: safeText(preset.clubName),
+        showClubName: !!safeText(preset.clubName),
+        manager: normalizeCoach(preset.manager),
+        coaches: Array.isArray(preset.coaches) ? preset.coaches.map(normalizeCoach).filter(c => c.nickname || c.battleTag) : []
+      }
+    };
+  }
+
+  const target = matchData.liveRosterTeam || matchData.rosterTeamTarget || 'A';
+  const players = target === 'B' ? (matchData.rosterPlayersB || []) : (matchData.rosterPlayersA || []);
+  const staff = target === 'B' ? (matchData.rosterStaffB || {}) : (matchData.rosterStaffA || {});
+  const teamName = target === 'B' ? (matchData.teamB || 'TEAM B') : (matchData.teamA || 'TEAM A');
+  const teamLogo = target === 'B' ? (matchData.logoB || '/assets/logos/OW.jpg') : (matchData.logoA || '/assets/logos/OW.jpg');
+
+  return {
+    teamName,
+    teamLogo,
+    players: players.map(normalizePlayer).filter(p => ['TANK', 'DAMAGE', 'SUPPORT'].includes(p.role)).slice(0, 7),
+    staff: {
+      clubName: safeText(staff.clubName),
+      showClubName: !!staff.showClubName,
+      manager: normalizeCoach(staff.manager),
+      coaches: Array.isArray(staff.coaches) ? staff.coaches.map(normalizeCoach).filter(c => c.nickname || c.battleTag) : []
+    }
+  };
 };
 
 const displayPrimaryName = p => safeText(p.nickname) || safeText(p.battleTag) || 'PLAYER';
@@ -66,7 +95,12 @@ const StaffMeta = ({ label, value }) => (
 );
 
 const RosterCard = ({ player, index, total }) => {
-  const compact = total >= 7, titleSize = total >= 7 ? 20 : total === 6 ? 23 : 26, subSize = compact ? 10 : 11, roleSize = compact ? 10 : 11, shellPad = compact ? '10px' : '12px', footerPad = compact ? '12px 12px 13px' : '14px 14px 15px';
+  const compact = total >= 7;
+  const titleSize = total >= 7 ? 20 : total === 6 ? 23 : 26;
+  const subSize = compact ? 10 : 11;
+  const roleSize = compact ? 10 : 11;
+  const shellPad = compact ? '10px' : '12px';
+  const footerPad = compact ? '12px 12px 13px' : '14px 14px 15px';
 
   return (
     <div style={{ position: 'relative', height: '100%', minHeight: 0, overflow: 'hidden', background: 'linear-gradient(180deg, rgba(255,255,255,0.028) 0%, rgba(255,255,255,0.012) 100%)', border: `1px solid rgba(255,255,255,0.14)`, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, display: 'flex', flexDirection: 'column' }}>
@@ -77,7 +111,6 @@ const RosterCard = ({ player, index, total }) => {
 
       <div style={{ position: 'relative', flex: 1, minHeight: 0, padding: shellPad, display: 'flex', flexDirection: 'column', zIndex: 2 }}>
         <div style={{ position: 'relative', flex: 1, minHeight: 0, background: COLORS.black, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.025)' }}>
-          
           <div style={{ position: 'absolute', top: '10px', left: '10px', right: '10px', bottom: '104px', background: 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.008) 100%)', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', inset: '8px', border: '1px solid rgba(255,255,255,0.035)', pointerEvents: 'none', zIndex: 3 }} />
             <img src={player.heroImage} alt={displayPrimaryName(player)} onError={e => { e.target.src = '/assets/roster/placeholder.jpg'; }} style={getHeroImageStyle(player, total)} />
@@ -117,7 +150,12 @@ const RosterCard = ({ player, index, total }) => {
 };
 
 export default function RosterScene({ matchData = {} }) {
-  const { teamName, teamLogo, players, staff } = getRosterData(matchData), total = Math.max(players.length, 5), gridCols = total <= 5 ? `repeat(${total}, 1fr)` : total === 6 ? 'repeat(6, 1fr)' : 'repeat(7, 1fr)', gap = total >= 7 ? '10px' : total === 6 ? '12px' : '14px', managerText = displayStaffInline(staff.manager), coachText = staff.coaches.length ? staff.coaches.map(displayStaffInline).join(' / ') : '—';
+  const { teamName, teamLogo, players, staff } = getRosterData(matchData);
+  const total = Math.max(players.length, 5);
+  const gridCols = total <= 5 ? `repeat(${total}, 1fr)` : total === 6 ? 'repeat(6, 1fr)' : 'repeat(7, 1fr)';
+  const gap = total >= 7 ? '10px' : total === 6 ? '12px' : '14px';
+  const managerText = displayStaffInline(staff.manager);
+  const coachText = staff.coaches.length ? staff.coaches.map(displayStaffInline).join(' / ') : '—';
 
   return (
     <div style={{ width: '1920px', height: '1080px', position: 'relative', overflow: 'hidden', backgroundColor: COLORS.black, fontFamily: '"HarmonyOS Sans SC", sans-serif' }}>

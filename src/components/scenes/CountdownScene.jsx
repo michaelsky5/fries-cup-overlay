@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useMatchContext } from '../../contexts/MatchContext';
 
 const COLORS = {
   black: '#2a2a2a', yellow: '#f4c320', white: '#ffffff',
@@ -129,7 +130,10 @@ const ScheduleBoard = ({ matches, compact = false, dense = false }) => {
   );
 };
 
-export default function CountdownScene({ matchData, updateData }) {
+export default function CountdownScene({ matchData, updateData: updateDataProp }) {
+  const matchContext = useMatchContext?.();
+  const updateData = updateDataProp || matchContext?.updateData;
+
   const mode = matchData.countdownMode || 'FULL';
   const videoRef = useRef(null);
   const currentVideo = matchData.activeVideoPath || '';
@@ -160,22 +164,37 @@ export default function CountdownScene({ matchData, updateData }) {
       } else {
         setTimeLeft(0);
       }
-    }, 100); 
+    }, 100);
     return () => clearInterval(timerId);
-  }, [matchData.targetTimestamp]); 
+  }, [matchData.targetTimestamp]);
 
   const handleVideoEnded = () => {
     if (!playlist || playlist.length <= 1) return;
+
     const currentIndex = playlist.indexOf(currentVideo);
     let nextIndex = 0;
+
     if (currentIndex !== -1 && currentIndex < playlist.length - 1) nextIndex = currentIndex + 1;
-    if (updateData) updateData({ ...matchData, activeVideoPath: playlist[nextIndex] });
+
+    if (updateData) {
+      updateData({ ...matchData, activeVideoPath: playlist[nextIndex] });
+    }
   };
 
   const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
   const seconds = (timeLeft % 60).toString().padStart(2, '0');
 
-  const upcomingMatches = matchData.upcomingMatches && matchData.upcomingMatches.length > 0 ? matchData.upcomingMatches : [{ teamA: matchData.teamA, logoA: matchData.logoA, logoBgA: matchData.logoBgA, teamB: matchData.teamB, logoB: matchData.logoB, logoBgB: matchData.logoBgB }];
+  const upcomingMatches = matchData.upcomingMatches && matchData.upcomingMatches.length > 0
+    ? matchData.upcomingMatches
+    : [{
+        teamA: matchData.teamA,
+        logoA: matchData.logoA,
+        logoBgA: matchData.logoBgA,
+        teamB: matchData.teamB,
+        logoB: matchData.logoB,
+        logoBgB: matchData.logoBgB
+      }];
+
   const activeVideoItem = (matchData.videoLibrary || []).find((v) => v.path === currentVideo);
   const promoName = activeVideoItem ? activeVideoItem.name : 'PROMO';
   const isDenseRightPanel = upcomingMatches.length >= 4;
@@ -185,14 +204,14 @@ export default function CountdownScene({ matchData, updateData }) {
   const holeClipPath = 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 180px, 78px 180px, 78px 900px, 1358px 900px, 1358px 180px, 78px 180px, 0% 180px)';
 
   return (
-    <div style={{ 
-      width: '1920px', 
-      height: '1080px', 
-      background: isOBSLocalVideo ? 'transparent' : COLORS.black, 
-      position: 'relative', 
-      overflow: 'hidden', 
-      fontFamily: '"HarmonyOS Sans SC", sans-serif', 
-      color: COLORS.white 
+    <div style={{
+      width: '1920px',
+      height: '1080px',
+      background: isOBSLocalVideo ? 'transparent' : COLORS.black,
+      position: 'relative',
+      overflow: 'hidden',
+      fontFamily: '"HarmonyOS Sans SC", sans-serif',
+      color: COLORS.white
     }}>
       <style>{`
         @keyframes slideInLeft { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: translateX(0); } }
@@ -206,12 +225,12 @@ export default function CountdownScene({ matchData, updateData }) {
       )}
 
       {/* 背景点阵网格，如果是镂空模式也会一起挖洞 */}
-      <div style={{ 
-        position: 'absolute', 
-        inset: 0, 
-        pointerEvents: 'none', 
-        background: 'linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(180deg, rgba(255,255,255,0.014) 1px, transparent 1px)', 
-        backgroundSize: '120px 120px, 120px 120px', 
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        pointerEvents: 'none',
+        background: 'linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(180deg, rgba(255,255,255,0.014) 1px, transparent 1px)',
+        backgroundSize: '120px 120px, 120px 120px',
         opacity: 0.32,
         clipPath: isOBSLocalVideo ? holeClipPath : 'none'
       }} />
@@ -276,24 +295,24 @@ export default function CountdownScene({ matchData, updateData }) {
             {isOBSLocal ? (
               <div style={{ width: '100%', height: '100%', background: 'transparent' }} />
             ) : currentVideo ? (
-              <video 
-                key={currentVideo} 
-                ref={videoRef} 
-                src={currentVideo} 
-                autoPlay 
-                muted={forceMuted} 
+              <video
+                key={currentVideo}
+                ref={videoRef}
+                src={currentVideo}
+                autoPlay
+                muted={forceMuted}
                 playsInline
-                loop={!playlist || playlist.length <= 1} 
-                onEnded={handleVideoEnded} 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                onError={(e) => { e.target.style.display = 'none'; }} 
+                loop={!playlist || playlist.length <= 1}
+                onEnded={handleVideoEnded}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => { e.target.style.display = 'none'; }}
               />
             ) : (
               <div style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'rgba(255,255,255,0.26)', fontSize: '24px', fontWeight: '900', letterSpacing: '4px', textTransform: 'uppercase' }}>Promo_Sys // Standby</div>
             )}
 
             <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', boxShadow: 'inset 0 0 80px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.04)', zIndex: 4 }} />
-            
+
             {/* 🚀 隐藏角标逻辑：如果是在 OBS 镂空垫片模式下，直接干掉这个角标 */}
             {!isOBSLocalVideo && (
               <div style={{ position: 'absolute', bottom: '22px', left: '22px', backgroundColor: COLORS.yellow, color: COLORS.black, padding: '7px 14px', fontWeight: '900', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1.4px', boxShadow: UI.yellowGlow, zIndex: 5 }}>

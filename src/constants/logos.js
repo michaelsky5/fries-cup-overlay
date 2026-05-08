@@ -10,10 +10,23 @@ const scannedLogos = Object.entries(logoModules)
   })
   .sort((a, b) => a.name.localeCompare(b.name));
 
+const findLogoByName = name => {
+  const target = String(name || '').trim().toUpperCase();
+  return scannedLogos.find(logo => String(logo.name || '').trim().toUpperCase() === target);
+};
+
+const defaultLogo = findLogoByName('OW') || scannedLogos[0] || {
+  name: 'OW',
+  path: '/assets/logos/OW.png'
+};
+
 export const LOGO_LIST = [
-  { name: 'TBD', path: '/src/assets/logos/OW.png' },
-  // 🚀 过滤掉名为 TBD 和 OW 的扫描结果，防止重复
-  ...scannedLogos.filter(logo => 
-    logo.name.toUpperCase() !== 'TBD'
-  )
+  {
+    name: 'TBD',
+    path: defaultLogo.path
+  },
+  ...scannedLogos.filter(logo => {
+    const name = String(logo.name || '').trim().toUpperCase();
+    return name !== 'TBD' && name !== 'OW';
+  })
 ];

@@ -131,6 +131,19 @@ function ConsoleWorkspace({
     'TEAM_DB',
   ];
 
+  // Easy Mode 下允许自动上墙的页面。管理页 / 数据包装编辑页不自动 TAKE。
+  const AUTO_TAKE_TABS = new Set([
+    'LIVE',
+    'MAP_POOL',
+    'ROSTER',
+    'STATS',
+    'CASTERS',
+    'COUNTDOWN',
+    'HIGHLIGHT',
+    'VIDEO',
+    'COVER'
+  ]);
+
   const displayTabs = OPTIMAL_TAB_ORDER.filter(tab => availableTabs.includes(tab));
 
   const [isExporting, setIsExporting] = useState(false);
@@ -184,6 +197,7 @@ function ConsoleWorkspace({
       `}</style>
 
       <div 
+        ref={coverSceneRef}
         style={{ 
           position: 'absolute', 
           top: 0, 
@@ -196,7 +210,7 @@ function ConsoleWorkspace({
           overflow: 'hidden'
         }}
       >
-        <BroadcastCoverScene ref={coverSceneRef} matchData={matchData} />
+        <BroadcastCoverScene matchData={matchData} />
       </div>
 
       <div
@@ -1016,7 +1030,7 @@ function ConsoleWorkspace({
                         active={activeTab === tab}
                         onClick={() => {
                           setActiveTab(tab);
-                          if (!isUnlocked) {
+                          if (!isUnlocked && AUTO_TAKE_TABS.has(tab)) {
                             setPreviewScene(tab);
                             takeScene(tab, '[AUTO-TAKE] Menu');
                           }

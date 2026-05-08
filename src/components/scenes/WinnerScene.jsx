@@ -21,7 +21,6 @@ const UI = {
   insetLine: 'inset 0 0 0 1px rgba(255,255,255,0.04)'
 };
 
-// 🌟 新增：冠军专属动效帧
 const WINNER_KEYFRAMES = `
   @keyframes fc_cardDrop {
     0% { opacity: 0; transform: scale(1.15) translateY(-40px); filter: blur(10px); }
@@ -50,8 +49,34 @@ const WINNER_KEYFRAMES = `
   }
 `;
 
+const normalizeText = value => String(value || '').trim().toUpperCase();
+
+const resolveWinnerSide = matchData => {
+  const raw =
+    matchData?.winnerScene?.winner ||
+    matchData?.winnerScene?.side ||
+    matchData?.winnerSide ||
+    matchData?.winner ||
+    matchData?.mapWinner ||
+    '';
+
+  const text = normalizeText(raw);
+  const teamA = normalizeText(matchData?.teamA);
+  const teamB = normalizeText(matchData?.teamB);
+  const teamShortA = normalizeText(matchData?.teamShortA);
+  const teamShortB = normalizeText(matchData?.teamShortB);
+
+  if (['B', 'TEAM_B', 'TEAM B', 'RIGHT', 'BLUE', 'AWAY'].includes(text)) return 'B';
+  if (['A', 'TEAM_A', 'TEAM A', 'LEFT', 'RED', 'HOME'].includes(text)) return 'A';
+
+  if (text && (text === teamB || text === teamShortB)) return 'B';
+  if (text && (text === teamA || text === teamShortA)) return 'A';
+
+  return 'A';
+};
+
 export default function WinnerScene({ matchData = {} }) {
-  const winner = matchData?.winnerScene?.winner === 'B' ? 'B' : 'A';
+  const winner = resolveWinnerSide(matchData);
   const winnerName = winner === 'B' ? (matchData.teamB || 'TEAM B') : (matchData.teamA || 'TEAM A');
   const winnerLogo = winner === 'B' ? (matchData.logoB || '') : (matchData.logoA || '');
   const topLabel = matchData?.winnerScene?.title || 'WINNER';
@@ -70,7 +95,6 @@ export default function WinnerScene({ matchData = {} }) {
     >
       <style>{WINNER_KEYFRAMES}</style>
 
-      {/* 背景网格，加入淡入动画 */}
       <div
         style={{
           position: 'absolute',
@@ -140,7 +164,6 @@ export default function WinnerScene({ matchData = {} }) {
         </div>
       </div>
 
-      {/* 🌟 巨型背景水印，加入无限缓慢平移动画 */}
       <div
         style={{
           position: 'absolute',
@@ -199,14 +222,13 @@ export default function WinnerScene({ matchData = {} }) {
               textTransform: 'uppercase',
               userSelect: 'none',
               willChange: 'transform',
-              animation: 'fc_bgPan 30s ease-in-out infinite alternate' // 🌟 缓慢巡游特效
+              animation: 'fc_bgPan 30s ease-in-out infinite alternate'
             }}
           >
             WINNER
           </div>
         </div>
 
-        {/* 🌟 冠军主卡片，加入重力砸入动画 */}
         <div
           style={{
             position: 'absolute',
@@ -306,7 +328,6 @@ export default function WinnerScene({ matchData = {} }) {
               WINNER
             </div>
 
-            {/* 🌟 冠军队伍 Logo，加入爆点缩放动画和呼吸灯 */}
             <div
               style={{
                 position: 'relative',
@@ -323,13 +344,14 @@ export default function WinnerScene({ matchData = {} }) {
                 animation: `
                   fc_logoPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s forwards,
                   fc_glowPulse 3s ease-in-out 1.3s infinite
-                ` // 弹出后衔接呼吸灯
+                `
               }}
             >
               {winnerLogo ? (
                 <img
                   src={winnerLogo}
                   alt={winnerName}
+                  onError={e => { e.currentTarget.style.display = 'none'; }}
                   style={{
                     width: '78%',
                     height: '78%',

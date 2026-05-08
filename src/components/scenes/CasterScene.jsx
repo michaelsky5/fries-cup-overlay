@@ -556,29 +556,29 @@ const InterviewInfoBox = React.memo(({ matchData = {} }) => {
           </div>
 
           <div
-  style={{
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: '10px'
-  }}
->
-  <div
-    style={{
-      width: '9px',
-      height: '9px',
-      background: COLORS.yellow,
-      boxShadow: '0 0 12px rgba(244,195,32,0.22)'
-    }}
-  />
-  <div
-    style={{
-      width: '58px',
-      height: '2px',
-      background: 'rgba(255,255,255,0.22)'
-    }}
-  />
-</div>
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: '10px'
+            }}
+          >
+            <div
+              style={{
+                width: '9px',
+                height: '9px',
+                background: COLORS.yellow,
+                boxShadow: '0 0 12px rgba(244,195,32,0.22)'
+              }}
+            />
+            <div
+              style={{
+                width: '58px',
+                height: '2px',
+                background: 'rgba(255,255,255,0.22)'
+              }}
+            />
+          </div>
 
           <div style={{ fontSize: '15px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '1.4px', textTransform: 'uppercase' }}>
             {box.status || 'VOICE CONNECTED'}
