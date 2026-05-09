@@ -1,13 +1,40 @@
-import React, { useState, useMemo, useCallback } from 'react';
-// 🚀 引入 i18n
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { ShellPanel, Field } from '../common/SharedUI';
 import { COLORS, labelStyle, panelBase } from '../../constants/styles';
-import { LOGO_LIST } from '../../constants/logos';
+import { LOGO_LIST, resolveTeamLogoPath, getLogoFileStem, isTbdLogoKey } from '../../constants/logos';
 import { HERO_DATA } from '../../constants/gameData';
 import { createEditorUi } from '../../utils/editorUi';
 import { needsAttackDefense } from '../../constants/gameData';
+
+const BAN_ROLE_OPTIONS = ['tank', 'damage', 'support'];
+const DEFAULT_BAN_ENTRY = 'damage/tbd';
+const resetBanList = () => [DEFAULT_BAN_ENTRY];
+
+const parseBanEntry = entry => {
+  const raw = Array.isArray(entry) ? entry[0] : entry;
+  const str = String(raw || DEFAULT_BAN_ENTRY).trim().toLowerCase();
+
+  if (!str) return { role: 'damage', hero: 'tbd' };
+  if (!str.includes('/')) return { role: 'damage', hero: str || 'tbd' };
+
+  const [role, hero] = str.split('/');
+
+  return {
+    role: BAN_ROLE_OPTIONS.includes(role) ? role : 'damage',
+    hero: hero || 'tbd'
+  };
+};
+
+const isRealBanEntry = entry => {
+  const parsed = parseBanEntry(entry);
+  return !!parsed.hero && parsed.hero !== 'tbd';
+};
+
+const normalizeBanList = bans =>
+  (Array.isArray(bans) ? bans : [])
+    .filter(isRealBanEntry);
 
 const TeamControlPanel = React.memo(({
   side, matchData, updateData, updateWithHistory, setPreviewScene,
@@ -15,19 +42,19 @@ const TeamControlPanel = React.memo(({
   sideLeftLabel, sideRightLabel, toggleAttackDefense, banInfo, getRosterOptionsForSide,
   onSetMapWinner,
   isA, isUltra, is1080Compact, density, ui, t, compactInputPad, controlRowHeight, stackGap, innerGap, tightGap, compactBtnPad, playerCols, subButtonHeight, livePanelBodyPadding,
-  tr // 🚀 接收翻译函数
+  tr
 }) => {
   const teamName = isA ? matchData.teamA : matchData.teamB;
   const teamShort = isA ? matchData.teamShortA : matchData.teamShortB;
-  const logo = isA ? matchData.logoA : matchData.logoB;
+  const rawLogo = isA ? matchData.logoA : matchData.logoB;
   const logoBg = isA ? matchData.logoBgA : matchData.logoBgB;
   const players = isA ? matchData.playersA : matchData.playersB;
   const subIndex = isA ? matchData.subIndexA : matchData.subIndexB;
 
   const sideLabel = isA ? sideLeftLabel : sideRightLabel;
   const sideActive = isA ? attackSide === 'A' : attackSide === 'B';
-  const banOrderLabel = isA 
-    ? (matchData.banOrderMode === 'B_FIRST' ? tr('liveEditor.aSecond') : tr('liveEditor.aFirst')) 
+  const banOrderLabel = isA
+    ? (matchData.banOrderMode === 'B_FIRST' ? tr('liveEditor.aSecond') : tr('liveEditor.aFirst'))
     : (matchData.banOrderMode === 'B_FIRST' ? tr('liveEditor.bFirst') : tr('liveEditor.bSecond'));
   const banPanelOpacity = matchData.showBans ? 1 : 0.58;
 
@@ -41,21 +68,73 @@ const TeamControlPanel = React.memo(({
       .slice(0, 4)
       .toUpperCase() || '';
 
+  const getLogoOptionByPath = logoPath =>
+    LOGO_LIST.find(item => item.path && item.path === logoPath) || null;
+
+  const getShortFromLogoPath = logoPath => {
+    const logoName = getLogoOptionByPath(logoPath)?.name || getLogoFileStem(logoPath);
+    const shortName = String(logoName || '').trim();
+
+    if (!shortName || isTbdLogoKey(shortName)) return '';
+
+    return shortName.toUpperCase();
+  };
+
+  const resolveLivePresetLogo = preset => {
+    const data = preset?.data || {};
+
+    return resolveTeamLogoPath({
+      key: preset?.key,
+      name: preset?.name,
+      data: {
+        ...data,
+        logoKey: data.logoKey || data.teamShortName || data.teamCode || preset?.key || '',
+        logo: data.logo || data.logoPath || data.teamLogo || '',
+        logoPath: data.logoPath || data.logo || data.teamLogo || '',
+        teamLogo: data.teamLogo || data.logo || data.logoPath || ''
+      }
+    }, '');
+  };
+
+  const logo = resolveTeamLogoPath({
+    key: teamShort,
+    name: teamName,
+    data: {
+      logo: rawLogo,
+      logoPath: rawLogo,
+      teamLogo: rawLogo,
+      logoKey: teamShort,
+      teamShortName: teamShort,
+      teamCode: teamShort,
+      teamName
+    }
+  }, LOGO_LIST.some(item => item.path === rawLogo) ? rawLogo : '');
+
   const loadTeamFromLibrary = (side, presetKey) => {
     if (!presetKey) return;
+
     const preset = library.find(p => p.key === presetKey);
     if (!preset) return;
-    const tData = preset.data;
+
+    const tData = preset.data || {};
+    const finalLogo = resolveLivePresetLogo(preset);
+    const logoShort = getShortFromLogoPath(finalLogo);
+    const finalShort =
+      logoShort ||
+      tData.teamShort ||
+      tData.shortName ||
+      tData.teamShortName ||
+      tData.teamCode ||
+      preset.key ||
+      buildFallbackShort(tData.teamName || preset.name);
+
     const top5Players = (tData.players || []).slice(0, 5).map(p => p.nickname || p.battleTag || '');
     while (top5Players.length < 5) top5Players.push('');
-    const savedLogo = tData.logo || tData.logoPath || tData.teamLogo;
-    const isLogoValid = LOGO_LIST.some(l => l.path === savedLogo);
-    const finalLogo = isLogoValid ? savedLogo : (LOGO_LIST[0]?.path || '');
 
     updateWithHistory(`Load team ${side}: ${preset.name}`, {
       ...matchData,
       [isA ? 'teamA' : 'teamB']: tData.teamName || preset.name,
-      [isA ? 'teamShortA' : 'teamShortB']: tData.teamShort || tData.shortName || buildFallbackShort(tData.teamName || preset.name),
+      [isA ? 'teamShortA' : 'teamShortB']: String(finalShort || '').toUpperCase(),
       [isA ? 'logoA' : 'logoB']: finalLogo,
       [isA ? 'playersA' : 'playersB']: top5Players,
       [isA ? 'rosterPlayersA' : 'rosterPlayersB']: tData.players || [],
@@ -63,8 +142,11 @@ const TeamControlPanel = React.memo(({
         clubName: tData.clubName || '',
         showClubName: true,
         manager: tData.manager || { nickname: '', battleTag: '' },
-        coaches: tData.coaches || []
-      }
+        coaches: tData.coaches || [],
+        presetKey: preset.key || '',
+        presetName: preset.name || ''
+      },
+      [isA ? 'rosterActivePresetKeyA' : 'rosterActivePresetKeyB']: preset.key || ''
     });
   };
 
@@ -140,15 +222,14 @@ const TeamControlPanel = React.memo(({
               <input
                 style={{ ...ui.input, padding: compactInputPad, height: controlRowHeight, textTransform: 'uppercase', fontWeight: '900', textAlign: 'center' }}
                 value={teamShort || ''}
-                maxLength={4}
-                onChange={e => updateData(prev => ({ ...prev, [isA ? 'teamShortA' : 'teamShortB']: e.target.value.toUpperCase().slice(0, 4) }))}
+                onChange={e => updateData(prev => ({ ...prev, [isA ? 'teamShortA' : 'teamShortB']: e.target.value.toUpperCase() }))}
                 placeholder={tr('liveEditor.tagPlaceholder')}
               />
             )}
 
             {!isUltra && (
               <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={logo} onChange={e => updateData(prev => ({ ...prev, [isA ? 'logoA' : 'logoB']: e.target.value }))}>
-                {LOGO_LIST.map((l, index) => <option key={`${l.path}-${index}`} value={l.path}>{l.name}</option>)}
+                {LOGO_LIST.map((l, index) => <option key={`${l.name}-${l.path}-${index}`} value={l.path}>{l.name}</option>)}
               </select>
             )}
 
@@ -166,15 +247,14 @@ const TeamControlPanel = React.memo(({
                 <input
                   style={{ ...ui.input, padding: compactInputPad, height: controlRowHeight, textTransform: 'uppercase', fontWeight: '900', textAlign: 'center' }}
                   value={teamShort || ''}
-                  maxLength={4}
-                  onChange={e => updateData(prev => ({ ...prev, [isA ? 'teamShortA' : 'teamShortB']: e.target.value.toUpperCase().slice(0, 4) }))}
+                  onChange={e => updateData(prev => ({ ...prev, [isA ? 'teamShortA' : 'teamShortB']: e.target.value.toUpperCase() }))}
                   placeholder={tr('liveEditor.tagPlaceholder')}
                 />
               </Field>
 
               <Field label={tr('liveEditor.logo')} density={density}>
                 <select style={{ ...ui.select, padding: compactInputPad, height: controlRowHeight }} value={logo} onChange={e => updateData(prev => ({ ...prev, [isA ? 'logoA' : 'logoB']: e.target.value }))}>
-                  {LOGO_LIST.map((l, index) => <option key={`${l.path}-${index}`} value={l.path}>{l.name}</option>)}
+                  {LOGO_LIST.map((l, index) => <option key={`${l.name}-${l.path}-${index}`} value={l.path}>{l.name}</option>)}
                 </select>
               </Field>
 
@@ -264,7 +344,6 @@ const TeamControlPanel = React.memo(({
 export default function LiveEditor({
   isDense, isUltra, isShort, density = 'standard', densityTokens
 }) {
-  // 🚀 初始化翻译钩子
   const { t: tr } = useTranslation();
   const { matchData, updateData, updateWithHistory, setPreviewScene } = useMatchContext();
 
@@ -278,7 +357,7 @@ export default function LiveEditor({
 
   const [selectedPresetA, setSelectedPresetA] = useState('');
   const [selectedPresetB, setSelectedPresetB] = useState('');
-  
+
   const [resetConfirm, setResetConfirm] = useState(false);
 
   const livePanelBodyPadding = is1080Compact ? '10px 12px' : density === 'spacious' ? '14px 16px' : t.panelPadding;
@@ -300,8 +379,8 @@ export default function LiveEditor({
   const liveMainTemplate = isUltra ? '1fr' : is1080Compact ? 'minmax(0,1fr) 250px minmax(0,1fr)' : density === 'spacious' ? 'minmax(320px,1fr) 320px minmax(320px,1fr)' : 'minmax(0,1fr) 280px minmax(0,1fr)';
 
   const getBanInfo = useCallback(bans => {
-    const currentBan = bans?.[0] || 'damage/tbd';
-    return { role: currentBan.includes('/') ? currentBan.split('/')[0] : 'damage', hero: currentBan.includes('/') ? currentBan.split('/')[1] : 'tbd' };
+    const currentBan = Array.isArray(bans) ? bans[0] : bans;
+    return parseBanEntry(currentBan || DEFAULT_BAN_ENTRY);
   }, []);
 
   const banA = getBanInfo(matchData.bansA);
@@ -343,13 +422,15 @@ export default function LiveEditor({
     while (nextMapLineup.length <= currentMapIdx) nextMapLineup.push({});
 
     const prevMap = nextMapLineup[currentMapIdx] || {};
+    const archivedBansA = normalizeBanList(matchData.bansA);
+    const archivedBansB = normalizeBanList(matchData.bansB);
 
     nextMapLineup[currentMapIdx] = {
       ...prevMap,
       winner: nextWinner,
       winnerSide: nextWinner,
-      bansA: Array.isArray(matchData.bansA) ? [...matchData.bansA] : [],
-      bansB: Array.isArray(matchData.bansB) ? [...matchData.bansB] : [],
+      bansA: archivedBansA,
+      bansB: archivedBansB,
       banOrderMode: matchData.banOrderMode || 'A_FIRST',
       attackSide: prevMap.attackSide || currentMapData.attackSide || matchData.attackSide || ''
     };
@@ -369,6 +450,12 @@ export default function LiveEditor({
       scoreA: nextScoreA,
       scoreB: nextScoreB,
       mapLineup: nextMapLineup,
+      bansA: resetBanList(),
+      bansB: resetBanList(),
+      banOrderMode: 'A_FIRST',
+      showBanPhase: false,
+      heroBanTriggerAt: 0,
+      autoBeginTriggerAt: 0,
       globalScene: 'WINNER',
       winnerScene: {
         ...(matchData.winnerScene || {}),
@@ -397,18 +484,23 @@ export default function LiveEditor({
       ...m,
       winner: '',
       winnerSide: '',
-      bansA: [],
-      bansB: []
+      bansA: resetBanList(),
+      bansB: resetBanList(),
+      banOrderMode: 'A_FIRST'
     }));
-    
+
     updateWithHistory('Reset Match Scores and Map Data', {
       ...matchData,
       scoreA: 0,
       scoreB: 0,
-      currentMap: 1, 
+      currentMap: 1,
       mapLineup: clearedMapLineup,
-      bansA: [], 
-      bansB: []
+      bansA: resetBanList(),
+      bansB: resetBanList(),
+      banOrderMode: 'A_FIRST',
+      showBanPhase: false,
+      heroBanTriggerAt: 0,
+      autoBeginTriggerAt: 0
     });
     setResetConfirm(false);
   }, [matchData, updateWithHistory, resetConfirm]);
@@ -416,7 +508,6 @@ export default function LiveEditor({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: rootGap }}>
       <div style={{ display: 'grid', gridTemplateColumns: liveMainTemplate, gap: liveMainGap, alignItems: 'stretch' }}>
-
         <TeamControlPanel
           side="A" isA={true} matchData={matchData} updateData={updateData} updateWithHistory={updateWithHistory} setPreviewScene={setPreviewScene}
           selectedPreset={selectedPresetA} setSelectedPreset={setSelectedPresetA} library={library} showSideControl={showSideControl}
@@ -431,9 +522,8 @@ export default function LiveEditor({
           <div style={{ display: 'flex', flexDirection: 'column', gap: stackGap, height: '100%' }}>
             <div style={{ ...panelBase, padding: is1080Compact ? '10px' : t.panelPadding, borderTop: `2px solid ${COLORS.yellow}` }}>
               <div style={sectionTitleStyle}>{tr('liveEditor.scoreControl')}</div>
-              
+
               <div style={{ marginTop: sectionTopGap, display: 'grid', gridTemplateColumns: '1fr auto 1fr', rowGap: sectionTopGap, columnGap: innerGap, alignItems: 'center' }}>
-                
                 <div style={{ textAlign: 'center', fontSize: is1080Compact ? '24px' : density === 'spacious' ? '36px' : '32px', fontWeight: '900', color: COLORS.white, lineHeight: 1 }}>{matchData.scoreA}</div>
                 <div style={{ textAlign: 'center', fontSize: is1080Compact ? '13px' : density === 'spacious' ? '16px' : '15px', fontWeight: '900', color: COLORS.yellow, letterSpacing: is1080Compact ? '1px' : '2px', lineHeight: 1 }}>{tr('liveEditor.vs')}</div>
                 <div style={{ textAlign: 'center', fontSize: is1080Compact ? '24px' : density === 'spacious' ? '36px' : '32px', fontWeight: '900', color: COLORS.white, lineHeight: 1 }}>{matchData.scoreB}</div>
@@ -442,21 +532,21 @@ export default function LiveEditor({
                   <button style={{ ...ui.outlineBtn, padding: is1080Compact ? '5px 0' : '7px 0', fontSize: is1080Compact ? '11px' : undefined }} onClick={() => updateWithHistory('TEAM A -1', { ...matchData, scoreA: Math.max(0, matchData.scoreA - 1) })}>-1</button>
                   <button style={{ ...ui.actionBtn, padding: is1080Compact ? '5px 0' : '7px 0', fontSize: is1080Compact ? '11px' : undefined }} onClick={() => updateWithHistory('TEAM A +1', { ...matchData, scoreA: matchData.scoreA + 1 })}>+1</button>
                 </div>
-                
-                <button 
-                  style={{ 
-                    ...ui.outlineBtn, 
-                    padding: is1080Compact ? '5px 10px' : '7px 14px', 
-                    fontSize: is1080Compact ? '10px' : '11px', 
-                    backgroundColor: resetConfirm ? 'rgba(255,77,77,0.92)' : 'rgba(255,77,77,0.08)', 
-                    color: resetConfirm ? '#fff' : '#ff7d7d', 
+
+                <button
+                  style={{
+                    ...ui.outlineBtn,
+                    padding: is1080Compact ? '5px 10px' : '7px 14px',
+                    fontSize: is1080Compact ? '10px' : '11px',
+                    backgroundColor: resetConfirm ? 'rgba(255,77,77,0.92)' : 'rgba(255,77,77,0.08)',
+                    color: resetConfirm ? '#fff' : '#ff7d7d',
                     border: '1px solid rgba(255,77,77,0.3)',
                     fontWeight: '900',
                     width: '100%',
                     height: '100%',
                     whiteSpace: 'nowrap',
                     transition: 'all 0.2s ease'
-                  }} 
+                  }}
                   onClick={handleResetMatch}
                 >
                   {resetConfirm ? tr('liveEditor.sure') : tr('liveEditor.reset')}

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useCallback } from 'react';
 import html2canvas from 'html2canvas';
 import { useTranslation } from 'react-i18next';
 
@@ -32,6 +32,9 @@ import OBSConnector from '../controls/OBSConnector';
 import RightSidebar from './RightSidebar';
 import StingerTransition from '../scenes/StingerTransition';
 import BroadcastCoverScene from '../scenes/BroadcastCoverScene';
+
+const DEFAULT_BAN_ENTRY = 'damage/tbd';
+const resetBanList = () => [DEFAULT_BAN_ENTRY];
 
 function ConsoleWorkspace({
   density,
@@ -214,6 +217,36 @@ function ConsoleWorkspace({
       setIsExporting(false);
     }
   };
+
+  const normalizeResetBanState = useCallback(data => {
+    const source = data || {};
+
+    return {
+      ...source,
+      bansA: resetBanList(),
+      bansB: resetBanList(),
+      banOrderMode: 'A_FIRST',
+      showBanPhase: false,
+      heroBanTriggerAt: 0,
+      autoBeginTriggerAt: 0,
+      mapLineup: Array.isArray(source.mapLineup)
+        ? source.mapLineup.map(map => ({
+            ...map,
+            bansA: resetBanList(),
+            bansB: resetBanList(),
+            banOrderMode: 'A_FIRST'
+          }))
+        : source.mapLineup
+    };
+  }, []);
+
+  const handleWorkspaceReset = useCallback(() => {
+    handleReset?.();
+
+    window.setTimeout(() => {
+      updateData(prev => normalizeResetBanState(prev || matchData));
+    }, 0);
+  }, [handleReset, updateData, normalizeResetBanState, matchData]);
 
   return (
     <div
@@ -959,7 +992,7 @@ function ConsoleWorkspace({
                       cursor: isTransitioning ? 'not-allowed' : 'pointer',
                       opacity: isTransitioning ? 0.5 : 1
                     }}
-                    onClick={handleReset}
+                    onClick={handleWorkspaceReset}
                     disabled={isTransitioning}
                   >
                     {tr('workspace.hardReset')}

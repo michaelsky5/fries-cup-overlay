@@ -61,6 +61,16 @@ const cloneValue = value => {
   }
 };
 
+const DEFAULT_BAN_ENTRY = 'damage/tbd';
+const resetBanList = () => [DEFAULT_BAN_ENTRY];
+
+const resetMapBans = map => ({
+  ...map,
+  bansA: resetBanList(),
+  bansB: resetBanList(),
+  banOrderMode: 'A_FIRST'
+});
+
 const parseSeriesCount = value => {
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
   if (typeof value === 'string') {
@@ -705,9 +715,9 @@ function MainApp() {
           logoBgA: COLORS.mainDark,
           logoBgB: COLORS.mainDark,
 
-          bansA: cloneValue(defaultData.bansA),
-          bansB: cloneValue(defaultData.bansB),
-          banOrderMode: defaultData.banOrderMode,
+          bansA: resetBanList(),
+          bansB: resetBanList(),
+          banOrderMode: 'A_FIRST',
 
           playersA: cloneValue(defaultData.playersA),
           playersB: cloneValue(defaultData.playersB),
@@ -727,7 +737,9 @@ function MainApp() {
 
           mapPoolDisplayMode: defaultData.mapPoolDisplayMode,
           showOverviewCurrent: defaultData.showOverviewCurrent,
-          mapLineup: cloneValue(defaultData.mapLineup),
+          mapLineup: Array.isArray(defaultData.mapLineup)
+            ? defaultData.mapLineup.map(resetMapBans)
+            : [],
           eventMapPool: cloneValue(defaultData.eventMapPool),
           enabledMapTypes: cloneValue(defaultData.enabledMapTypes)
         })

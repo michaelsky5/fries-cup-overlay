@@ -57,6 +57,15 @@ const parseBanEntry = entry => {
 
 const buildBanEntry = (role, hero) => `${role || 'damage'}/${hero || 'tbd'}`;
 
+const isRealBanEntry = entry => {
+  const parsed = parseBanEntry(entry);
+  return !!parsed.hero && parsed.hero !== 'tbd';
+};
+
+const normalizeBanList = bans =>
+  (Array.isArray(bans) ? bans : [])
+    .filter(isRealBanEntry);
+
 const InlineSelect = React.memo(({
   labelLines,
   value,
@@ -261,7 +270,16 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
 
   const setCurrentMapSafe = nextMap => {
     const clamped = Math.max(1, Math.min(formatLength, nextMap));
-    updateWithHistory(`Change Current Map to ${clamped}`, { ...matchData, currentMap: clamped });
+    const targetMap = displayMaps[clamped - 1] || currentLineup[clamped - 1] || {};
+
+    updateWithHistory(`Change Current Map to ${clamped}`, {
+      ...matchData,
+      currentMap: clamped,
+      bansA: normalizeBanList(targetMap.bansA),
+      bansB: normalizeBanList(targetMap.bansB),
+      banOrderMode: targetMap.banOrderMode || 'A_FIRST',
+      showBanPhase: false
+    });
   };
 
   const updateMap = (index, key, value) => {
@@ -306,12 +324,19 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
     const prev = { ...newLineup[index] };
     const key = side === 'A' ? 'bansA' : 'bansB';
 
+    const nextBanList = [buildBanEntry(role, hero)];
+    const isCurrentTarget = currentMapSafe === index + 1;
+
     newLineup[index] = {
       ...prev,
-      [key]: [buildBanEntry(role, hero)]
+      [key]: nextBanList
     };
 
-    updateWithHistory(`Update Map ${index + 1} ${key}`, { ...matchData, mapLineup: newLineup });
+    updateWithHistory(`Update Map ${index + 1} ${key}`, {
+      ...matchData,
+      mapLineup: newLineup,
+      ...(isCurrentTarget ? { [key]: normalizeBanList(nextBanList) } : {})
+    });
   };
 
   const useLiveBansForMap = index => {
@@ -322,10 +347,13 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
 
     const prev = { ...newLineup[index] };
 
+    const liveBansA = normalizeBanList(matchData.bansA);
+    const liveBansB = normalizeBanList(matchData.bansB);
+
     newLineup[index] = {
       ...prev,
-      bansA: Array.isArray(matchData.bansA) ? [...matchData.bansA] : [],
-      bansB: Array.isArray(matchData.bansB) ? [...matchData.bansB] : [],
+      bansA: liveBansA,
+      bansB: liveBansB,
       banOrderMode: matchData.banOrderMode || 'A_FIRST'
     };
 
@@ -340,6 +368,8 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
 
     const prev = { ...newLineup[index] };
 
+    const isCurrentTarget = currentMapSafe === index + 1;
+
     newLineup[index] = {
       ...prev,
       bansA: [],
@@ -347,7 +377,11 @@ export default function MapPoolEditor({ density = 'standard', densityTokens, isD
       banOrderMode: 'A_FIRST'
     };
 
-    updateWithHistory(`Clear Map ${index + 1} bans`, { ...matchData, mapLineup: newLineup });
+    updateWithHistory(`Clear Map ${index + 1} bans`, {
+      ...matchData,
+      mapLineup: newLineup,
+      ...(isCurrentTarget ? { bansA: [], bansB: [], banOrderMode: 'A_FIRST', showBanPhase: false } : {})
+    });
   };
 
   const updateEventPoolSlot = (type, slotIndex, mapName) => {
