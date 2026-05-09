@@ -10,6 +10,17 @@ import { createEditorUi } from '../../utils/editorUi';
 const STATS_DB_URL = 'https://stats.fries-cup.com/data/friescup_db.json';
 const PLAYOFF_TEAM_SHORT_NAMES = ['NGP', 'TNS', 'YOU', 'ZS', 'HYW', 'SPC', 'XCFN.G', 'FG'];
 
+const PLAYOFF_LOGO_ALIASES = {
+  NGP: ['NGP', 'Never Get Point'],
+  TNS: ['TNS', 'Team New Star'],
+  YOU: ['YOU', '可爱小鱿4277'],
+  ZS: ['ZS', 'ZWU Spark'],
+  HYW: ['HYW', '何意味3'],
+  SPC: ['SPC', 'Spark Crew'],
+  'XCFN.G': ['XCFN.G', 'XCFNG', 'XCFN Green', 'XCFN.Green', 'XCFN'],
+  FG: ['FG', '家和万事兴']
+};
+
 const ROLE_ORDER = { TANK: 0, DAMAGE: 1, SUPPORT: 2 };
 const ROLE_ALIAS = { TANK: 'TANK', DPS: 'DAMAGE', DAMAGE: 'DAMAGE', SUP: 'SUPPORT', SUPPORT: 'SUPPORT' };
 
@@ -105,28 +116,110 @@ const getFileStem = path => {
   return fileName.replace(/\.[a-z0-9]+$/i, '');
 };
 
-const findTeamLogoPath = team => {
-  const remoteLogo = String(team?.team_logo || '').trim();
-  if (remoteLogo) return remoteLogo;
+const isTbdLogoValue = value => {
+  const text = compactText(value);
+  const stem = compactText(getFileStem(value));
+  const tbdTokens = ['tbd', '待定', 'unknown', 'default', 'placeholder'];
 
-  const candidates = [team?.team_short_name, team?.team_name, team?.team_club]
+  return tbdTokens.some(token =>
+    text === token ||
+    stem === token ||
+    text.endsWith(token) ||
+    stem.startsWith(token)
+  );
+};
+
+const getLogoComparableNames = item =>
+  [item?.name, item?.path, getFileStem(item?.path)]
     .filter(Boolean)
     .map(compactText);
 
-  const logo = LOGO_LIST.find(item => {
-    const logoNames = [item?.name, item?.path, getFileStem(item?.path)]
-      .filter(Boolean)
-      .map(compactText);
+const isLogoNameMatch = (name, target) => {
+  if (!name || !target) return false;
+  if (name === target) return true;
 
-    return candidates.some(candidate =>
-      logoNames.some(logoName =>
-        logoName === candidate || logoName.includes(candidate) || candidate.includes(logoName)
-      )
-    );
+  if (target.length <= 2 || name.length <= 2) {
+    return name === `${target}logo` || name.startsWith(`${target}logo`);
+  }
+
+  return name.includes(target) || target.includes(name);
+};
+
+const findLogoFromAliases = aliases => {
+  const targets = aliases.map(compactText).filter(Boolean);
+  if (!targets.length) return '';
+
+  const usableLogos = LOGO_LIST.filter(item => {
+    const names = getLogoComparableNames(item);
+    return !names.some(isTbdLogoValue);
   });
 
-  return logo?.path || LOGO_LIST[0]?.path || '';
+  const exact = usableLogos.find(item => {
+    const names = getLogoComparableNames(item);
+    return targets.some(target => names.some(name => name === target));
+  });
+
+  if (exact?.path) return exact.path;
+
+  const partial = usableLogos.find(item => {
+    const names = getLogoComparableNames(item);
+    return targets.some(target => names.some(name => isLogoNameMatch(name, target)));
+  });
+
+  return partial?.path || '';
 };
+
+const findTeamLogoPath = team => {
+  const remoteLogo = String(team?.team_logo || '').trim();
+  if (remoteLogo && !isTbdLogoValue(remoteLogo)) return remoteLogo;
+
+  const shortName = String(team?.team_short_name || '').trim();
+  const aliases = [
+    ...(PLAYOFF_LOGO_ALIASES[shortName] || []),
+    team?.team_short_name,
+    team?.team_name,
+    team?.team_club
+  ].filter(Boolean);
+
+  return findLogoFromAliases(aliases);
+};
+
+const resolveLogoFromPresetIdentity = preset => {
+  const data = preset?.data || {};
+  const aliases = [
+    ...(PLAYOFF_LOGO_ALIASES[preset?.key] || []),
+    ...(PLAYOFF_LOGO_ALIASES[data.teamShortName] || []),
+    preset?.key,
+    preset?.name,
+    data.teamName,
+    data.teamShortName,
+    data.teamCode,
+    data.clubName
+  ].filter(Boolean);
+
+  return findLogoFromAliases(aliases);
+};
+
+const normalizeTeamPresetForDB = preset => {
+  const data = preset?.data || {};
+  const directLogo = data.logo || data.logoPath || data.teamLogo || data.logoUrl || data.teamLogoPath || '';
+  const logo = directLogo && !isTbdLogoValue(directLogo) ? directLogo : resolveLogoFromPresetIdentity(preset);
+
+  return {
+    ...preset,
+    data: {
+      ...data,
+      logo,
+      logoPath: logo,
+      teamLogo: logo
+    }
+  };
+};
+
+const normalizeTeamPresetLibraryForDB = source =>
+  (Array.isArray(source) ? source : [])
+    .filter(Boolean)
+    .map(normalizeTeamPresetForDB);
 
 const pickHeroKey = (rawHero, role) => {
   const options = getRosterHeroOptions(role) || [];
@@ -218,7 +311,7 @@ const buildPlayoffPresetsFromDb = db => {
     const key = String(team.team_short_name || shortName).trim();
     const name = team.team_name || key;
 
-    return {
+    return normalizeTeamPresetForDB({
       key,
       name,
       data: {
@@ -237,17 +330,42 @@ const buildPlayoffPresetsFromDb = db => {
         sourceTeamId: team.team_id || '',
         sourceUpdatedAt: db?.updated_at || ''
       }
-    };
+    });
   }).filter(Boolean);
 };
 
-const mergePresetLibrary = (currentLibrary, incomingPresets) => {
-  const next = Array.isArray(currentLibrary) ? [...currentLibrary] : [];
+const getPresetLogo = preset => {
+  const data = preset?.data || {};
+  return data.logo || data.logoPath || data.teamLogo || '';
+};
 
-  incomingPresets.forEach(preset => {
+const mergePresetLibrary = (currentLibrary, incomingPresets) => {
+  const next = normalizeTeamPresetLibraryForDB(currentLibrary);
+  const incoming = normalizeTeamPresetLibraryForDB(incomingPresets);
+
+  incoming.forEach(preset => {
     const existedIndex = next.findIndex(item => item.key === preset.key);
-    if (existedIndex >= 0) next[existedIndex] = preset;
-    else next.push(preset);
+
+    if (existedIndex >= 0) {
+      const existing = next[existedIndex];
+      const incomingLogo = getPresetLogo(preset);
+      const existingLogo = getPresetLogo(existing);
+      const safeLogo = incomingLogo && !isTbdLogoValue(incomingLogo) ? incomingLogo : existingLogo;
+
+      next[existedIndex] = normalizeTeamPresetForDB({
+        ...existing,
+        ...preset,
+        data: {
+          ...(existing.data || {}),
+          ...(preset.data || {}),
+          logo: safeLogo || '',
+          logoPath: safeLogo || '',
+          teamLogo: safeLogo || ''
+        }
+      });
+    } else {
+      next.push(preset);
+    }
   });
 
   return next;
@@ -277,7 +395,9 @@ export default function TeamDBEditor({
   const tx = (key, fallback, options = {}) => tr(key, { defaultValue: fallback, ...options });
 
   const saveImportedPresets = (presets, actionLabel) => {
-    if (!presets.length) {
+    const normalizedPresets = normalizeTeamPresetLibraryForDB(presets);
+
+    if (!normalizedPresets.length) {
       showModal({
         type: 'alert',
         title: tx('teamDbEditor.playoffImportEmpty', '未找到八强队伍'),
@@ -287,7 +407,7 @@ export default function TeamDBEditor({
       return;
     }
 
-    const nextLibrary = mergePresetLibrary(library, presets);
+    const nextLibrary = mergePresetLibrary(library, normalizedPresets);
 
     updateWithHistory(actionLabel, {
       ...matchData,
@@ -297,7 +417,7 @@ export default function TeamDBEditor({
     showModal({
       type: 'alert',
       title: tx('teamDbEditor.playoffImportSuccess', '八强预设已导入'),
-      message: tx('teamDbEditor.playoffImportSuccessMsg', '已同步 {{count}} 支季后赛队伍到队伍预设库。', { count: presets.length })
+      message: tx('teamDbEditor.playoffImportSuccessMsg', '已同步 {{count}} 支季后赛队伍到队伍预设库。', { count: normalizedPresets.length })
     });
   };
 
@@ -358,8 +478,10 @@ export default function TeamDBEditor({
   };
 
   const exportDB = () => {
+    const exportLibrary = normalizeTeamPresetLibraryForDB(library);
+
     navigator.clipboard
-      .writeText(JSON.stringify(library, null, 2))
+      .writeText(JSON.stringify(exportLibrary, null, 2))
       .then(() =>
         showModal({
           type: 'alert',
@@ -381,13 +503,8 @@ export default function TeamDBEditor({
           const parsed = JSON.parse(data);
           if (!Array.isArray(parsed)) throw new Error('Invalid format');
 
-          const currentLib = [...library];
-
-          parsed.forEach(newTeam => {
-            const idx = currentLib.findIndex(t => t.key === newTeam.key);
-            if (idx >= 0) currentLib[idx] = newTeam;
-            else currentLib.push(newTeam);
-          });
+          const normalizedParsed = normalizeTeamPresetLibraryForDB(parsed);
+          const currentLib = mergePresetLibrary(library, normalizedParsed);
 
           updateWithHistory('Import team database', {
             ...matchData,
@@ -397,7 +514,7 @@ export default function TeamDBEditor({
           showModal({
             type: 'alert',
             title: tr('teamDbEditor.importSuccess'),
-            message: tr('teamDbEditor.importSuccessMsg', { count: parsed.length })
+            message: tr('teamDbEditor.importSuccessMsg', { count: normalizedParsed.length })
           });
         } catch (e) {
           showModal({
@@ -600,7 +717,8 @@ export default function TeamDBEditor({
                 .map(p => p.nickname || p.battleTag)
                 .filter(Boolean);
 
-              const hasLogo = !!(team.data?.logo || team.data?.logoPath || team.data?.teamLogo);
+              const logoValue = team.data?.logo || team.data?.logoPath || team.data?.teamLogo || '';
+              const hasLogo = !!logoValue && !isTbdLogoValue(logoValue);
 
               return (
                 <div

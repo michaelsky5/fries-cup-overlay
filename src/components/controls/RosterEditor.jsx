@@ -38,6 +38,31 @@ const isLocalRosterImage = value => {
   return text.startsWith('blob:') || text.startsWith('data:image/');
 };
 
+const getFileStem = value => {
+  const fileName = String(value || '').split('/').pop() || '';
+  return fileName.replace(/\.[a-z0-9]+$/i, '');
+};
+
+const compactLogoText = value =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '');
+
+const isTbdLogoValue = value => {
+  const text = compactLogoText(value);
+  const stem = compactLogoText(getFileStem(value));
+  const tbdTokens = ['tbd', '待定', 'unknown', 'default', 'placeholder'];
+
+  return tbdTokens.some(token =>
+    text === token ||
+    stem === token ||
+    text.endsWith(token) ||
+    stem.startsWith(token)
+  );
+};
+
 const PlayerRow = React.memo(({
   player, idx, role, isDense, isUltra, density, t, ui, compactLabel, rowInput, rowNumberInput, rowSelect,
   rowBtn, rowOutlineBtn, denseCell, rowLabelCell, tinyGap, smallGap, controlRowHeight, subButtonHeight,
@@ -362,6 +387,8 @@ const RosterEditor = ({
   const teamTarget = matchData.rosterTeamTarget || 'A';
   const rosterPlayersKey = teamTarget === 'B' ? 'rosterPlayersB' : 'rosterPlayersA';
   const rosterStaffKey = teamTarget === 'B' ? 'rosterStaffB' : 'rosterStaffA';
+  const logoKey = teamTarget === 'B' ? 'logoB' : 'logoA';
+
   const rosterPlayers = matchData[rosterPlayersKey] || [];
   const rosterStaff = matchData[rosterStaffKey] || {
     clubName: '',
@@ -403,6 +430,27 @@ const RosterEditor = ({
   };
 
   const activePreset = resolveCurrentPresetSource();
+
+  const getCurrentRosterLogo = () => {
+    const currentLogo = matchData[logoKey] || '';
+    const presetLogo = activePreset?.data?.logo || activePreset?.data?.logoPath || activePreset?.data?.teamLogo || '';
+
+    if (currentLogo && !isTbdLogoValue(currentLogo)) return currentLogo;
+    if (presetLogo && !isTbdLogoValue(presetLogo)) return presetLogo;
+
+    return currentLogo || presetLogo || '';
+  };
+
+  const attachLogoToPresetData = presetData => {
+    const logo = getCurrentRosterLogo();
+
+    return {
+      ...presetData,
+      logo,
+      logoPath: logo,
+      teamLogo: logo
+    };
+  };
 
   const t = densityTokens || {
     panelPadding: '12px', panelPaddingLg: '14px', inputPadding: '8px 10px', inputFontSize: 12, buttonPadding: '8px 10px', buttonFontSize: 12, blockGap: 10
@@ -476,7 +524,7 @@ const RosterEditor = ({
     if (!name) return showModal({ type: 'alert', title: tr('rosterEditor.missingInfo'), message: tr('rosterEditor.emptyLabel'), isDanger: true });
     if (!key) return showModal({ type: 'alert', title: tr('rosterEditor.missingInfo'), message: tr('rosterEditor.emptyKey'), isDanger: true });
 
-    const currentPresetData = buildRosterPresetFromTeam(matchData, teamTarget);
+    const currentPresetData = attachLogoToPresetData(buildRosterPresetFromTeam(matchData, teamTarget));
     const nextPreset = { key, name, data: cloneRosterPresetData(currentPresetData) };
     const library = [...rosterPresetLibrary];
     const existedIndex = library.findIndex(p => p.key === key);
@@ -507,8 +555,12 @@ const RosterEditor = ({
       coaches: []
     };
 
+    const presetLogo = preset?.data?.logo || preset?.data?.logoPath || preset?.data?.teamLogo || '';
+    const nextLogo = presetLogo && !isTbdLogoValue(presetLogo) ? presetLogo : '';
+
     updateWithHistory(`Load roster preset: ${preset.name} -> TEAM ${teamTarget}`, {
       ...nextData,
+      [logoKey]: nextLogo,
       [activePresetKeyField]: preset?.key || '',
       [rosterStaffKey]: {
         ...nextStaff,
