@@ -20,6 +20,98 @@ const DEFAULT_INTERVIEW_BOX = {
 
 const safeText = value => String(value ?? '').trim();
 
+const getAvatarFileName = value => {
+  const text = safeText(value);
+  if (!text) return '';
+
+  try {
+    const clean = text.split('?')[0].split('#')[0];
+    return decodeURIComponent(clean.split('/').filter(Boolean).pop() || '');
+  } catch {
+    return text.split('/').filter(Boolean).pop() || '';
+  }
+};
+
+const formatAvatarLabel = fileName => {
+  const name = safeText(fileName).replace(/\.[^/.]+$/, '');
+  if (!name) return '';
+  return name.replace(/[-_]/g, ' ').toUpperCase();
+};
+
+const casterAvatarModules = import.meta.glob('../../assets/casters/*.{png,jpg,jpeg,webp,gif}', {
+  eager: true,
+  query: '?url',
+  import: 'default'
+});
+
+const AUTO_CASTER_AVATARS = Object.entries(casterAvatarModules)
+  .map(([path, url]) => {
+    const fileName = path.split('/').pop() || '';
+    const label = formatAvatarLabel(fileName);
+
+    return {
+      label: label || 'CASTER AVATAR',
+      value: url
+    };
+  })
+  .sort((a, b) => a.label.localeCompare(b.label));
+
+const MANUAL_CASTER_AVATARS = [];
+
+const CUSTOM_AVATAR_VALUE = '__CUSTOM_AVATAR__';
+
+const isSelectableAvatarPath = value => {
+  const text = safeText(value);
+  if (!text) return false;
+  if (text.startsWith('data:')) return false;
+  if (text.startsWith('blob:')) return false;
+  return true;
+};
+
+const normalizeAvatarOption = (item, idx) => {
+  if (!item) return null;
+
+  if (typeof item === 'string') {
+    const value = safeText(item);
+    if (!value) return null;
+
+    return {
+      label: formatAvatarLabel(getAvatarFileName(value)) || `AVATAR ${idx + 1}`,
+      value
+    };
+  }
+
+  const value = safeText(item.value || item.url || item.src || item.path || item.avatar);
+  if (!value) return null;
+
+  return {
+    label:
+      safeText(item.label || item.name || item.title || item.id) ||
+      formatAvatarLabel(getAvatarFileName(value)) ||
+      `AVATAR ${idx + 1}`,
+    value
+  };
+};
+
+const uniqueAvatarOptions = rawOptions => {
+  const seen = new Set();
+
+  return rawOptions
+    .map((item, idx) => normalizeAvatarOption(item, idx))
+    .filter(option => option && isSelectableAvatarPath(option.value))
+    .filter(option => {
+      if (seen.has(option.value)) return false;
+      seen.add(option.value);
+      return true;
+    });
+};
+
+const getAvatarSelectValue = (avatar, avatarOptions) => {
+  const value = safeText(avatar);
+  if (!value) return '';
+  return avatarOptions.some(option => option.value === value) ? value : CUSTOM_AVATAR_VALUE;
+};
+
 const getPlayerName = player =>
   safeText(player?.nickname) ||
   safeText(player?.battleTag) ||
@@ -44,16 +136,22 @@ const CasterRow = React.memo(({
   isUltra,
   isDense,
   compactInput,
+  compactSelect,
   slotTitleStyle,
   metaLabelStyle,
+  avatarOptions,
   removeCaster,
   updateCasterField,
+  applyCasterAvatarPreset,
   handleCasterAvatarUpload,
   clearCasterAvatar,
   renderAvatarThumb,
-  tr
+  tr,
+  tx
 }) => {
   const btnH = Math.max(rowH, 34);
+  const avatarSelectValue = getAvatarSelectValue(caster.avatar, avatarOptions);
+  const hasPresetOptions = avatarOptions.length > 0;
 
   const cellLabel = {
     fontSize: '10px',
@@ -92,7 +190,7 @@ const CasterRow = React.memo(({
             ? '1fr'
             : isDense
               ? '82px 1fr 1fr'
-              : '86px 1.05fr 1.05fr 1.1fr minmax(220px,1.6fr) auto auto auto',
+              : '86px 1fr 1fr 1fr minmax(150px,0.9fr) minmax(240px,1.55fr) auto auto auto',
           gap,
           alignItems: 'end'
         }}
@@ -133,6 +231,36 @@ const CasterRow = React.memo(({
           />
         </Field>
 
+        <Field label={tx('casterEditor.avatarPreset', '头像预设 / PRESET')} density={density}>
+          <select
+            style={{
+              ...compactSelect,
+              opacity: hasPresetOptions || caster.avatar ? 1 : 0.55,
+              cursor: hasPresetOptions ? 'pointer' : 'default'
+            }}
+            value={avatarSelectValue}
+            onChange={e => applyCasterAvatarPreset(idx, e.target.value)}
+          >
+            <option value="">
+              {hasPresetOptions
+                ? tx('casterEditor.chooseAvatar', '选择头像')
+                : tx('casterEditor.noAvatarPreset', '暂无预设')}
+            </option>
+
+            {avatarSelectValue === CUSTOM_AVATAR_VALUE && (
+              <option value={CUSTOM_AVATAR_VALUE}>
+                {tx('casterEditor.customAvatar', '当前自定义')}
+              </option>
+            )}
+
+            {avatarOptions.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+
         <div style={{ minWidth: 0 }}>
           <div style={cellLabel}>{tr('casterEditor.avatarPath')}</div>
           <div
@@ -145,11 +273,12 @@ const CasterRow = React.memo(({
             }}
           >
             {renderAvatarThumb(caster)}
+
             <input
               style={{ ...compactInput, fontFamily: 'monospace', letterSpacing: '0.3px' }}
               value={caster.avatar || ''}
               onChange={e => updateCasterField(idx, 'avatar', e.target.value)}
-              placeholder="/assets/casters/alice.png"
+              placeholder="/assets/casters/name.png"
             />
           </div>
         </div>
@@ -171,6 +300,7 @@ const CasterRow = React.memo(({
           }}
         >
           {tr('casterEditor.upload')}
+
           <input
             type="file"
             accept="image/*"
@@ -218,6 +348,11 @@ export default function CasterEditor({
   const casters = Array.isArray(matchData.casters) ? matchData.casters : [];
   const interviewBox = { ...DEFAULT_INTERVIEW_BOX, ...(matchData.interviewBox || {}) };
   const speakerMode = interviewBox.speakerMode || 'PLAYER';
+
+  const tx = useCallback((key, fallback, options) => {
+    const value = tr(key, options);
+    return value === key ? fallback : value;
+  }, [tr]);
 
   const t = useMemo(() => densityTokens || {
     blockGap: 10,
@@ -269,14 +404,39 @@ export default function CasterEditor({
     lineHeight: 1.1
   };
 
+  const avatarOptions = useMemo(() => {
+    const fromMatchData = Array.isArray(matchData.casterAvatarOptions)
+      ? matchData.casterAvatarOptions
+      : [];
+
+    const fromCurrentCasters = casters
+      .filter(caster => isSelectableAvatarPath(caster?.avatar))
+      .map((caster, idx) => ({
+        label:
+          safeText(caster?.id || caster?.title) ||
+          formatAvatarLabel(getAvatarFileName(caster.avatar)) ||
+          `CASTER ${idx + 1}`,
+        value: caster.avatar
+      }));
+
+    return uniqueAvatarOptions([
+      ...AUTO_CASTER_AVATARS,
+      ...MANUAL_CASTER_AVATARS,
+      ...fromMatchData,
+      ...fromCurrentCasters
+    ]);
+  }, [matchData.casterAvatarOptions, casters]);
+
   const rosterTeams = useMemo(() => {
     const buildTeam = side => {
       const isA = side === 'A';
       const teamName = safeText(isA ? matchData.teamA : matchData.teamB);
       const teamShort = safeText(isA ? matchData.teamShortA : matchData.teamShortB);
+
       const rosterPlayers = Array.isArray(isA ? matchData.rosterPlayersA : matchData.rosterPlayersB)
         ? (isA ? matchData.rosterPlayersA : matchData.rosterPlayersB)
         : [];
+
       const livePlayers = Array.isArray(isA ? matchData.playersA : matchData.playersB)
         ? (isA ? matchData.playersA : matchData.playersB)
         : [];
@@ -349,7 +509,11 @@ export default function CasterEditor({
     return playerOptions.find(p => String(p.idx) === selectedPlayerIndexValue) || null;
   }, [playerOptions, selectedPlayerIndexValue]);
 
-  const previewTeamName = safeText(interviewBox.manualTeamName) || selectedTeam?.teamShort || selectedTeam?.teamName || tr('casterEditor.fallbackTeamName');
+  const previewTeamName =
+    safeText(interviewBox.manualTeamName) ||
+    selectedTeam?.teamShort ||
+    selectedTeam?.teamName ||
+    tr('casterEditor.fallbackTeamName');
 
   const previewPlayerName =
     safeText(interviewBox.manualPlayerName) ||
@@ -435,6 +599,7 @@ export default function CasterEditor({
 
     const next = [...casters];
     next.splice(idx, 1);
+
     updateData({ ...matchData, casters: next });
   }, [casters, matchData, updateData, tr]);
 
@@ -443,6 +608,11 @@ export default function CasterEditor({
     next[idx] = { ...next[idx], [key]: value };
     updateData({ ...matchData, casters: next });
   }, [casters, matchData, updateData]);
+
+  const applyCasterAvatarPreset = useCallback((idx, value) => {
+    if (!value || value === CUSTOM_AVATAR_VALUE) return;
+    updateCasterField(idx, 'avatar', value);
+  }, [updateCasterField]);
 
   const handleCasterAvatarUpload = useCallback(async (idx, e) => {
     const file = e.target.files?.[0];
@@ -485,7 +655,12 @@ export default function CasterEditor({
           <img
             src={caster.avatar}
             alt="avatar"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block'
+            }}
             onError={(e) => {
               const fb = '/assets/logos/OW.png';
               if (!e.target.src.includes(fb)) e.target.src = fb;
@@ -517,7 +692,7 @@ export default function CasterEditor({
         {tr('casterEditor.noAvatar')}
       </div>
     );
-  }, [rowH]);
+  }, [rowH, tr]);
 
   return (
     <div style={{ display: 'grid', gap: t.blockGap }}>
@@ -546,14 +721,18 @@ export default function CasterEditor({
               isUltra={isUltra}
               isDense={isDense}
               compactInput={compactInput}
+              compactSelect={compactSelect}
               slotTitleStyle={slotTitleStyle}
               metaLabelStyle={metaLabelStyle}
+              avatarOptions={avatarOptions}
               removeCaster={removeCaster}
               updateCasterField={updateCasterField}
+              applyCasterAvatarPreset={applyCasterAvatarPreset}
               handleCasterAvatarUpload={handleCasterAvatarUpload}
               clearCasterAvatar={clearCasterAvatar}
               renderAvatarThumb={renderAvatarThumb}
               tr={tr}
+              tx={tx}
             />
           ))}
         </div>
@@ -648,6 +827,7 @@ export default function CasterEditor({
                 onChange={e => updateInterviewField('playerIndex', e.target.value === '' ? '' : Number(e.target.value))}
               >
                 <option value="">{tr('casterEditor.autoManual')}</option>
+
                 {playerOptions.map(player => (
                   <option key={`${player.idx}-${player.name}`} value={String(player.idx)}>
                     {player.label}
@@ -710,7 +890,13 @@ export default function CasterEditor({
                 style={compactInput}
                 value={interviewBox.manualPlayerName || ''}
                 onChange={e => updateInterviewField('manualPlayerName', e.target.value)}
-                placeholder={speakerMode === 'TEAM' ? `${previewTeamName} ${tr('casterEditor.teamTag')}` : speakerMode === 'REPRESENTATIVE' ? `${previewTeamName} ${tr('casterEditor.repTag')}` : selectedPlayer?.name || tr('casterEditor.fallbackPlayerName')}
+                placeholder={
+                  speakerMode === 'TEAM'
+                    ? `${previewTeamName} ${tr('casterEditor.teamTag')}`
+                    : speakerMode === 'REPRESENTATIVE'
+                      ? `${previewTeamName} ${tr('casterEditor.repTag')}`
+                      : selectedPlayer?.name || tr('casterEditor.fallbackPlayerName')
+                }
               />
             </Field>
 
@@ -719,7 +905,13 @@ export default function CasterEditor({
                 style={compactInput}
                 value={interviewBox.manualPlayerRole || ''}
                 onChange={e => updateInterviewField('manualPlayerRole', e.target.value)}
-                placeholder={speakerMode === 'TEAM' ? tr('casterEditor.teamStatement') : speakerMode === 'REPRESENTATIVE' ? tr('casterEditor.teamRepresentative') : selectedPlayer?.role || tr('casterEditor.fallbackPlayerRole')}
+                placeholder={
+                  speakerMode === 'TEAM'
+                    ? tr('casterEditor.teamStatement')
+                    : speakerMode === 'REPRESENTATIVE'
+                      ? tr('casterEditor.teamRepresentative')
+                      : selectedPlayer?.role || tr('casterEditor.fallbackPlayerRole')
+                }
               />
             </Field>
 

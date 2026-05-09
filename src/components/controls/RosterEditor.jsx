@@ -211,7 +211,11 @@ const PlayerRow = React.memo(({
               onClick={() => {
                 const next = [...rosterPlayers];
                 next[idx] = {
-                  ...next[idx], heroImage: getRosterHeroImagePath(role, player.hero), heroScale: 1.1, heroBrightness: 0.84, heroPosition: ''
+                  ...next[idx],
+                  heroImage: getRosterHeroImagePath(role, player.hero),
+                  heroScale: 1.1,
+                  heroBrightness: 0.84,
+                  heroPosition: ''
                 };
                 updateRosterPlayers(next);
               }}
@@ -366,6 +370,39 @@ const RosterEditor = ({
     coaches: []
   };
   const rosterPresetLibrary = Array.isArray(matchData.rosterPresetLibrary) ? matchData.rosterPresetLibrary : [];
+  const activePresetKeyField = teamTarget === 'B' ? 'rosterActivePresetKeyB' : 'rosterActivePresetKeyA';
+  const activePresetKey = matchData[activePresetKeyField] || '';
+
+  const resolveCurrentPresetSource = () => {
+    const staffPresetKey = rosterStaff?.presetKey || '';
+    const directKey = activePresetKey || staffPresetKey;
+
+    if (directKey) {
+      const directPreset = rosterPresetLibrary.find(p => p.key === directKey);
+      if (directPreset) return directPreset;
+    }
+
+    const currentPresetData = buildRosterPresetFromTeam(matchData, teamTarget);
+    const currentTeamName = safeText(currentPresetData.teamName);
+    const currentTeamKey = makeRosterPresetKey(currentTeamName);
+
+    return rosterPresetLibrary.find(p => {
+      const candidates = [
+        p.key,
+        p.name,
+        p.data?.teamName,
+        p.data?.teamShortName,
+        p.data?.teamCode
+      ].filter(Boolean);
+
+      return candidates.some(value => {
+        const text = safeText(value);
+        return text === currentTeamName || makeRosterPresetKey(text) === currentTeamKey;
+      });
+    }) || null;
+  };
+
+  const activePreset = resolveCurrentPresetSource();
 
   const t = densityTokens || {
     panelPadding: '12px', panelPaddingLg: '14px', inputPadding: '8px 10px', inputFontSize: 12, buttonPadding: '8px 10px', buttonFontSize: 12, blockGap: 10
@@ -422,15 +459,19 @@ const RosterEditor = ({
 
   const openRosterPresetSaveModal = () => {
     const currentPresetData = buildRosterPresetFromTeam(matchData, teamTarget);
-    const defaultName = currentPresetData.teamName || `TEAM ${teamTarget}`;
-    const defaultKey = makeRosterPresetKey(defaultName);
+    const sourcePreset = resolveCurrentPresetSource();
+
+    const defaultName = currentPresetData.teamName || sourcePreset?.name || `TEAM ${teamTarget}`;
+    const defaultKey = sourcePreset?.key || makeRosterPresetKey(defaultName);
+
     setRosterPresetForm({ name: defaultName, key: defaultKey });
     setRosterPresetSaveModalOpen(true);
   };
 
   const saveCurrentRosterAsPreset = () => {
     const name = safeText(rosterPresetForm.name);
-    const key = makeRosterPresetKey(rosterPresetForm.key || rosterPresetForm.name);
+    const sourcePreset = resolveCurrentPresetSource();
+    const key = sourcePreset?.key || makeRosterPresetKey(rosterPresetForm.key || rosterPresetForm.name);
 
     if (!name) return showModal({ type: 'alert', title: tr('rosterEditor.missingInfo'), message: tr('rosterEditor.emptyLabel'), isDanger: true });
     if (!key) return showModal({ type: 'alert', title: tr('rosterEditor.missingInfo'), message: tr('rosterEditor.emptyKey'), isDanger: true });
@@ -440,29 +481,42 @@ const RosterEditor = ({
     const library = [...rosterPresetLibrary];
     const existedIndex = library.findIndex(p => p.key === key);
 
-    if (existedIndex >= 0) {
-      showModal({
-        type: 'confirm',
-        title: tr('rosterEditor.overwrite'),
-        message: tr('rosterEditor.overwriteMsg', { key }),
-        isDanger: true,
-        onConfirm: () => {
-          library[existedIndex] = nextPreset;
-          updateWithHistory(`Save roster preset: ${name}`, { ...matchData, rosterPresetLibrary: library });
-          setRosterPresetSaveModalOpen(false);
-        }
-      });
-      return;
-    }
+    if (existedIndex >= 0) library[existedIndex] = nextPreset;
+    else library.push(nextPreset);
 
-    library.push(nextPreset);
-    updateWithHistory(`Save roster preset: ${name}`, { ...matchData, rosterPresetLibrary: library });
+    updateWithHistory(`Save roster preset: ${name}`, {
+      ...matchData,
+      rosterPresetLibrary: library,
+      [activePresetKeyField]: key,
+      [rosterStaffKey]: {
+        ...rosterStaff,
+        presetKey: key,
+        presetName: name
+      }
+    });
+
     setRosterPresetSaveModalOpen(false);
   };
 
   const applyRosterPresetToCurrentTeam = preset => {
     const nextData = applyRosterPresetToTeamData(matchData, preset?.data || {}, teamTarget);
-    updateWithHistory(`Load roster preset: ${preset.name} -> TEAM ${teamTarget}`, nextData);
+    const nextStaff = nextData[rosterStaffKey] || {
+      clubName: '',
+      showClubName: false,
+      manager: { nickname: '', battleTag: '' },
+      coaches: []
+    };
+
+    updateWithHistory(`Load roster preset: ${preset.name} -> TEAM ${teamTarget}`, {
+      ...nextData,
+      [activePresetKeyField]: preset?.key || '',
+      [rosterStaffKey]: {
+        ...nextStaff,
+        presetKey: preset?.key || '',
+        presetName: preset?.name || ''
+      }
+    });
+
     setRosterPresetModalOpen(false);
   };
 
@@ -472,7 +526,25 @@ const RosterEditor = ({
       title: tr('rosterEditor.deletePreset'),
       message: tr('rosterEditor.deletePresetMsg', { key: presetKey }),
       isDanger: true,
-      onConfirm: () => updateData({ ...matchData, rosterPresetLibrary: rosterPresetLibrary.filter(p => p.key !== presetKey) })
+      onConfirm: () => {
+        const nextData = {
+          ...matchData,
+          rosterPresetLibrary: rosterPresetLibrary.filter(p => p.key !== presetKey)
+        };
+
+        if (nextData.rosterActivePresetKeyA === presetKey) nextData.rosterActivePresetKeyA = '';
+        if (nextData.rosterActivePresetKeyB === presetKey) nextData.rosterActivePresetKeyB = '';
+
+        if (nextData.rosterStaffA?.presetKey === presetKey) {
+          nextData.rosterStaffA = { ...nextData.rosterStaffA, presetKey: '', presetName: '' };
+        }
+
+        if (nextData.rosterStaffB?.presetKey === presetKey) {
+          nextData.rosterStaffB = { ...nextData.rosterStaffB, presetKey: '', presetName: '' };
+        }
+
+        updateData(nextData);
+      }
     });
   };
 
@@ -828,28 +900,43 @@ const RosterEditor = ({
                 </button>
               </div>
 
-              <QuickStat label={tr('rosterEditor.sourceData')} value={`TEAM ${matchData.rosterTeamTarget || 'A'}`} valueColor={COLORS.yellow} compact density={density} />
+              <QuickStat
+                label={tr('rosterEditor.sourceData')}
+                value={`TEAM ${matchData.rosterTeamTarget || 'A'}${activePreset?.key ? ` · ${activePreset.key}` : ''}`}
+                valueColor={COLORS.yellow}
+                compact
+                density={density}
+              />
 
               <Field label={tr('rosterEditor.presetLabel')} density={density}>
                 <input
                   style={ui.input}
                   value={rosterPresetForm.name}
-                  onChange={e => setRosterPresetForm(prev => ({ ...prev, name: e.target.value, key: makeRosterPresetKey(e.target.value) }))}
+                  onChange={e => setRosterPresetForm(prev => ({
+                    ...prev,
+                    name: e.target.value,
+                    key: activePreset ? prev.key : makeRosterPresetKey(e.target.value)
+                  }))}
                   placeholder="FRIES ESPORTS"
                 />
               </Field>
 
               <Field label={tr('rosterEditor.presetKey')} density={density}>
                 <input
-                  style={ui.input}
+                  style={{
+                    ...ui.input,
+                    opacity: activePreset ? 0.72 : 1,
+                    cursor: activePreset ? 'not-allowed' : 'text'
+                  }}
                   value={rosterPresetForm.key}
+                  readOnly={!!activePreset}
                   onChange={e => setRosterPresetForm(prev => ({ ...prev, key: makeRosterPresetKey(e.target.value) }))}
                   placeholder="FRIES_ESPORTS"
                 />
               </Field>
 
               <SectionHint
-                text={tr('rosterEditor.saveHint')}
+                text={activePreset?.key ? `将覆盖现有预设：${activePreset.key}` : tr('rosterEditor.saveHint')}
                 density={density}
               />
 
