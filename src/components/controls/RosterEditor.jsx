@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { COLORS, UI, panelBase } from '../../constants/styles';
-import { LOGO_LIST } from '../../constants/logos';
+import { LOGO_LIST, resolveLogoPath, resolveTeamLogoPath, isTbdLogoKey } from '../../constants/logos';
 import { ROSTER_ROLE_OPTIONS } from '../../constants/gameData';
 import {
   safeText,
@@ -36,31 +36,6 @@ const getHeroLabel = (hero, tr) => {
 const isLocalRosterImage = value => {
   const text = String(value || '');
   return text.startsWith('blob:') || text.startsWith('data:image/');
-};
-
-const getFileStem = value => {
-  const fileName = String(value || '').split('/').pop() || '';
-  return fileName.replace(/\.[a-z0-9]+$/i, '');
-};
-
-const compactLogoText = value =>
-  String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\.[a-z0-9]+$/i, '')
-    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '');
-
-const isTbdLogoValue = value => {
-  const text = compactLogoText(value);
-  const stem = compactLogoText(getFileStem(value));
-  const tbdTokens = ['tbd', '待定', 'unknown', 'default', 'placeholder'];
-
-  return tbdTokens.some(token =>
-    text === token ||
-    stem === token ||
-    text.endsWith(token) ||
-    stem.startsWith(token)
-  );
 };
 
 const PlayerRow = React.memo(({
@@ -431,14 +406,33 @@ const RosterEditor = ({
 
   const activePreset = resolveCurrentPresetSource();
 
+  const currentLogoValue = resolveLogoPath(matchData[logoKey], {
+    key: activePreset?.key,
+    name: activePreset?.name,
+    data: {
+      ...(activePreset?.data || {}),
+      logo: matchData[logoKey],
+      logoKey: activePreset?.data?.logoKey || activePreset?.data?.teamShortName || activePreset?.data?.teamCode || activePreset?.key || ''
+    }
+  }, '');
+
   const getCurrentRosterLogo = () => {
-    const currentLogo = matchData[logoKey] || '';
-    const presetLogo = activePreset?.data?.logo || activePreset?.data?.logoPath || activePreset?.data?.teamLogo || '';
+    const currentLogo = resolveLogoPath(matchData[logoKey], {
+      key: activePreset?.key,
+      name: activePreset?.name,
+      data: {
+        ...(activePreset?.data || {}),
+        logo: matchData[logoKey],
+        logoKey: activePreset?.data?.logoKey || activePreset?.data?.teamShortName || activePreset?.data?.teamCode || activePreset?.key || ''
+      }
+    }, '');
 
-    if (currentLogo && !isTbdLogoValue(currentLogo)) return currentLogo;
-    if (presetLogo && !isTbdLogoValue(presetLogo)) return presetLogo;
+    if (currentLogo && !isTbdLogoKey(currentLogo)) return currentLogo;
 
-    return currentLogo || presetLogo || '';
+    const presetLogo = resolveTeamLogoPath(activePreset || {}, '');
+    if (presetLogo && !isTbdLogoKey(presetLogo)) return presetLogo;
+
+    return '';
   };
 
   const attachLogoToPresetData = presetData => {
@@ -446,6 +440,7 @@ const RosterEditor = ({
 
     return {
       ...presetData,
+      logoKey: presetData.logoKey || presetData.teamShortName || presetData.teamCode || activePreset?.key || '',
       logo,
       logoPath: logo,
       teamLogo: logo
@@ -547,7 +542,16 @@ const RosterEditor = ({
   };
 
   const applyRosterPresetToCurrentTeam = preset => {
-    const nextData = applyRosterPresetToTeamData(matchData, preset?.data || {}, teamTarget);
+    const normalizedLogo = resolveTeamLogoPath(preset, '');
+    const presetData = {
+      ...(preset?.data || {}),
+      logoKey: preset?.data?.logoKey || preset?.data?.teamShortName || preset?.data?.teamCode || preset?.key || '',
+      logo: normalizedLogo,
+      logoPath: normalizedLogo,
+      teamLogo: normalizedLogo
+    };
+
+    const nextData = applyRosterPresetToTeamData(matchData, presetData, teamTarget);
     const nextStaff = nextData[rosterStaffKey] || {
       clubName: '',
       showClubName: false,
@@ -555,12 +559,9 @@ const RosterEditor = ({
       coaches: []
     };
 
-    const presetLogo = preset?.data?.logo || preset?.data?.logoPath || preset?.data?.teamLogo || '';
-    const nextLogo = presetLogo && !isTbdLogoValue(presetLogo) ? presetLogo : '';
-
     updateWithHistory(`Load roster preset: ${preset.name} -> TEAM ${teamTarget}`, {
       ...nextData,
-      [logoKey]: nextLogo,
+      [logoKey]: normalizedLogo,
       [activePresetKeyField]: preset?.key || '',
       [rosterStaffKey]: {
         ...nextStaff,
@@ -683,10 +684,10 @@ const RosterEditor = ({
                 <div style={compactLabel}>{tr('rosterEditor.teamLogo', { target: teamTarget })}</div>
                 <select
                   style={rowSelect}
-                  value={teamTarget === 'B' ? matchData.logoB : matchData.logoA}
-                  onChange={e => updateData({ ...matchData, [teamTarget === 'B' ? 'logoB' : 'logoA']: e.target.value })}
+                  value={currentLogoValue}
+                  onChange={e => updateData({ ...matchData, [logoKey]: e.target.value })}
                 >
-                  {LOGO_LIST.map(l => <option key={l.path} value={l.path}>{l.name}</option>)}
+                  {LOGO_LIST.map(l => <option key={`${l.name}-${l.path}`} value={l.path}>{l.name}</option>)}
                 </select>
               </div>
 
