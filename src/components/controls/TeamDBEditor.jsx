@@ -78,6 +78,7 @@ const compactText = value =>
   String(value || '')
     .trim()
     .toLowerCase()
+    .replace(/[?#].*$/g, '')
     .replace(/\.[a-z0-9]+$/i, '')
     .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '');
 
@@ -112,7 +113,8 @@ const splitCoaches = value =>
     .filter(item => item.nickname || item.battleTag);
 
 const getFileStem = path => {
-  const fileName = String(path || '').split('/').pop() || '';
+  const cleanPath = String(path || '').split(/[?#]/)[0];
+  const fileName = cleanPath.split('/').pop() || '';
   return fileName.replace(/\.[a-z0-9]+$/i, '');
 };
 
@@ -145,14 +147,69 @@ const isLogoNameMatch = (name, target) => {
   return name.includes(target) || target.includes(name);
 };
 
+const getKnownLogoList = () =>
+  LOGO_LIST.filter(item => {
+    const names = getLogoComparableNames(item);
+    return item?.path && !names.some(isTbdLogoValue);
+  });
+
 const findLogoFromAliases = aliases => {
   const targets = aliases.map(compactText).filter(Boolean);
   if (!targets.length) return '';
 
-  const usableLogos = LOGO_LIST.filter(item => {
+  const usableLogos = getKnownLogoList();
+
+  const exact = usableLogos.find(item => {
     const names = getLogoComparableNames(item);
-    return !names.some(isTbdLogoValue);
+    return targets.some(target => names.some(name => name === target));
   });
+
+  if (exact?.path) return exact.path;
+
+  const partial = usableLogos.find(item => {
+    const names = getLogoComparableNames(item);
+    return targets.some(target => names.some(name => isLogoNameMatch(name, target)));
+  });
+
+  return partial?.path || '';
+};
+
+const getPresetLogoKey = preset => {
+  const data = preset?.data || {};
+  const directLogo = data.logo || data.logoPath || data.teamLogo || data.logoUrl || data.teamLogoPath || '';
+
+  return (
+    data.logoKey ||
+    data.teamShortName ||
+    data.teamCode ||
+    preset?.key ||
+    getFileStem(directLogo) ||
+    ''
+  );
+};
+
+const resolveLogoValueToKnownPath = (value, preset = {}) => {
+  const raw = String(value || '').trim();
+  const data = preset?.data || {};
+  const logoKey = getPresetLogoKey(preset);
+
+  const targets = [
+    logoKey,
+    preset?.key,
+    preset?.name,
+    data.teamName,
+    data.teamShortName,
+    data.teamCode,
+    data.clubName,
+    raw,
+    getFileStem(raw)
+  ]
+    .filter(Boolean)
+    .map(compactText);
+
+  if (!targets.length) return '';
+
+  const usableLogos = getKnownLogoList();
 
   const exact = usableLogos.find(item => {
     const names = getLogoComparableNames(item);
@@ -171,9 +228,25 @@ const findLogoFromAliases = aliases => {
 
 const findTeamLogoPath = team => {
   const remoteLogo = String(team?.team_logo || '').trim();
-  if (remoteLogo && !isTbdLogoValue(remoteLogo)) return remoteLogo;
-
   const shortName = String(team?.team_short_name || '').trim();
+
+  if (remoteLogo && !isTbdLogoValue(remoteLogo)) {
+    const knownLogo = resolveLogoValueToKnownPath(remoteLogo, {
+      key: shortName,
+      name: team?.team_name,
+      data: {
+        logoKey: shortName,
+        teamName: team?.team_name,
+        teamShortName: shortName,
+        teamCode: shortName,
+        clubName: team?.team_club,
+        logo: remoteLogo
+      }
+    });
+
+    return knownLogo || remoteLogo;
+  }
+
   const aliases = [
     ...(PLAYOFF_LOGO_ALIASES[shortName] || []),
     team?.team_short_name,
@@ -186,9 +259,13 @@ const findTeamLogoPath = team => {
 
 const resolveLogoFromPresetIdentity = preset => {
   const data = preset?.data || {};
+  const logoKey = getPresetLogoKey(preset);
+
   const aliases = [
+    ...(PLAYOFF_LOGO_ALIASES[logoKey] || []),
     ...(PLAYOFF_LOGO_ALIASES[preset?.key] || []),
     ...(PLAYOFF_LOGO_ALIASES[data.teamShortName] || []),
+    logoKey,
     preset?.key,
     preset?.name,
     data.teamName,
@@ -202,13 +279,30 @@ const resolveLogoFromPresetIdentity = preset => {
 
 const normalizeTeamPresetForDB = preset => {
   const data = preset?.data || {};
+  const logoKey = getPresetLogoKey(preset);
   const directLogo = data.logo || data.logoPath || data.teamLogo || data.logoUrl || data.teamLogoPath || '';
-  const logo = directLogo && !isTbdLogoValue(directLogo) ? directLogo : resolveLogoFromPresetIdentity(preset);
+
+  const logoFromDirect = resolveLogoValueToKnownPath(directLogo, {
+    ...preset,
+    data: {
+      ...data,
+      logoKey
+    }
+  });
+
+  const logo = logoFromDirect || resolveLogoFromPresetIdentity({
+    ...preset,
+    data: {
+      ...data,
+      logoKey
+    }
+  });
 
   return {
     ...preset,
     data: {
       ...data,
+      logoKey,
       logo,
       logoPath: logo,
       teamLogo: logo
@@ -318,6 +412,7 @@ const buildPlayoffPresetsFromDb = db => {
         teamName: name,
         teamShortName: key,
         teamCode: key,
+        logoKey: key,
         logo: logoPath,
         logoPath,
         teamLogo: logoPath,
@@ -358,6 +453,7 @@ const mergePresetLibrary = (currentLibrary, incomingPresets) => {
         data: {
           ...(existing.data || {}),
           ...(preset.data || {}),
+          logoKey: preset.data?.logoKey || existing.data?.logoKey || preset.key || existing.key || '',
           logo: safeLogo || '',
           logoPath: safeLogo || '',
           teamLogo: safeLogo || ''
@@ -712,12 +808,13 @@ export default function TeamDBEditor({
             }}
           >
             {library.map(team => {
-              const players = team.data?.players || [];
+              const normalizedTeam = normalizeTeamPresetForDB(team);
+              const players = normalizedTeam.data?.players || [];
               const playerNames = players
                 .map(p => p.nickname || p.battleTag)
                 .filter(Boolean);
 
-              const logoValue = team.data?.logo || team.data?.logoPath || team.data?.teamLogo || '';
+              const logoValue = normalizedTeam.data?.logo || normalizedTeam.data?.logoPath || normalizedTeam.data?.teamLogo || '';
               const hasLogo = !!logoValue && !isTbdLogoValue(logoValue);
 
               return (
