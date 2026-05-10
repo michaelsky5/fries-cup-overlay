@@ -204,6 +204,8 @@ function ConsoleWorkspace({
 }) {
   const { t: tr } = useTranslation();
 
+  const broadcastRoomInfo = useMemo(() => getBroadcastRoomInfo(), []);
+
   const t = useMemo(() => densityTokens || {
     panelPadding: '12px',
     buttonPadding: '10px 12px',
@@ -222,7 +224,7 @@ function ConsoleWorkspace({
     isUltra
   }), [density, densityTokens, isDense, isUltra]);
 
-  const isTakeDisabled = isTransitioning || previewScene === matchData.globalScene;
+  const isTakeDisabled = isTransitioning || (broadcastRoomInfo.hasRoom && previewScene === matchData.globalScene);
 
   const is1080Output = outputResolution === '1920x1080';
   const isSelectorTight = is1080Output || isShort || isDense || isUltra;
@@ -283,7 +285,19 @@ function ConsoleWorkspace({
   const [copiedGuideTarget, setCopiedGuideTarget] = useState('');
   const coverSceneRef = useRef(null);
 
-  const broadcastRoomInfo = useMemo(() => getBroadcastRoomInfo(), []);
+  const openRoomRequiredPanel = useCallback(() => {
+    setCopiedGuideTarget('');
+    setIsRoomPanelOpen(true);
+  }, []);
+
+  const guardedTakeScene = useCallback(targetScene => {
+    if (!broadcastRoomInfo.hasRoom) {
+      openRoomRequiredPanel();
+      return;
+    }
+
+    takeScene(targetScene);
+  }, [broadcastRoomInfo.hasRoom, openRoomRequiredPanel, takeScene]);
 
   const copyGuideText = useCallback((text, target) => {
     if (!text) return;
@@ -409,11 +423,25 @@ function ConsoleWorkspace({
     if (!isUnlocked && AUTO_TAKE_TABS.has(tab)) {
       setPreviewScene(tab);
 
+      if (!broadcastRoomInfo.hasRoom) {
+        window.setTimeout(() => {
+          openRoomRequiredPanel();
+        }, 0);
+        return;
+      }
+
       window.setTimeout(() => {
         takeScene(tab);
       }, 0);
     }
-  }, [isUnlocked, setActiveTab, setPreviewScene, takeScene]);
+  }, [
+    isUnlocked,
+    broadcastRoomInfo.hasRoom,
+    setActiveTab,
+    setPreviewScene,
+    takeScene,
+    openRoomRequiredPanel
+  ]);
 
   return (
     <div
@@ -502,7 +530,7 @@ function ConsoleWorkspace({
                   BROADCAST ROOM
                 </div>
                 <div style={{ color: COLORS.softWhite, fontSize: 12, fontWeight: 800, marginTop: 6, lineHeight: 1.55 }}>
-                  每场比赛建议创建一个独立导播房间。导播只需要复制本面板生成的 OBS Overlay 地址。
+                  每场比赛建议创建一个独立导播房间。未创建房间前，TAKE 和自动上墙会被阻止，避免多个导播互相覆盖。
                 </div>
               </div>
 
@@ -650,9 +678,9 @@ function ConsoleWorkspace({
               <div style={{ color: COLORS.softWhite, fontSize: 12, lineHeight: 1.65, fontWeight: 700 }}>
                 1. 第一次打开控制台后，先点击 <span style={{ color: COLORS.yellow }}>CREATE ROOM</span> 创建本场导播房间。<br />
                 2. 创建后复制 <span style={{ color: COLORS.yellow }}>OBS URL</span>，填进 OBS Browser Source。<br />
-                3. Preview 只是预览，不会同步；点击 TAKE 后才会进入 Program。<br />
-                4. Program 是唯一正式播出源，OBS Overlay 会自动跟随 Program。<br />
-                5. 多个导播同时使用时，只要房间不同，就不会互相覆盖。
+                3. 未创建房间前，TAKE 和自动上墙不会生效，会先要求创建房间。<br />
+                4. Preview 只是预览，不会同步；点击 TAKE 后才会进入 Program。<br />
+                5. Program 是唯一正式播出源，OBS Overlay 会自动跟随 Program。
               </div>
             </div>
 
@@ -1000,19 +1028,19 @@ function ConsoleWorkspace({
                     </div>
 
                     <button
-                      onClick={() => takeScene(previewScene)}
+                      onClick={() => guardedTakeScene(previewScene)}
                       disabled={isTakeDisabled}
                       style={{
                         width: isUltra ? '100%' : '96px',
                         minHeight: density === 'spacious' ? '42px' : '38px',
                         height: density === 'spacious' ? '42px' : '38px',
-                        backgroundColor: isTakeDisabled ? '#555' : COLORS.red,
-                        color: isTakeDisabled ? '#999' : '#fff',
+                        backgroundColor: isTakeDisabled ? '#555' : broadcastRoomInfo.hasRoom ? COLORS.red : COLORS.yellow,
+                        color: isTakeDisabled ? '#999' : broadcastRoomInfo.hasRoom ? '#fff' : COLORS.black,
                         fontSize: density === 'spacious' ? '18px' : '17px',
                         fontWeight: '900',
                         border: 'none',
                         cursor: isTakeDisabled ? 'not-allowed' : 'pointer',
-                        boxShadow: isTakeDisabled ? 'none' : '0 0 16px rgba(255, 77, 77, 0.20)',
+                        boxShadow: isTakeDisabled ? 'none' : broadcastRoomInfo.hasRoom ? '0 0 16px rgba(255, 77, 77, 0.20)' : '0 0 16px rgba(244,195,32,0.18)',
                         letterSpacing: '1.2px',
                         fontFamily: '"HarmonyOS Sans SC", sans-serif',
                         transition: 'background-color 0.2s, box-shadow 0.2s, color 0.2s',
@@ -1020,7 +1048,7 @@ function ConsoleWorkspace({
                         alignSelf: 'end'
                       }}
                     >
-                      {tr('workspace.takeBtn')}
+                      {broadcastRoomInfo.hasRoom ? tr('workspace.takeBtn') : 'ROOM'}
                     </button>
                   </div>
 
