@@ -31,9 +31,22 @@ export default function StatsEditor({ isUltra = false, density = 'standard', den
 
   // 控制 OCR 弹窗的开关
   const [showOcrModal, setShowOcrModal] = useState(false);
-  
+
   // 🌟 2. 控制自定义警告弹窗的开关与配置
   const [modalConfig, setModalConfig] = useState({ isOpen: false });
+
+  // ✅ 弹窗打开时锁住全局快捷键，避免 OCR / 确认弹窗里误触发 TAKE / F1 / Alt 快捷键
+  useEffect(() => {
+    const shouldLockShortcuts = showOcrModal || !!modalConfig.isOpen;
+
+    if (!shouldLockShortcuts || typeof document === 'undefined') return undefined;
+
+    document.body.classList.add('fc-modal-open');
+
+    return () => {
+      document.body.classList.remove('fc-modal-open');
+    };
+  }, [showOcrModal, modalConfig.isOpen]);
 
   const t = densityTokens || {
     blockGap: 10,
@@ -123,8 +136,8 @@ export default function StatsEditor({ isUltra = false, density = 'standard', den
         statsMode: 'IMAGE'
       });
     } catch (error) {
-      console.error("图片处理失败:", error);
-      alert("图片处理失败，请重试！");
+      console.error('图片处理失败:', error);
+      alert('图片处理失败，请重试！');
     }
   };
 
@@ -212,7 +225,7 @@ export default function StatsEditor({ isUltra = false, density = 'standard', den
       deathsB: calcSum(extractedData.teamB, 'dth'),
       damageB: calcSum(extractedData.teamB, 'dmg'),
       healingB: calcSum(extractedData.teamB, 'heal'),
-      mitigatedB: calcSum(extractedData.teamB, 'block'),
+      mitigatedB: calcSum(extractedData.teamB, 'block')
     };
 
     updateData({
@@ -252,21 +265,21 @@ export default function StatsEditor({ isUltra = false, density = 'standard', den
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: isUltra ? '1fr' : `${leftColWidth} minmax(0,1fr)`, gap: t.blockGap, alignItems: 'stretch' }}>
-      
+
       {/* 渲染自定义弹窗 */}
-      <FriesModal 
-        config={modalConfig} 
-        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))} 
+      <FriesModal
+        config={modalConfig}
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
       />
 
       {/* 渲染 OCR 弹窗 */}
       {showOcrModal && (
-        <OcrScannerModal 
+        <OcrScannerModal
           onClose={() => setShowOcrModal(false)}
           onApplyData={handleApplyOcrData}
           teamA={matchData.teamA}
           teamB={matchData.teamB}
-          initialImage={matchData.statsImageTempUrl} 
+          initialImage={matchData.statsImageTempUrl}
         />
       )}
 
@@ -393,9 +406,9 @@ export default function StatsEditor({ isUltra = false, density = 'standard', den
 
       <ShellPanel title={tr('statsEditor.templateDataInput')} accent density={density}>
         <div style={{ display: 'grid', gap }}>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap }}>
-            <button 
+            <button
               style={{ ...actionBtn, backgroundColor: COLORS.yellow, color: COLORS.black, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
               onClick={() => setShowOcrModal(true)}
             >

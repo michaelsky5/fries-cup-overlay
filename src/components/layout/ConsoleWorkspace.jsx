@@ -100,7 +100,16 @@ const getBroadcastRoomInfo = () => {
   };
 };
 
-function GuideCopyRow({ label, value, copied, onCopy, disabled = false, accent = false }) {
+function GuideCopyRow({
+  label,
+  value,
+  copied,
+  onCopy,
+  disabled = false,
+  accent = false,
+  copyLabel = 'COPY',
+  copiedLabel = 'COPIED'
+}) {
   return (
     <div
       style={{
@@ -147,7 +156,7 @@ function GuideCopyRow({ label, value, copied, onCopy, disabled = false, accent =
           letterSpacing: 0.8
         }}
       >
-        {copied === label ? 'COPIED' : 'COPY'}
+        {copied === label ? copiedLabel : copyLabel}
       </button>
     </div>
   );
@@ -203,7 +212,16 @@ function ConsoleWorkspace({
 }) {
   const { t: tr } = useTranslation();
 
+  const br = useCallback((key, options = {}) => {
+    return tr(`workspace.broadcastRoom.${key}`, options);
+  }, [tr]);
+
   const broadcastRoomInfo = useMemo(() => getBroadcastRoomInfo(), []);
+  const roomDisplayLabel = broadcastRoomInfo.hasRoom ? broadcastRoomInfo.roomLabel : br('notCreated');
+  const roomBadgeLabel = broadcastRoomInfo.hasRoom ? `${br('roomPrefix')} ${broadcastRoomInfo.roomLabel}` : br('roomNotSet');
+  const copyLabel = br('copy');
+  const copiedLabel = br('copied');
+  const copyObsUrlTarget = br('copyObsUrl');
 
   const t = useMemo(() => densityTokens || {
     panelPadding: '12px',
@@ -379,8 +397,8 @@ function ConsoleWorkspace({
       link.href = dataUrl;
       link.click();
     } catch (error) {
-      console.error('导出封面失败:', error);
-      alert('导出图片失败，请检查是否包含跨域图片问题。');
+      console.error(br('exportCoverFailedLog'), error);
+      alert(br('exportCoverFailedMessage'));
     } finally {
       setIsExporting(false);
     }
@@ -526,10 +544,10 @@ function ConsoleWorkspace({
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
               <div>
                 <div style={{ color: COLORS.yellow, fontSize: 18, fontWeight: 950, letterSpacing: 1.2 }}>
-                  BROADCAST ROOM
+                  {br('title')}
                 </div>
                 <div style={{ color: COLORS.softWhite, fontSize: 12, fontWeight: 800, marginTop: 6, lineHeight: 1.55 }}>
-                  每场比赛建议创建一个独立导播房间。未创建房间前，TAKE 和自动上墙会被阻止，避免多个导播互相覆盖。
+                  {br('description')}
                 </div>
               </div>
 
@@ -564,10 +582,10 @@ function ConsoleWorkspace({
             >
               <div>
                 <div style={{ color: broadcastRoomInfo.hasRoom ? '#2ecc71' : COLORS.red, fontSize: 12, fontWeight: 950, letterSpacing: 1 }}>
-                  {broadcastRoomInfo.hasRoom ? 'ROOM READY' : 'ROOM NOT CREATED'}
+                  {broadcastRoomInfo.hasRoom ? br('roomReady') : br('roomNotCreated')}
                 </div>
                 <div style={{ color: COLORS.white, fontSize: 18, fontWeight: 950, marginTop: 6, letterSpacing: 0.6, fontFamily: 'monospace' }}>
-                  {broadcastRoomInfo.roomLabel}
+                  {roomDisplayLabel}
                 </div>
               </div>
 
@@ -586,40 +604,48 @@ function ConsoleWorkspace({
                   letterSpacing: 0.9
                 }}
               >
-                {broadcastRoomInfo.hasRoom ? 'NEW ROOM' : 'CREATE ROOM'}
+                {broadcastRoomInfo.hasRoom ? br('newRoom') : br('createRoom')}
               </button>
             </div>
 
             <div style={{ display: 'grid', gap: 8 }}>
               <GuideCopyRow
-                label="CONTROL"
+                label={br('control')}
                 value={broadcastRoomInfo.controlUrl}
                 copied={copiedGuideTarget}
                 onCopy={copyGuideText}
+                copyLabel={copyLabel}
+                copiedLabel={copiedLabel}
               />
 
               <GuideCopyRow
-                label="OBS URL"
-                value={broadcastRoomInfo.overlayUrl || '请先点击 CREATE ROOM 生成本场 OBS 地址'}
+                label={br('obsUrl')}
+                value={broadcastRoomInfo.overlayUrl || br('overlayUrlPlaceholder')}
                 copied={copiedGuideTarget}
                 onCopy={copyGuideText}
                 disabled={!broadcastRoomInfo.hasRoom}
                 accent
+                copyLabel={copyLabel}
+                copiedLabel={copiedLabel}
               />
 
               <GuideCopyRow
-                label="ROOM"
-                value={broadcastRoomInfo.roomLabel}
+                label={br('room')}
+                value={roomDisplayLabel}
                 copied={copiedGuideTarget}
                 onCopy={copyGuideText}
                 disabled={!broadcastRoomInfo.hasRoom}
+                copyLabel={copyLabel}
+                copiedLabel={copiedLabel}
               />
 
               <GuideCopyRow
-                label="SYNC"
+                label={br('sync')}
                 value={broadcastRoomInfo.syncUrl}
                 copied={copiedGuideTarget}
                 onCopy={copyGuideText}
+                copyLabel={copyLabel}
+                copiedLabel={copiedLabel}
               />
             </div>
 
@@ -627,7 +653,7 @@ function ConsoleWorkspace({
               {broadcastRoomInfo.hasRoom && (
                 <button
                   type="button"
-                  onClick={() => copyGuideText(broadcastRoomInfo.overlayUrl, 'COPY OBS URL')}
+                  onClick={() => copyGuideText(broadcastRoomInfo.overlayUrl, copyObsUrlTarget)}
                   style={{
                     height: 42,
                     border: 'none',
@@ -639,7 +665,7 @@ function ConsoleWorkspace({
                     letterSpacing: 1
                   }}
                 >
-                  {copiedGuideTarget === 'COPY OBS URL' ? 'COPIED OBS URL' : 'COPY OBS URL'}
+                  {copiedGuideTarget === copyObsUrlTarget ? br('copiedObsUrl') : br('copyObsUrl')}
                 </button>
               )}
 
@@ -657,7 +683,7 @@ function ConsoleWorkspace({
                   letterSpacing: 1
                 }}
               >
-                {broadcastRoomInfo.hasRoom ? 'CREATE ANOTHER ROOM' : 'CREATE ROOM'}
+                {broadcastRoomInfo.hasRoom ? br('createAnotherRoom') : br('createRoom')}
               </button>
             </div>
 
@@ -671,15 +697,15 @@ function ConsoleWorkspace({
               }}
             >
               <div style={{ color: COLORS.yellow, fontSize: 12, fontWeight: 950, letterSpacing: 1 }}>
-                导播使用方式
+                {br('guideTitle')}
               </div>
 
               <div style={{ color: COLORS.softWhite, fontSize: 12, lineHeight: 1.65, fontWeight: 700 }}>
-                1. 第一次打开控制台后，先点击 <span style={{ color: COLORS.yellow }}>CREATE ROOM</span> 创建本场导播房间。<br />
-                2. 创建后复制 <span style={{ color: COLORS.yellow }}>OBS URL</span>，填进 OBS Browser Source。<br />
-                3. 未创建房间前，TAKE 和自动上墙不会生效，会先要求创建房间。<br />
-                4. Preview 只是预览，不会同步；点击 TAKE 后才会进入 Program。<br />
-                5. Program 是唯一正式播出源，OBS Overlay 会自动跟随 Program。
+                {br('guideStep1')}<br />
+                {br('guideStep2')}<br />
+                {br('guideStep3')}<br />
+                {br('guideStep4')}<br />
+                {br('guideStep5')}
               </div>
             </div>
 
@@ -694,11 +720,11 @@ function ConsoleWorkspace({
                 fontWeight: 700
               }}
             >
-              OBS Browser Source 建议关闭：
+              {br('obsTipPrefix')}
               <span style={{ color: COLORS.yellow }}> Shutdown source when not visible </span>
-              和
-              <span style={{ color: COLORS.yellow }}> Refresh browser when scene becomes active</span>。
-              这样可以减少直播时 Overlay 被 OBS 自动刷新或休眠导致的不同步。
+              {br('obsTipMiddle')}
+              <span style={{ color: COLORS.yellow }}> Refresh browser when scene becomes active</span>
+              {br('obsTipSuffix')}
             </div>
           </div>
         </div>
@@ -762,9 +788,9 @@ function ConsoleWorkspace({
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
               }}
-              title={broadcastRoomInfo.roomLabel}
+              title={roomDisplayLabel}
             >
-              {broadcastRoomInfo.hasRoom ? `ROOM ${broadcastRoomInfo.roomLabel}` : 'ROOM NOT SET'}
+              {roomBadgeLabel}
             </span>
           </div>
 
@@ -782,9 +808,9 @@ function ConsoleWorkspace({
                 fontWeight: 900,
                 letterSpacing: '0.6px'
               }}
-              title="Broadcast Room"
+              title={br('button')}
             >
-              BROADCAST ROOM
+              {br('button')}
             </button>
 
             <div style={{ width: '1px', height: '16px', backgroundColor: COLORS.lineStrong, margin: '0 4px' }} />
@@ -817,7 +843,7 @@ function ConsoleWorkspace({
                   color: COLORS.yellow
                 }}
                 onClick={openShortcutModal}
-                title="Shortcut Settings"
+                title={tr('workspace.shortcutSettingsTitle')}
               >
                 {tr('workspace.shortcuts')}
               </button>
@@ -938,7 +964,9 @@ function ConsoleWorkspace({
                             fontFamily: '"HarmonyOS Sans SC", sans-serif'
                           }}
                         >
-                          {previewSceneScope === 'ALL' ? 'ALL' : 'CORE'}
+                          {previewSceneScope === 'ALL'
+                            ? tr('workspace.previewScopeAll')
+                            : tr('workspace.previewScopeCore')}
                         </button>
                       </div>
 
@@ -1045,7 +1073,7 @@ function ConsoleWorkspace({
                         alignSelf: 'end'
                       }}
                     >
-                      {broadcastRoomInfo.hasRoom ? tr('workspace.takeBtn') : 'ROOM'}
+                      {broadcastRoomInfo.hasRoom ? tr('workspace.takeBtn') : br('roomRequiredShort')}
                     </button>
                   </div>
 

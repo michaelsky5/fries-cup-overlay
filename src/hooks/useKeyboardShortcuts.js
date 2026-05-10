@@ -170,11 +170,15 @@ export function useKeyboardShortcuts({
         // =========================
         SET_WINNER_A_AND_CUT: () => {
           setWinnerA?.();
-          safeTakeScene('WINNER', '[快捷键] A队获胜并切获胜图板');
+          window.setTimeout(() => {
+            safeTakeScene('WINNER', '[快捷键] A队获胜并切获胜图板');
+          }, 0);
         },
         SET_WINNER_B_AND_CUT: () => {
           setWinnerB?.();
-          safeTakeScene('WINNER', '[快捷键] B队获胜并切获胜图板');
+          window.setTimeout(() => {
+            safeTakeScene('WINNER', '[快捷键] B队获胜并切获胜图板');
+          }, 0);
         }
       };
 

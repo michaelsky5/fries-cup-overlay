@@ -703,10 +703,27 @@ export default function MatchLiveHUD({ matchData, isActive = false }) {
 
   const currentMapIndex = Math.min(Math.max(0, (matchData.currentMap || 1) - 1), 6);
   const currentMapData = matchData.mapLineup?.[currentMapIndex] || matchData.mapLineup?.[0] || {};
-  const currentBanA = matchData.bansA?.[0] || 'tank/dva';
-  const [roleA, heroA] = currentBanA.includes('/') ? currentBanA.split('/') : ['tank', currentBanA];
-  const currentBanB = matchData.bansB?.[0] || 'damage/tracer';
-  const [roleB, heroB] = currentBanB.includes('/') ? currentBanB.split('/') : ['damage', currentBanB];
+  const DEFAULT_BAN_ENTRY = 'damage/tbd';
+
+  const parseHudBanEntry = entry => {
+    const raw = String(entry || DEFAULT_BAN_ENTRY).trim().toLowerCase();
+
+    if (!raw) return { role: 'damage', hero: 'tbd' };
+    if (!raw.includes('/')) return { role: 'damage', hero: raw || 'tbd' };
+
+    const [role, hero] = raw.split('/');
+
+    return {
+      role: role || 'damage',
+      hero: hero || 'tbd'
+    };
+  };
+  
+  const currentBanA = matchData.bansA?.[0] || DEFAULT_BAN_ENTRY;
+  const currentBanB = matchData.bansB?.[0] || DEFAULT_BAN_ENTRY;
+
+  const { role: roleA, hero: heroA } = parseHudBanEntry(currentBanA);
+  const { role: roleB, hero: heroB } = parseHudBanEntry(currentBanB);
 
   const currentMapModeKey = getModeKey(currentMapData?.type);
   const currentMapNumberLabel = `MAP ${matchData.currentMap || 1}`;

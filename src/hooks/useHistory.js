@@ -15,6 +15,28 @@ const cloneData = data => {
   }
 };
 
+const stripSceneFields = data => {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+
+  const {
+    globalScene,
+    programScene,
+    autoBeginPendingAt,
+    ...rest
+  } = data;
+
+  return rest;
+};
+
+const normalizeHistoryEntry = entry => {
+  if (!entry || typeof entry !== 'object') return entry;
+
+  return {
+    ...entry,
+    data: stripSceneFields(entry.data)
+  };
+};
+
 export function useHistory(matchDataRef, updateData) {
   const [history, setHistoryState] = useState([]);
   const historyRef = useRef(history);
@@ -22,7 +44,10 @@ export function useHistory(matchDataRef, updateData) {
   const setHistory = useCallback(nextHistory => {
     setHistoryState(prev => {
       const resolved = typeof nextHistory === 'function' ? nextHistory(prev) : nextHistory;
-      const safeHistory = Array.isArray(resolved) ? resolved : [];
+      const safeHistory = Array.isArray(resolved)
+        ? resolved.map(normalizeHistoryEntry)
+        : [];
+
       historyRef.current = safeHistory;
       return safeHistory;
     });
@@ -30,7 +55,7 @@ export function useHistory(matchDataRef, updateData) {
 
   const updateWithHistory = useCallback((actionName, newData) => {
     const timeStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-    const snapshot = cloneData(matchDataRef.current);
+    const snapshot = stripSceneFields(cloneData(matchDataRef.current));
 
     setHistoryState(prev => {
       const newHistory = [
@@ -49,14 +74,22 @@ export function useHistory(matchDataRef, updateData) {
     if (historyRef.current.length === 0) return;
 
     const lastState = historyRef.current[0];
-    updateData(cloneData(lastState.data));
+    const currentData = matchDataRef.current || {};
+    const currentScene = currentData.globalScene || 'LIVE';
+    const restoredData = stripSceneFields(cloneData(lastState.data));
+
+    updateData({
+      ...currentData,
+      ...(restoredData || {}),
+      globalScene: currentScene
+    });
 
     setHistoryState(prev => {
       const newHistory = prev.slice(1);
       historyRef.current = newHistory;
       return newHistory;
     });
-  }, [updateData]);
+  }, [matchDataRef, updateData]);
 
   return { history, historyRef, setHistory, updateWithHistory, handleUndo };
 }

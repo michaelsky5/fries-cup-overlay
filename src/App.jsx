@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { MatchContext } from './contexts/MatchContext';
@@ -169,6 +169,7 @@ function MainApp() {
   const programSyncServerUrl = useMemo(() => getProgramSyncServerUrl(), []);
   const explicitProgramRoomId = useMemo(() => getExplicitProgramRoomId(), []);
   const hasBroadcastRoom = isOverlay || !!explicitProgramRoomId;
+  const lastAppliedProgramTimestampRef = useRef(0);
 
   const { w, h, density, isDense, isUltra, isShort } = useViewport();
   const { matchData, matchDataRef, videoProgress, updateData: originalUpdateData } = useMatchState();
@@ -272,21 +273,46 @@ function MainApp() {
     const applyProgramPayload = remotePayload => {
       if (!remotePayload) return;
 
+      const incomingRoom = remotePayload.roomId || remotePayload.room || programRoomId;
+      if (incomingRoom && programRoomId && incomingRoom !== programRoomId) return;
+
       const incomingScene =
         remotePayload.programScene ||
         remotePayload.globalScene ||
         remotePayload.matchData?.globalScene ||
         'LIVE';
 
+      const incomingTimestamp = Number(remotePayload.timestamp || remotePayload.matchData?.timestamp || 0);
+
+      if (
+        incomingTimestamp > 0 &&
+        lastAppliedProgramTimestampRef.current > 0 &&
+        incomingTimestamp < lastAppliedProgramTimestampRef.current
+      ) {
+        console.warn('[FCUP_APP] Ignored stale program payload.', {
+          incomingScene,
+          incomingTimestamp,
+          lastApplied: lastAppliedProgramTimestampRef.current
+        });
+        return;
+      }
+
       const key = [
-        remotePayload.roomId || remotePayload.room || programRoomId,
+        incomingRoom,
         remotePayload.sequence || '',
-        remotePayload.timestamp || '',
+        incomingTimestamp || '',
         incomingScene
       ].join(':');
 
       if (key && key === lastProgramKey) return;
       lastProgramKey = key;
+
+      if (incomingTimestamp > 0) {
+        lastAppliedProgramTimestampRef.current = Math.max(
+          lastAppliedProgramTimestampRef.current,
+          incomingTimestamp
+        );
+      }
 
       if (remotePayload.matchData) {
         originalUpdateData({
@@ -349,7 +375,7 @@ function MainApp() {
     matchData,
     renderScene,
     programRoomId,
-    programSyncServerUrl,
+    programSyncServerUrl
   ]);
 
   const handleUpdateDataAndSync = useCallback(newData => {

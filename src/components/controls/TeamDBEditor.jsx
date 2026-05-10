@@ -1,9 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { ShellPanel } from '../common/SharedUI';
 import { COLORS, panelBase } from '../../constants/styles';
-import { LOGO_LIST, resolveTeamLogoPath, isTbdLogoKey } from '../../constants/logos';
+import { resolveTeamLogoPath, isTbdLogoKey } from '../../constants/logos';
 import { getRosterHeroOptions, getRosterHeroImagePath } from '../../utils';
 import { createEditorUi } from '../../utils/editorUi';
 
@@ -12,56 +12,6 @@ const PLAYOFF_TEAM_SHORT_NAMES = ['NGP', 'TNS', 'YOU', 'ZS', 'HYW', 'SPC', 'XCFN
 
 const ROLE_ORDER = { TANK: 0, DAMAGE: 1, SUPPORT: 2 };
 const ROLE_ALIAS = { TANK: 'TANK', DPS: 'DAMAGE', DAMAGE: 'DAMAGE', SUP: 'SUPPORT', SUPPORT: 'SUPPORT' };
-
-const HERO_ALIAS = {
-  dva: 'dva', 'd.va': 'dva', 'd va': 'dva', 'd-va': 'dva', d_va: 'dva',
-  doomfist: 'doomfist', 末日铁拳: 'doomfist',
-  domina: 'domina', 金驭: 'domina',
-  hazard: 'hazard', 骇灾: 'hazard',
-  'junker queen': 'junker_queen', junker_queen: 'junker_queen', 渣客女王: 'junker_queen',
-  mauga: 'mauga', 毛加: 'mauga',
-  orisa: 'orisa', 奥丽莎: 'orisa',
-  ramattra: 'ramattra', 拉玛刹: 'ramattra',
-  reinhardt: 'reinhardt', 莱因哈特: 'reinhardt',
-  roadhog: 'roadhog', 路霸: 'roadhog',
-  sigma: 'sigma', 西格玛: 'sigma',
-  winston: 'winston', 温斯顿: 'winston',
-  'wrecking ball': 'wrecking_ball', wrecking_ball: 'wrecking_ball', 破坏球: 'wrecking_ball',
-  zarya: 'zarya', 查莉娅: 'zarya',
-
-  ashe: 'ashe', 艾什: 'ashe',
-  bastion: 'bastion', 堡垒: 'bastion',
-  cassidy: 'cassidy', 卡西迪: 'cassidy',
-  echo: 'echo', 回声: 'echo',
-  freja: 'freja', 弗蕾娅: 'freja',
-  genji: 'genji', 源氏: 'genji',
-  hanzo: 'hanzo', 半藏: 'hanzo',
-  junkrat: 'junkrat', 狂鼠: 'junkrat',
-  mei: 'mei', 美: 'mei',
-  pharah: 'pharah', 法老之鹰: 'pharah',
-  reaper: 'reaper', 死神: 'reaper',
-  sojourn: 'sojourn', 索杰恩: 'sojourn',
-  'soldier 76': 'soldier_76', 'soldier: 76': 'soldier_76', soldier_76: 'soldier_76', 士兵76: 'soldier_76', '士兵：76': 'soldier_76',
-  sombra: 'sombra', 黑影: 'sombra',
-  symmetra: 'symmetra', 秩序之光: 'symmetra',
-  torbjorn: 'torbjorn', torbjörn: 'torbjorn', 托比昂: 'torbjorn',
-  tracer: 'tracer', 猎空: 'tracer',
-  venture: 'venture', 探奇: 'venture',
-  widowmaker: 'widowmaker', 黑百合: 'widowmaker',
-
-  ana: 'ana', 安娜: 'ana',
-  baptiste: 'baptiste', 巴蒂斯特: 'baptiste',
-  brigitte: 'brigitte', 布丽吉塔: 'brigitte',
-  illari: 'illari', 伊拉锐: 'illari',
-  juno: 'juno', 朱诺: 'juno',
-  kiriko: 'kiriko', 雾子: 'kiriko',
-  lifeweaver: 'lifeweaver', 生命之梭: 'lifeweaver',
-  lucio: 'lucio', lúcio: 'lucio', 卢西奥: 'lucio',
-  mercy: 'mercy', 天使: 'mercy',
-  moira: 'moira', 莫伊拉: 'moira',
-  wuyang: 'wuyang', 无漾: 'wuyang',
-  zenyatta: 'zenyatta', 禅雅塔: 'zenyatta'
-};
 
 const compactText = value =>
   String(value || '')
@@ -79,6 +29,72 @@ const normalizeHeroText = value =>
     .replace(/[：:]/g, ':')
     .replace(/[._-]+/g, ' ')
     .replace(/\s+/g, ' ');
+
+const HERO_ALIAS_ENTRIES = [
+  ['domina', ['金驭']],
+  ['doomfist', ['末日铁拳']],
+  ['dva', ['d.va', 'd va', 'd-va', 'd_va']],
+  ['hazard', ['骇灾']],
+  ['junker_queen', ['junker queen', '渣客女王']],
+  ['mauga', ['毛加']],
+  ['orisa', ['奥丽莎']],
+  ['ramattra', ['拉玛刹']],
+  ['reinhardt', ['莱因哈特']],
+  ['roadhog', ['路霸']],
+  ['sigma', ['西格玛']],
+  ['winston', ['温斯顿']],
+  ['wrecking_ball', ['wrecking ball', '破坏球']],
+  ['zarya', ['查莉娅']],
+
+  ['anran', ['安燃']],
+  ['ashe', ['艾什']],
+  ['bastion', ['堡垒']],
+  ['cassidy', ['卡西迪']],
+  ['echo', ['回声']],
+  ['emre', ['埃姆雷']],
+  ['freja', ['弗蕾娅', '芙蕾雅']],
+  ['genji', ['源氏']],
+  ['hanzo', ['半藏']],
+  ['junkrat', ['狂鼠']],
+  ['mei', ['美']],
+  ['pharah', ['法老之鹰']],
+  ['reaper', ['死神']],
+  ['sojourn', ['索杰恩']],
+  ['soldier_76', ['soldier 76', 'soldier: 76', '士兵76', '士兵：76']],
+  ['sierra', ['西拉']],
+  ['sombra', ['黑影']],
+  ['symmetra', ['秩序之光']],
+  ['torbjorn', ['torbjörn', '托比昂']],
+  ['tracer', ['猎空']],
+  ['vendetta', ['斩仇']],
+  ['venture', ['探奇']],
+  ['widowmaker', ['黑百合']],
+
+  ['ana', ['安娜']],
+  ['baptiste', ['巴蒂斯特']],
+  ['brigitte', ['布丽吉塔']],
+  ['illari', ['伊拉锐']],
+  ['jetpack_cat', ['jetpack cat', '飞天猫']],
+  ['juno', ['朱诺']],
+  ['kiriko', ['雾子']],
+  ['lifeweaver', ['生命之梭']],
+  ['lucio', ['lúcio', '卢西奥']],
+  ['mercy', ['天使']],
+  ['mizuki', ['瑞稀']],
+  ['moira', ['莫伊拉']],
+  ['wuyang', ['无漾']],
+  ['zenyatta', ['禅雅塔']]
+];
+
+const HERO_ALIAS = HERO_ALIAS_ENTRIES.reduce((acc, [key, aliases = []]) => {
+  [key, ...aliases].forEach(alias => {
+    const normalized = normalizeHeroText(alias);
+    const compact = compactText(alias);
+    if (normalized) acc[normalized] = key;
+    if (compact) acc[compact] = key;
+  });
+  return acc;
+}, {});
 
 const normalizeRole = role => ROLE_ALIAS[String(role || '').trim().toUpperCase()] || 'DAMAGE';
 
@@ -176,14 +192,15 @@ const pickHeroKey = (rawHero, role) => {
   if (!options.length) return '';
 
   const normalized = normalizeHeroText(rawHero);
-  const alias = HERO_ALIAS[normalized] || HERO_ALIAS[compactText(rawHero)] || normalized.replace(/\s+/g, '_');
+  const alias =
+    HERO_ALIAS[normalized] ||
+    HERO_ALIAS[compactText(rawHero)] ||
+    normalized.replace(/\s+/g, '_');
 
   if (options.includes(alias)) return alias;
 
   const compactAlias = compactText(alias);
-  const matched = options.find(option => compactText(option) === compactAlias);
-
-  return matched || options[0];
+  return options.find(option => compactText(option) === compactAlias) || options[0];
 };
 
 const getPlayerHeroStats = player => {
@@ -251,15 +268,17 @@ const getPresetLogoKey = preset => {
   );
 };
 
+const getPresetLogo = preset => {
+  const data = preset?.data || {};
+  return data.logo || data.logoPath || data.teamLogo || '';
+};
+
 const normalizeTeamPresetForDB = preset => {
   const data = preset?.data || {};
   const logoKey = getPresetLogoKey(preset);
   const resolvedLogo = resolveTeamLogoPath({
     ...preset,
-    data: {
-      ...data,
-      logoKey
-    }
+    data: { ...data, logoKey }
   }, '');
 
   const staff = getPresetStaff(preset);
@@ -328,11 +347,6 @@ const buildPlayoffPresetsFromDb = db => {
   }).filter(Boolean);
 };
 
-const getPresetLogo = preset => {
-  const data = preset?.data || {};
-  return data.logo || data.logoPath || data.teamLogo || '';
-};
-
 const mergePresetLibrary = (currentLibrary, incomingPresets) => {
   const next = normalizeTeamPresetLibraryForDB(currentLibrary);
   const incoming = normalizeTeamPresetLibraryForDB(incomingPresets);
@@ -340,38 +354,189 @@ const mergePresetLibrary = (currentLibrary, incomingPresets) => {
   incoming.forEach(preset => {
     const existedIndex = next.findIndex(item => item.key === preset.key);
 
-    if (existedIndex >= 0) {
-      const existing = next[existedIndex];
-      const incomingLogo = getPresetLogo(preset);
-      const existingLogo = getPresetLogo(existing);
-      const safeLogo = incomingLogo && !isTbdLogoKey(incomingLogo) ? incomingLogo : existingLogo;
-
-      const existingStaff = getPresetStaff(existing);
-      const incomingStaff = getPresetStaff(preset);
-      const safeManager = hasStaffValue(incomingStaff.manager) ? incomingStaff.manager : existingStaff.manager;
-      const safeCoaches = incomingStaff.coaches.length ? incomingStaff.coaches : existingStaff.coaches;
-
-      next[existedIndex] = normalizeTeamPresetForDB({
-        ...existing,
-        ...preset,
-        data: {
-          ...(existing.data || {}),
-          ...(preset.data || {}),
-          logoKey: preset.data?.logoKey || existing.data?.logoKey || preset.key || existing.key || '',
-          logo: safeLogo || '',
-          logoPath: safeLogo || '',
-          teamLogo: safeLogo || '',
-          manager: safeManager,
-          coaches: safeCoaches
-        }
-      });
-    } else {
+    if (existedIndex < 0) {
       next.push(preset);
+      return;
     }
+
+    const existing = next[existedIndex];
+    const incomingLogo = getPresetLogo(preset);
+    const existingLogo = getPresetLogo(existing);
+    const safeLogo = incomingLogo && !isTbdLogoKey(incomingLogo) ? incomingLogo : existingLogo;
+
+    const existingStaff = getPresetStaff(existing);
+    const incomingStaff = getPresetStaff(preset);
+    const safeManager = hasStaffValue(incomingStaff.manager) ? incomingStaff.manager : existingStaff.manager;
+    const safeCoaches = incomingStaff.coaches.length ? incomingStaff.coaches : existingStaff.coaches;
+
+    next[existedIndex] = normalizeTeamPresetForDB({
+      ...existing,
+      ...preset,
+      data: {
+        ...(existing.data || {}),
+        ...(preset.data || {}),
+        logoKey: preset.data?.logoKey || existing.data?.logoKey || preset.key || existing.key || '',
+        logo: safeLogo || '',
+        logoPath: safeLogo || '',
+        teamLogo: safeLogo || '',
+        manager: safeManager,
+        coaches: safeCoaches
+      }
+    });
   });
 
   return next;
 };
+
+function InfoCell({ label, value, labelStyle, valueStyle }) {
+  return (
+    <div
+      style={{
+        border: `1px solid ${COLORS.line}`,
+        background: 'rgba(255,255,255,0.02)',
+        padding: '8px 10px',
+        display: 'grid',
+        gap: '3px',
+        minWidth: 0
+      }}
+    >
+      <div style={labelStyle}>{label}</div>
+      <div style={valueStyle}>{value}</div>
+    </div>
+  );
+}
+
+function TeamPresetCard({
+  team,
+  tr,
+  ui,
+  density,
+  isDense,
+  labelStyle,
+  valueStyle,
+  panelPadding,
+  onDelete
+}) {
+  const normalizedTeam = normalizeTeamPresetForDB(team);
+  const data = normalizedTeam.data || {};
+  const players = Array.isArray(data.players) ? data.players : [];
+
+  const playerNames = players.map(p => p.nickname || p.battleTag).filter(Boolean);
+  const logoValue = data.logo || data.logoPath || data.teamLogo || '';
+  const hasLogo = !!logoValue && !isTbdLogoKey(logoValue);
+
+  const manager = data.manager || {};
+  const coaches = Array.isArray(data.coaches) ? data.coaches : [];
+  const managerName = manager.nickname || manager.battleTag || '';
+  const coachNames = coaches.map(c => c.nickname || c.battleTag).filter(Boolean);
+
+  return (
+    <div
+      style={{
+        ...panelBase,
+        padding: panelPadding,
+        borderLeft: `3px solid ${COLORS.yellow}`,
+        height: '100%',
+        display: 'grid',
+        gridTemplateRows: 'auto auto auto 1fr',
+        gap: '12px',
+        boxSizing: 'border-box'
+      }}
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '10px', alignItems: 'start' }}>
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              color: COLORS.white,
+              fontWeight: 900,
+              fontSize: density === 'spacious' ? '17px' : '16px',
+              textTransform: 'uppercase',
+              lineHeight: 1.15,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}
+          >
+            {normalizedTeam.name}
+          </div>
+
+          <div
+            style={{
+              color: COLORS.faintWhite,
+              fontSize: '11px',
+              marginTop: '5px',
+              letterSpacing: '0.04em',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}
+          >
+            {tr('teamDbEditor.key')}: {normalizedTeam.key}
+          </div>
+        </div>
+
+        <button
+          style={{
+            ...ui.outlineBtn,
+            borderColor: COLORS.red,
+            color: COLORS.red,
+            minWidth: isDense ? '68px' : '74px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '6px'
+          }}
+          onClick={() => onDelete(normalizedTeam.key)}
+        >
+          {tr('teamDbEditor.delete')}
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isDense ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: '8px' }}>
+        <InfoCell label={tr('teamDbEditor.logo')} value={hasLogo ? tr('teamDbEditor.configured') : tr('teamDbEditor.notSet')} labelStyle={labelStyle} valueStyle={valueStyle} />
+        <InfoCell label={tr('teamDbEditor.players')} value={`${players.length} ${tr('teamDbEditor.registered')}`} labelStyle={labelStyle} valueStyle={valueStyle} />
+        <InfoCell label={tr('teamDbEditor.status')} value={players.length ? tr('teamDbEditor.ready') : tr('teamDbEditor.incomplete')} labelStyle={labelStyle} valueStyle={valueStyle} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isDense ? '1fr' : '1fr 1fr', gap: '8px' }}>
+        <InfoCell label="MANAGER" value={managerName || '-'} labelStyle={labelStyle} valueStyle={valueStyle} />
+        <InfoCell label="COACH" value={coachNames.join(', ') || '-'} labelStyle={labelStyle} valueStyle={valueStyle} />
+      </div>
+
+      <div
+        style={{
+          border: `1px solid ${COLORS.line}`,
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.01) 100%)',
+          padding: '8px 10px',
+          display: 'grid',
+          alignContent: 'start',
+          gap: '8px',
+          minHeight: density === 'spacious' ? '68px' : '60px',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ ...labelStyle, color: COLORS.yellow }}>
+          {tr('teamDbEditor.rosterPreview')}
+        </div>
+
+        <div
+          style={{
+            color: playerNames.length ? COLORS.softWhite : COLORS.faintWhite,
+            fontSize: density === 'spacious' ? '12px' : '11px',
+            lineHeight: 1.55,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}
+        >
+          {playerNames.join(', ') || tr('teamDbEditor.noPlayerData')}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function TeamDBEditor({
   density = 'standard',
@@ -395,6 +560,8 @@ export default function TeamDBEditor({
   const ui = createEditorUi(densityTokens, density);
 
   const tx = (key, fallback, options = {}) => tr(key, { defaultValue: fallback, ...options });
+
+  const normalizedLibrary = useMemo(() => normalizeTeamPresetLibraryForDB(library), [library]);
 
   const normalizeExportKey = value =>
     String(value || '')
@@ -422,14 +589,12 @@ export default function TeamDBEditor({
 
     const sideList = [
       {
-        side: 'A',
         activeKey: matchData.rosterActivePresetKeyA,
         teamName: matchData.teamA,
         teamShort: matchData.teamShortA,
         staff: matchData.rosterStaffA
       },
       {
-        side: 'B',
         activeKey: matchData.rosterActivePresetKeyB,
         teamName: matchData.teamB,
         teamShort: matchData.teamShortB,
@@ -462,15 +627,12 @@ export default function TeamDBEditor({
     const liveManager = normalizeManager(liveStaff?.manager);
     const liveCoaches = normalizeCoaches(liveStaff?.coaches);
 
-    const manager = hasStaffValue(presetStaff.manager) ? presetStaff.manager : liveManager;
-    const coaches = presetStaff.coaches.length ? presetStaff.coaches : liveCoaches;
-
     return normalizeTeamPresetForDB({
       ...preset,
       data: {
         ...data,
-        manager,
-        coaches,
+        manager: hasStaffValue(presetStaff.manager) ? presetStaff.manager : liveManager,
+        coaches: presetStaff.coaches.length ? presetStaff.coaches : liveCoaches,
         clubName: data.clubName || liveStaff?.clubName || '',
         showClubName: data.showClubName ?? liveStaff?.showClubName ?? false
       }
@@ -490,11 +652,9 @@ export default function TeamDBEditor({
       return;
     }
 
-    const nextLibrary = mergePresetLibrary(library, normalizedPresets);
-
     updateWithHistory(actionLabel, {
       ...matchData,
-      rosterPresetLibrary: nextLibrary
+      rosterPresetLibrary: mergePresetLibrary(library, normalizedPresets)
     });
 
     showModal({
@@ -506,6 +666,7 @@ export default function TeamDBEditor({
 
   const importPlayoffPresetsFromStats = async () => {
     if (isSyncingPlayoff) return;
+
     setIsSyncingPlayoff(true);
 
     try {
@@ -513,9 +674,7 @@ export default function TeamDBEditor({
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const db = await response.json();
-      const presets = buildPlayoffPresetsFromDb(db);
-
-      saveImportedPresets(presets, 'Sync playoff roster presets from stats DB');
+      saveImportedPresets(buildPlayoffPresetsFromDb(db), 'Sync playoff roster presets from stats DB');
     } catch (error) {
       console.error('Failed to sync playoff presets:', error);
       showModal({
@@ -543,9 +702,7 @@ export default function TeamDBEditor({
     reader.onload = () => {
       try {
         const db = JSON.parse(String(reader.result || '{}'));
-        const presets = buildPlayoffPresetsFromDb(db);
-
-        saveImportedPresets(presets, 'Import playoff roster presets from local stats DB');
+        saveImportedPresets(buildPlayoffPresetsFromDb(db), 'Import playoff roster presets from local stats DB');
       } catch (error) {
         console.error('Failed to import local playoff DB:', error);
         showModal({
@@ -565,13 +722,22 @@ export default function TeamDBEditor({
 
     navigator.clipboard
       .writeText(JSON.stringify(exportLibrary, null, 2))
-      .then(() =>
+      .then(() => {
         showModal({
           type: 'alert',
           title: tr('teamDbEditor.exportSuccess'),
           message: tr('teamDbEditor.exportMessage')
-        })
-      );
+        });
+      })
+      .catch(error => {
+        console.error('Failed to export team database:', error);
+        showModal({
+          type: 'alert',
+          title: tr('teamDbEditor.exportFailed', '导出失败'),
+          message: tr('teamDbEditor.exportFailedMsg', '复制战队数据库到剪贴板失败，请检查浏览器剪贴板权限。'),
+          isDanger: true
+        });
+      });
   };
 
   const importDB = () => {
@@ -599,7 +765,8 @@ export default function TeamDBEditor({
             title: tr('teamDbEditor.importSuccess'),
             message: tr('teamDbEditor.importSuccessMsg', { count: normalizedParsed.length })
           });
-        } catch (e) {
+        } catch (error) {
+          console.error('Failed to import team database:', error);
           showModal({
             type: 'alert',
             title: tr('teamDbEditor.importFailed'),
@@ -739,13 +906,7 @@ export default function TeamDBEditor({
               </div>
             </div>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: toolbarColumns,
-                gap: '8px'
-              }}
-            >
+            <div style={{ display: 'grid', gridTemplateColumns: toolbarColumns, gap: '8px' }}>
               <button
                 style={{
                   ...yellowButtonStyle,
@@ -794,218 +955,22 @@ export default function TeamDBEditor({
               alignItems: 'stretch'
             }}
           >
-            {library.map(team => {
-              const normalizedTeam = normalizeTeamPresetForDB(team);
-              const players = normalizedTeam.data?.players || [];
-              const playerNames = players
-                .map(p => p.nickname || p.battleTag)
-                .filter(Boolean);
+            {normalizedLibrary.map(team => (
+              <TeamPresetCard
+                key={team.key}
+                team={team}
+                tr={tr}
+                ui={ui}
+                density={density}
+                isDense={isDense}
+                labelStyle={labelStyle}
+                valueStyle={valueStyle}
+                panelPadding={t.panelPadding}
+                onDelete={deleteTeam}
+              />
+            ))}
 
-              const logoValue = normalizedTeam.data?.logo || normalizedTeam.data?.logoPath || normalizedTeam.data?.teamLogo || '';
-              const hasLogo = !!logoValue && !isTbdLogoKey(logoValue);
-
-              const manager = normalizedTeam.data?.manager || {};
-              const coaches = normalizedTeam.data?.coaches || [];
-              const managerName = manager.nickname || manager.battleTag || '';
-              const coachNames = coaches.map(c => c.nickname || c.battleTag).filter(Boolean);
-
-              return (
-                <div
-                  key={team.key}
-                  style={{
-                    ...panelBase,
-                    padding: t.panelPadding,
-                    borderLeft: `3px solid ${COLORS.yellow}`,
-                    height: '100%',
-                    display: 'grid',
-                    gridTemplateRows: 'auto auto auto 1fr',
-                    gap: '12px',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr auto',
-                      gap: '10px',
-                      alignItems: 'start'
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          color: COLORS.white,
-                          fontWeight: 900,
-                          fontSize: density === 'spacious' ? '17px' : '16px',
-                          textTransform: 'uppercase',
-                          lineHeight: 1.15,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                      >
-                        {team.name}
-                      </div>
-
-                      <div
-                        style={{
-                          color: COLORS.faintWhite,
-                          fontSize: '11px',
-                          marginTop: '5px',
-                          letterSpacing: '0.04em',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                      >
-                        {tr('teamDbEditor.key')}: {team.key}
-                      </div>
-                    </div>
-
-                    <button
-                      style={{
-                        ...ui.outlineBtn,
-                        borderColor: COLORS.red,
-                        color: COLORS.red,
-                        minWidth: isDense ? '68px' : '74px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '6px'
-                      }}
-                      onClick={() => deleteTeam(team.key)}
-                    >
-                      {tr('teamDbEditor.delete')}
-                    </button>
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: isDense ? '1fr' : 'repeat(3, minmax(0, 1fr))',
-                      gap: '8px'
-                    }}
-                  >
-                    <div
-                      style={{
-                        border: `1px solid ${COLORS.line}`,
-                        background: 'rgba(255,255,255,0.02)',
-                        padding: '8px 10px',
-                        display: 'grid',
-                        gap: '3px',
-                        minWidth: 0
-                      }}
-                    >
-                      <div style={labelStyle}>{tr('teamDbEditor.logo')}</div>
-                      <div style={valueStyle}>{hasLogo ? tr('teamDbEditor.configured') : tr('teamDbEditor.notSet')}</div>
-                    </div>
-
-                    <div
-                      style={{
-                        border: `1px solid ${COLORS.line}`,
-                        background: 'rgba(255,255,255,0.02)',
-                        padding: '8px 10px',
-                        display: 'grid',
-                        gap: '3px',
-                        minWidth: 0
-                      }}
-                    >
-                      <div style={labelStyle}>{tr('teamDbEditor.players')}</div>
-                      <div style={valueStyle}>{players.length} {tr('teamDbEditor.registered')}</div>
-                    </div>
-
-                    <div
-                      style={{
-                        border: `1px solid ${COLORS.line}`,
-                        background: 'rgba(255,255,255,0.02)',
-                        padding: '8px 10px',
-                        display: 'grid',
-                        gap: '3px',
-                        minWidth: 0
-                      }}
-                    >
-                      <div style={labelStyle}>{tr('teamDbEditor.status')}</div>
-                      <div style={valueStyle}>{players.length ? tr('teamDbEditor.ready') : tr('teamDbEditor.incomplete')}</div>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: isDense ? '1fr' : '1fr 1fr',
-                      gap: '8px'
-                    }}
-                  >
-                    <div
-                      style={{
-                        border: `1px solid ${COLORS.line}`,
-                        background: 'rgba(255,255,255,0.02)',
-                        padding: '8px 10px',
-                        display: 'grid',
-                        gap: '3px',
-                        minWidth: 0
-                      }}
-                    >
-                      <div style={labelStyle}>MANAGER</div>
-                      <div style={valueStyle}>{managerName || '-'}</div>
-                    </div>
-
-                    <div
-                      style={{
-                        border: `1px solid ${COLORS.line}`,
-                        background: 'rgba(255,255,255,0.02)',
-                        padding: '8px 10px',
-                        display: 'grid',
-                        gap: '3px',
-                        minWidth: 0
-                      }}
-                    >
-                      <div style={labelStyle}>COACH</div>
-                      <div style={valueStyle}>{coachNames.join(', ') || '-'}</div>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      border: `1px solid ${COLORS.line}`,
-                      background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.01) 100%)',
-                      padding: '8px 10px',
-                      display: 'grid',
-                      alignContent: 'start',
-                      gap: '8px',
-                      minHeight: density === 'spacious' ? '68px' : '60px',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    <div
-                      style={{
-                        ...labelStyle,
-                        color: COLORS.yellow
-                      }}
-                    >
-                      {tr('teamDbEditor.rosterPreview')}
-                    </div>
-
-                    <div
-                      style={{
-                        color: playerNames.length ? COLORS.softWhite : COLORS.faintWhite,
-                        fontSize: density === 'spacious' ? '12px' : '11px',
-                        lineHeight: 1.55,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}
-                    >
-                      {playerNames.join(', ') || tr('teamDbEditor.noPlayerData')}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {library.length === 0 && (
+            {normalizedLibrary.length === 0 && (
               <div
                 style={{
                   color: COLORS.faintWhite,

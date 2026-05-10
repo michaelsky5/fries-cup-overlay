@@ -47,38 +47,40 @@ const MAP_DICTIONARY = {
   samoa: 'Control/Samoa',
   '萨摩亚': 'Control/Samoa',
   'antarctic peninsula': 'Control/Antarctic_Peninsula',
+  antarctic_peninsula: 'Control/Antarctic_Peninsula',
   '南极半岛': 'Control/Antarctic_Peninsula',
 
-  'circuit royal': 'Escort/Circuit_Royal',
-  circuit_royal: 'Escort/Circuit_Royal',
-  '皇家赛道': 'Escort/Circuit_Royal',
   dorado: 'Escort/Dorado',
   '多拉多': 'Escort/Dorado',
+  'route 66': 'Escort/Route_66',
+  route_66: 'Escort/Route_66',
+  '66号公路': 'Escort/Route_66',
+  'watchpoint: gibraltar': 'Escort/Watchpoint_Gibraltar',
+  'watchpoint gibraltar': 'Escort/Watchpoint_Gibraltar',
+  watchpoint_gibraltar: 'Escort/Watchpoint_Gibraltar',
+  '监测站：直布罗陀': 'Escort/Watchpoint_Gibraltar',
+  '监测站:直布罗陀': 'Escort/Watchpoint_Gibraltar',
   havana: 'Escort/Havana',
   '哈瓦那': 'Escort/Havana',
   junkertown: 'Escort/Junkertown',
   '渣客镇': 'Escort/Junkertown',
   rialto: 'Escort/Rialto',
   '里阿尔托': 'Escort/Rialto',
-  'route 66': 'Escort/Route_66',
-  route_66: 'Escort/Route_66',
-  '66号公路': 'Escort/Route_66',
   'shambali monastery': 'Escort/Shambali',
+  shambali_monastery: 'Escort/Shambali',
   shambali: 'Escort/Shambali',
   '香巴里寺院': 'Escort/Shambali',
-  'watchpoint: gibraltar': 'Escort/Watchpoint_Gibraltar',
-  'watchpoint gibraltar': 'Escort/Watchpoint_Gibraltar',
-  watchpoint_gibraltar: 'Escort/Watchpoint_Gibraltar',
-  '监测站：直布罗陀': 'Escort/Watchpoint_Gibraltar',
+  'circuit royal': 'Escort/Circuit_Royal',
+  circuit_royal: 'Escort/Circuit_Royal',
+  '皇家赛道': 'Escort/Circuit_Royal',
 
   atlis: 'Flashpoint/Atlis',
-  hanaoka: 'Flashpoint/Atlis',
-  '花冈': 'Flashpoint/Atlis',
+  '阿特里斯': 'Flashpoint/Atlis',
+  suravasa: 'Flashpoint/Suravasa',
+  '苏拉瓦萨': 'Flashpoint/Suravasa',
   'new junk city': 'Flashpoint/New_Junk_City',
   new_junk_city: 'Flashpoint/New_Junk_City',
   '新渣客城': 'Flashpoint/New_Junk_City',
-  suravasa: 'Flashpoint/Suravasa',
-  '苏拉瓦萨': 'Flashpoint/Suravasa',
 
   'blizzard world': 'Hybrid/Blizzard_World',
   blizzard_world: 'Hybrid/Blizzard_World',
@@ -91,46 +93,69 @@ const MAP_DICTIONARY = {
   'kings row': 'Hybrid/Kings_Row',
   kings_row: 'Hybrid/Kings_Row',
   '国王大道': 'Hybrid/Kings_Row',
-  midtown: 'Hybrid/Midtown',
-  '中城': 'Hybrid/Midtown',
   numbani: 'Hybrid/Numbani',
   '努巴尼': 'Hybrid/Numbani',
+  midtown: 'Hybrid/Midtown',
+  '中城': 'Hybrid/Midtown',
   'paraíso': 'Hybrid/Paraíso',
   paraiso: 'Hybrid/Paraíso',
+  '帕拉伊苏': 'Hybrid/Paraíso',
   '帕拉伊索': 'Hybrid/Paraíso',
 
   colosseo: 'Push/Colosseo',
   '斗兽场': 'Push/Colosseo',
-  'esperança': 'Push/Esperanca',
-  esperanca: 'Push/Esperanca',
-  '埃斯佩兰萨': 'Push/Esperanca',
   'new queen street': 'Push/New_Queen_Street',
   new_queen_street: 'Push/New_Queen_Street',
   '新皇后街': 'Push/New_Queen_Street',
+  'esperança': 'Push/Esperanca',
+  esperanca: 'Push/Esperanca',
+  '埃斯佩兰萨': 'Push/Esperanca',
   runasapi: 'Push/Runasapi',
-  '鲁纳萨皮': 'Push/Runasapi'
+  '鲁纳塞彼': 'Push/Runasapi',
+  '鲁纳萨皮': 'Push/Runasapi',
+
+  hanaoka: 'Clash/Hanaoka',
+  '花冈': 'Clash/Hanaoka',
+  'throne of anubis': 'Clash/Throne_of_Anubis',
+  throne_of_anubis: 'Clash/Throne_of_Anubis',
+  '阿努比斯王座': 'Clash/Throne_of_Anubis'
 };
 
 function formatMapPath(mapType, mapName) {
   if (!mapName) return '';
 
   const lookupKey = String(mapName).toLowerCase().trim();
-  if (MAP_DICTIONARY[lookupKey]) return `/assets/maps/${MAP_DICTIONARY[lookupKey]}.jpg`;
+
+  if (MAP_DICTIONARY[lookupKey]) {
+    return `/assets/maps/${MAP_DICTIONARY[lookupKey]}.jpg`;
+  }
 
   let folder = 'Unknown';
-  const typeRaw = String(mapType).toLowerCase();
+  const typeRaw = String(mapType || '').toLowerCase();
 
-  if (typeRaw.includes('control') || typeRaw.includes('控制')) folder = 'Control';
-  else if (typeRaw.includes('escort') || typeRaw.includes('护送')) folder = 'Escort';
-  else if (typeRaw.includes('flashpoint') || typeRaw.includes('闪击')) folder = 'Flashpoint';
-  else if (typeRaw.includes('hybrid') || typeRaw.includes('混合')) folder = 'Hybrid';
-  else if (typeRaw.includes('push') || typeRaw.includes('推进')) folder = 'Push';
-  else folder = String(mapType).trim().charAt(0).toUpperCase() + String(mapType).trim().slice(1).toLowerCase();
+  if (typeRaw.includes('control') || typeRaw.includes('控制') || typeRaw.includes('占领')) {
+    folder = 'Control';
+  } else if (typeRaw.includes('escort') || typeRaw.includes('护送') || typeRaw.includes('运载')) {
+    folder = 'Escort';
+  } else if (typeRaw.includes('flashpoint') || typeRaw.includes('闪点') || typeRaw.includes('闪击')) {
+    folder = 'Flashpoint';
+  } else if (typeRaw.includes('hybrid') || typeRaw.includes('混合')) {
+    folder = 'Hybrid';
+  } else if (typeRaw.includes('push') || typeRaw.includes('推进')) {
+    folder = 'Push';
+  } else if (typeRaw.includes('clash') || typeRaw.includes('交锋')) {
+    folder = 'Clash';
+  } else {
+    const safeType = String(mapType || '').trim();
+    folder = safeType
+      ? safeType.charAt(0).toUpperCase() + safeType.slice(1).toLowerCase()
+      : 'Unknown';
+  }
 
   const file = String(mapName)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[:.']/g, '')
+    .replace(/[：:.']/g, '')
     .trim()
     .replace(/\s+/g, '_');
 

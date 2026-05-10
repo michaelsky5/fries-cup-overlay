@@ -5,6 +5,7 @@ import { ShellPanel } from '../../common/SharedUI';
 import { COLORS, labelStyle } from '../../../constants/styles';
 
 const PLAYOFF_TEAMS = ['NGP', 'TNS', 'YOU', 'ZS', 'HYW', 'SPC', 'XCFN.G', 'FG'];
+const BLOCKED_MAP_TYPES = new Set(['PENALTY', 'FORFEIT', 'WALKOVER', 'BYE']);
 const MAP_PROFILE_CACHE_KEY = 'FCUP_DATA_GRAPHICS_MAP_PROFILE_PANEL_V1';
 
 const UI = {
@@ -519,12 +520,27 @@ export default function MapProfilePanel({
     return Array.from(mapProfileIndex.values()).sort((a, b) => a.mapName.localeCompare(b.mapName));
   }, [mapProfileIndex]);
 
+  const isValidMapType = type => {
+    const normalized = normaliseShort(type);
+    if (!normalized) return false;
+    return !BLOCKED_MAP_TYPES.has(normalized);
+  };
+
   const mapTypes = useMemo(() => {
-    return Array.from(new Set(uniqueMaps.map(m => m.mapType).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    return Array.from(
+      new Set(
+        uniqueMaps
+          .map(m => m.mapType)
+          .filter(isValidMapType)
+      )
+    ).sort((a, b) => a.localeCompare(b));
   }, [uniqueMaps]);
 
   const filteredMaps = useMemo(() => {
-    return uniqueMaps.filter(m => !mapType || m.mapType === mapType);
+    return uniqueMaps.filter(m => {
+      if (!isValidMapType(m.mapType)) return false;
+      return !mapType || m.mapType === mapType;
+    });
   }, [uniqueMaps, mapType]);
 
   useEffect(() => {

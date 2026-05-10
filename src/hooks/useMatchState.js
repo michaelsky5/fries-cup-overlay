@@ -6,6 +6,20 @@ const LEGACY_DATA_KEY = 'fries_cup_data';
 const LEGACY_VIDEO_PROGRESS_KEY = 'fries_cup_video_progress';
 const LEGACY_TICKER_COMMAND_KEY = 'fries_cup_ticker_command';
 
+const GLOBAL_PROFILE_KEY = 'fries_cup_profile_v1';
+
+const GLOBAL_PROFILE_FIELDS = [
+  'rosterPresetLibrary',
+  'teamPresets',
+  'casters',
+  'staffMembers',
+  'shortcuts',
+  'videoLibrary',
+  'highlightLibrary',
+  'coverCasters',
+  'coverAdmins'
+];
+
 const normalizeRoomId = value => {
   const raw = String(value || '').trim();
 
@@ -42,6 +56,57 @@ const getScopedStorageKeys = roomId => {
     videoProgress: `${LEGACY_VIDEO_PROGRESS_KEY}:${safeRoomId}`,
     tickerCommand: `${LEGACY_TICKER_COMMAND_KEY}:${safeRoomId}`
   };
+};
+
+const isPlainObject = value => {
+  return value && typeof value === 'object' && !Array.isArray(value);
+};
+
+const cloneJsonSafe = value => {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return value;
+  }
+};
+
+const pickGlobalProfileFields = data => {
+  const source = data || {};
+  const picked = {};
+
+  GLOBAL_PROFILE_FIELDS.forEach(key => {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      picked[key] = source[key];
+    }
+  });
+
+  return picked;
+};
+
+const stripGlobalProfileFields = data => {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+
+  const next = { ...data };
+
+  GLOBAL_PROFILE_FIELDS.forEach(key => {
+    delete next[key];
+  });
+
+  return next;
+};
+
+const mergeProfiles = (...profiles) => {
+  return profiles.reduce((acc, profile) => {
+    if (!isPlainObject(profile)) return acc;
+
+    GLOBAL_PROFILE_FIELDS.forEach(key => {
+      if (Object.prototype.hasOwnProperty.call(profile, key)) {
+        acc[key] = profile[key];
+      }
+    });
+
+    return acc;
+  }, {});
 };
 
 // 🧹 专门用来清理本地缓存中已失效的 blob 临时体验卡
@@ -95,6 +160,16 @@ const readJsonFromLocalStorage = storageKey => {
     console.error(`[FCUP_STATE] Failed to read ${storageKey}:`, err);
     return null;
   }
+};
+
+const saveRoomAndProfileToLocalStorage = (storageKey, data) => {
+  const safeData = data || {};
+  const roomPayload = stripGlobalProfileFields(safeData);
+  const existingProfile = readJsonFromLocalStorage(GLOBAL_PROFILE_KEY) || {};
+  const nextProfile = mergeProfiles(existingProfile, pickGlobalProfileFields(safeData));
+
+  saveDataToLocalStorage(storageKey, roomPayload);
+  saveDataToLocalStorage(GLOBAL_PROFILE_KEY, nextProfile);
 };
 
 const mergeObject = (base, value) => ({
@@ -187,11 +262,37 @@ export function useMatchState() {
     return { ...normalized, casters: getSafeCasters(normalized) };
   }, []);
 
+  const buildInitialData = useCallback(() => {
+    const savedScopedData = readJsonFromLocalStorage(storageKeys.data);
+    const savedLegacyData = readJsonFromLocalStorage(LEGACY_DATA_KEY);
+    const savedProfileData = readJsonFromLocalStorage(GLOBAL_PROFILE_KEY);
+
+    const legacyProfileSeed = pickGlobalProfileFields(savedLegacyData || {});
+    const scopedProfileSeed = pickGlobalProfileFields(savedScopedData || {});
+
+    const profileData = mergeProfiles(
+      legacyProfileSeed,
+      scopedProfileSeed,
+      savedProfileData || {}
+    );
+
+    const shouldUseLegacyAsRoomData = !savedScopedData && storageKeys.roomId === 'local-draft';
+    const rawRoomData = savedScopedData || (shouldUseLegacyAsRoomData ? savedLegacyData : null);
+    const roomOnlyData = stripGlobalProfileFields(rawRoomData || {});
+
+    return {
+      profileData: cleanDeadBlobs(profileData),
+      roomOnlyData: cleanDeadBlobs(roomOnlyData),
+      hasScopedData: !!savedScopedData,
+      hasLegacyRoomData: shouldUseLegacyAsRoomData && !!savedLegacyData
+    };
+  }, [storageKeys.data, storageKeys.roomId]);
+
   const scheduleSave = useCallback(data => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
     saveTimeoutRef.current = setTimeout(() => {
-      saveDataToLocalStorage(storageKeys.data, data);
+      saveRoomAndProfileToLocalStorage(storageKeys.data, data);
       saveTimeoutRef.current = null;
     }, 300);
   }, [storageKeys.data]);
@@ -202,7 +303,7 @@ export function useMatchState() {
       saveTimeoutRef.current = null;
     }
 
-    saveDataToLocalStorage(storageKeys.data, matchDataRef.current);
+    saveRoomAndProfileToLocalStorage(storageKeys.data, matchDataRef.current);
   }, [storageKeys.data]);
 
   const updateData = useCallback(nextInput => {
@@ -218,18 +319,20 @@ export function useMatchState() {
   }, [getNormalizedData, scheduleSave]);
 
   useEffect(() => {
-    const savedScopedData = readJsonFromLocalStorage(storageKeys.data);
-    const savedLegacyData = savedScopedData ? null : readJsonFromLocalStorage(LEGACY_DATA_KEY);
-    const initialData = savedScopedData || savedLegacyData;
+    const { profileData, roomOnlyData, hasScopedData, hasLegacyRoomData } = buildInitialData();
 
-    if (initialData) {
-      const cleanedData = cleanDeadBlobs(initialData);
-      const normalized = getNormalizedData(cleanedData);
+    const initialData = getNormalizedData({
+      ...profileData,
+      ...roomOnlyData
+    });
 
-      matchDataRef.current = normalized;
-      setMatchData(normalized);
+    matchDataRef.current = initialData;
+    setMatchData(initialData);
 
-      if (!savedScopedData && savedLegacyData) saveDataToLocalStorage(storageKeys.data, normalized);
+    if (!hasScopedData && hasLegacyRoomData) {
+      saveRoomAndProfileToLocalStorage(storageKeys.data, initialData);
+    } else if (Object.keys(profileData || {}).length) {
+      saveRoomAndProfileToLocalStorage(storageKeys.data, initialData);
     }
 
     const savedScopedProgress = readJsonFromLocalStorage(storageKeys.videoProgress);
@@ -249,9 +352,23 @@ export function useMatchState() {
             saveTimeoutRef.current = null;
           }
 
-          const parsedData = JSON.parse(e.newValue);
-          const cleanedData = cleanDeadBlobs(parsedData);
-          const normalized = getNormalizedData(cleanedData);
+          const parsedRoomData = JSON.parse(e.newValue);
+          const cleanedRoomData = cleanDeadBlobs(stripGlobalProfileFields(parsedRoomData));
+          const profileData = cleanDeadBlobs(readJsonFromLocalStorage(GLOBAL_PROFILE_KEY) || {});
+          const normalized = getNormalizedData({
+            ...profileData,
+            ...cleanedRoomData
+          });
+
+          matchDataRef.current = normalized;
+          setMatchData(normalized);
+        } else if (e.key === GLOBAL_PROFILE_KEY) {
+          const parsedProfileData = cleanDeadBlobs(JSON.parse(e.newValue));
+          const currentRoomData = cleanDeadBlobs(stripGlobalProfileFields(matchDataRef.current));
+          const normalized = getNormalizedData({
+            ...parsedProfileData,
+            ...currentRoomData
+          });
 
           matchDataRef.current = normalized;
           setMatchData(normalized);
@@ -287,6 +404,7 @@ export function useMatchState() {
     storageKeys.tickerCommand,
     storageKeys.roomId,
     getNormalizedData,
+    buildInitialData,
     updateData,
     flushSave
   ]);

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useMatchContext } from '../../contexts/MatchContext';
 
 const COLORS = {
   black: '#2a2a2a', yellow: '#f4c320', white: '#ffffff',
@@ -130,23 +129,26 @@ const ScheduleBoard = ({ matches, compact = false, dense = false }) => {
   );
 };
 
-export default function CountdownScene({ matchData, updateData: updateDataProp }) {
-  const matchContext = useMatchContext?.();
-  const updateData = updateDataProp || matchContext?.updateData;
-
+export default function CountdownScene({ matchData = {} }) {
   const mode = matchData.countdownMode || 'FULL';
   const videoRef = useRef(null);
-  const currentVideo = matchData.activeVideoPath || '';
-  const playlist = matchData.videoPlaylist || [];
+  const playlist = Array.isArray(matchData.videoPlaylist) ? matchData.videoPlaylist : [];
+
+  const [localVideoPath, setLocalVideoPath] = useState(matchData.activeVideoPath || '');
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  const currentVideo = localVideoPath || matchData.activeVideoPath || '';
 
   // 获取渲染模式
   const renderMode = matchData.videoRenderMode || 'WEB';
   const isOBSLocal = renderMode === 'OBS_LOCAL';
 
-  const [timeLeft, setTimeLeft] = useState(0);
-
   const isOverlay = typeof window !== 'undefined' && window.location.hash === '#overlay';
   const forceMuted = !isOverlay || !!matchData.videoMuted;
+
+  useEffect(() => {
+    setLocalVideoPath(matchData.activeVideoPath || '');
+  }, [matchData.activeVideoPath]);
 
   useEffect(() => {
     if (!isOBSLocal && videoRef.current && currentVideo) {
@@ -172,13 +174,11 @@ export default function CountdownScene({ matchData, updateData: updateDataProp }
     if (!playlist || playlist.length <= 1) return;
 
     const currentIndex = playlist.indexOf(currentVideo);
-    let nextIndex = 0;
+    const nextIndex = currentIndex !== -1 && currentIndex < playlist.length - 1
+      ? currentIndex + 1
+      : 0;
 
-    if (currentIndex !== -1 && currentIndex < playlist.length - 1) nextIndex = currentIndex + 1;
-
-    if (updateData) {
-      updateData({ ...matchData, activeVideoPath: playlist[nextIndex] });
-    }
+    setLocalVideoPath(playlist[nextIndex] || '');
   };
 
   const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
@@ -313,7 +313,6 @@ export default function CountdownScene({ matchData, updateData: updateDataProp }
 
             <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', boxShadow: 'inset 0 0 80px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.04)', zIndex: 4 }} />
 
-            {/* 🚀 隐藏角标逻辑：如果是在 OBS 镂空垫片模式下，直接干掉这个角标 */}
             {!isOBSLocalVideo && (
               <div style={{ position: 'absolute', bottom: '22px', left: '22px', backgroundColor: COLORS.yellow, color: COLORS.black, padding: '7px 14px', fontWeight: '900', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1.4px', boxShadow: UI.yellowGlow, zIndex: 5 }}>
                 {promoName}

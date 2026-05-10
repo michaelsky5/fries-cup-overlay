@@ -16,7 +16,6 @@ const DEFAULT_SYNC_SERVER_URL = 'http://127.0.0.1:4140';
 const DEFAULT_ROOM_ID = 'default';
 
 const SYNC_SERVER_URL_STORAGE_KEY = 'fcup-sync-server-url';
-const ROOM_ID_STORAGE_KEY = 'fcup-sync-room-id';
 const TOKEN_STORAGE_KEY = 'fcup-sync-token';
 
 const LOCAL_SYNC_CHANNEL_PREFIX = 'fcup-program-sync';
@@ -138,16 +137,6 @@ export const getProgramRoomId = explicitRoom => {
     if (fromQuery) return normalizeRoomId(fromQuery);
   } catch {}
 
-  try {
-    const fromWindow = window.__FCUP_ROOM_ID__;
-    if (fromWindow) return normalizeRoomId(fromWindow);
-  } catch {}
-
-  try {
-    const fromStorage = window.localStorage.getItem(ROOM_ID_STORAGE_KEY);
-    if (fromStorage) return normalizeRoomId(fromStorage);
-  } catch {}
-
   return DEFAULT_ROOM_ID;
 };
 
@@ -155,9 +144,12 @@ export const setProgramRoomId = roomId => {
   if (!isBrowser()) return;
 
   try {
-    window.localStorage.setItem(ROOM_ID_STORAGE_KEY, normalizeRoomId(roomId));
+    const normalizedRoomId = normalizeRoomId(roomId);
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', normalizedRoomId);
+    window.history.replaceState(null, '', url.toString());
   } catch (err) {
-    console.warn('[FCUP_PROGRAM_SYNC] Failed to save room id.', err);
+    console.warn('[FCUP_PROGRAM_SYNC] Failed to set room id in current URL.', err);
   }
 };
 
@@ -505,20 +497,41 @@ export const subscribeProgramState = (callback, options = {}) => {
   let pollTimer = null;
   let reconnectTimer = null;
   let lastSeenKey = '';
+  let lastSeenTimestamp = 0;
 
   const emit = rawPayload => {
     if (disposed || !rawPayload) return;
 
     const payload = normalizeProgramPayload(rawPayload, { roomId });
+    const payloadTimestamp = Number(payload.timestamp || 0);
+
+    if (
+      payloadTimestamp > 0 &&
+      lastSeenTimestamp > 0 &&
+      payloadTimestamp < lastSeenTimestamp
+    ) {
+      console.warn('[FCUP_PROGRAM_SYNC] Ignored stale payload.', {
+        roomId,
+        scene: payload.globalScene,
+        payloadTimestamp,
+        lastSeenTimestamp
+      });
+      return;
+    }
+
     const key = [
       payload.roomId,
       payload.sequence || '',
-      payload.timestamp || '',
+      payloadTimestamp || '',
       payload.globalScene || ''
     ].join(':');
 
     if (key === lastSeenKey) return;
     lastSeenKey = key;
+
+    if (payloadTimestamp > 0) {
+      lastSeenTimestamp = Math.max(lastSeenTimestamp, payloadTimestamp);
+    }
 
     callback(payload);
   };
