@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { MatchContext } from './contexts/MatchContext';
-import { OBSProvider, useOBS } from './contexts/OBSContext';
 import { useViewport } from './hooks/useViewport';
 import { useMatchState } from './hooks/useMatchState';
 import { useHistory } from './hooks/useHistory';
@@ -94,6 +93,20 @@ const getMapWinnerSide = map => {
   return value === 'A' || value === 'B' ? value : '';
 };
 
+const getExplicitProgramRoomId = () => {
+  if (typeof window === 'undefined') return '';
+
+  const url = new URL(window.location.href);
+
+  return (
+    url.searchParams.get('room') ||
+    url.searchParams.get('roomId') ||
+    url.searchParams.get('match') ||
+    url.searchParams.get('matchId') ||
+    ''
+  ).trim();
+};
+
 const stripSceneFieldsFromPlainUpdate = input => {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
 
@@ -154,6 +167,8 @@ function MainApp() {
 
   const programRoomId = useMemo(() => getProgramRoomId(), []);
   const programSyncServerUrl = useMemo(() => getProgramSyncServerUrl(), []);
+  const explicitProgramRoomId = useMemo(() => getExplicitProgramRoomId(), []);
+  const hasBroadcastRoom = isOverlay || !!explicitProgramRoomId;
 
   const { w, h, density, isDense, isUltra, isShort } = useViewport();
   const { matchData, matchDataRef, videoProgress, updateData: originalUpdateData } = useMatchState();
@@ -174,8 +189,6 @@ function MainApp() {
     takeScene: originalTakeScene
   } = useSceneController(matchData, matchDataRef, originalUpdateData, setHistory);
 
-  const { obsStatus, broadcastState, onReceiveSync } = useOBS();
-
   const [activeTab, setActiveTab] = useState('LIVE');
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isLogOpen, setIsLogOpen] = useState(true);
@@ -192,6 +205,15 @@ function MainApp() {
 
   const closeModal = useCallback(() => setModalConfig({ isOpen: false }), []);
   const showModal = useCallback(config => setModalConfig({ ...config, isOpen: true }), []);
+
+  const showRoomRequiredModal = useCallback(() => {
+    showModal({
+      type: 'alert',
+      title: 'BROADCAST ROOM REQUIRED',
+      message: '请先点击顶部 BROADCAST ROOM 创建本场导播房间，再进行 TAKE / 推送 / 上墙。这样可以避免多个导播互相覆盖。',
+      isDanger: true
+    });
+  }, [showModal]);
 
   useEffect(() => {
     if (isOverlay || typeof document === 'undefined') return undefined;
@@ -285,22 +307,18 @@ function MainApp() {
       serverUrl: programSyncServerUrl
     });
 
-    const cleanupOBS = onReceiveSync(applyProgramPayload);
-
     return () => {
       if (typeof cleanupProgramSync === 'function') cleanupProgramSync();
-      if (typeof cleanupOBS === 'function') cleanupOBS();
     };
   }, [
     isOverlay,
     programRoomId,
     programSyncServerUrl,
-    onReceiveSync,
     originalUpdateData
   ]);
 
   const syncToOverlay = useCallback((newData, newScene) => {
-    if (isOverlay) return;
+    if (isOverlay || !hasBroadcastRoom) return;
 
     const baseData = newData || matchDataRef.current || matchData;
     const targetScene = newScene || baseData?.globalScene || matchDataRef.current?.globalScene || renderScene || 'LIVE';
@@ -324,18 +342,14 @@ function MainApp() {
       console.warn('[FCUP_APP] publishProgramState failed.', err);
     });
 
-    if (obsStatus === 'connected') {
-      broadcastState(payload);
-    }
   }, [
     isOverlay,
+    hasBroadcastRoom,
     matchDataRef,
     matchData,
     renderScene,
     programRoomId,
     programSyncServerUrl,
-    obsStatus,
-    broadcastState
   ]);
 
   const handleUpdateDataAndSync = useCallback(newData => {
@@ -355,6 +369,26 @@ function MainApp() {
     const resolvedInput = typeof newData === 'function' ? newData(baseData) : newData;
 
     const allowSceneChange = shouldAllowSceneChangeFromHistory(actionName);
+    const requestedSceneChange =
+      allowSceneChange &&
+      resolvedInput &&
+      typeof resolvedInput === 'object' &&
+      !Array.isArray(resolvedInput) &&
+      resolvedInput.globalScene &&
+      resolvedInput.globalScene !== baseData.globalScene;
+
+    if (requestedSceneChange && !hasBroadcastRoom) {
+      showRoomRequiredModal();
+
+      const safeInput = stripSceneFieldsFromPlainUpdate(resolvedInput);
+      const targetScene = baseData.globalScene || 'LIVE';
+      const nextData = { ...baseData, ...(safeInput || {}), globalScene: targetScene };
+
+      originalUpdateWithHistory(actionName, safeInput || {});
+      syncToOverlay(nextData, targetScene);
+      return;
+    }
+
     const safeInput = allowSceneChange
       ? resolvedInput
       : stripSceneFieldsFromPlainUpdate(resolvedInput);
@@ -367,10 +401,22 @@ function MainApp() {
 
     originalUpdateWithHistory(actionName, safeInput || {});
     syncToOverlay(nextData, targetScene);
-  }, [matchDataRef, matchData, originalUpdateWithHistory, syncToOverlay]);
+  }, [
+    matchDataRef,
+    matchData,
+    hasBroadcastRoom,
+    showRoomRequiredModal,
+    originalUpdateWithHistory,
+    syncToOverlay
+  ]);
 
   const handleTakeSceneAndSync = useCallback(targetScene => {
     if (!targetScene) return;
+
+    if (!hasBroadcastRoom) {
+      showRoomRequiredModal();
+      return;
+    }
 
     const baseData = matchDataRef.current || matchData;
     const shouldAutoBegin = targetScene === 'LIVE' && !!baseData.beginInfoEnabled;
@@ -383,7 +429,14 @@ function MainApp() {
 
     originalTakeScene(targetScene);
     syncToOverlay(nextData, targetScene);
-  }, [matchDataRef, matchData, originalTakeScene, syncToOverlay]);
+  }, [
+    hasBroadcastRoom,
+    showRoomRequiredModal,
+    matchDataRef,
+    matchData,
+    originalTakeScene,
+    syncToOverlay
+  ]);
 
   const handleUndoAndSync = useCallback(() => {
     originalHandleUndo();
@@ -1180,9 +1233,5 @@ function MainApp() {
 }
 
 export default function App() {
-  return (
-    <OBSProvider>
-      <MainApp />
-    </OBSProvider>
-  );
+  return <MainApp />;
 }

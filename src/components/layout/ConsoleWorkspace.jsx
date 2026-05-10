@@ -27,7 +27,6 @@ import VideoEditor from '../controls/VideoEditor';
 import HighlightEditor from '../controls/HighlightEditor';
 import CoverEditor from '../controls/CoverEditor';
 import DataGraphicsEditor from '../controls/DataGraphicsEditor';
-import OBSConnector from '../controls/OBSConnector';
 
 import RightSidebar from './RightSidebar';
 import StingerTransition from '../scenes/StingerTransition';
@@ -770,8 +769,6 @@ function ConsoleWorkspace({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <OBSConnector />
-
             <button
               type="button"
               onClick={() => setIsRoomPanelOpen(true)}

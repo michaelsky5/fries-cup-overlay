@@ -1,6 +1,48 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { defaultData } from '../constants/defaultData';
 import { getSafeCasters } from '../utils';
+
+const LEGACY_DATA_KEY = 'fries_cup_data';
+const LEGACY_VIDEO_PROGRESS_KEY = 'fries_cup_video_progress';
+const LEGACY_TICKER_COMMAND_KEY = 'fries_cup_ticker_command';
+
+const normalizeRoomId = value => {
+  const raw = String(value || '').trim();
+
+  if (!raw) return 'local-draft';
+
+  const normalized = raw
+    .replace(/[^\w.-]/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80);
+
+  return normalized || 'local-draft';
+};
+
+const getExplicitRoomId = () => {
+  if (typeof window === 'undefined') return 'local-draft';
+
+  const url = new URL(window.location.href);
+
+  return normalizeRoomId(
+    url.searchParams.get('room') ||
+    url.searchParams.get('roomId') ||
+    url.searchParams.get('match') ||
+    url.searchParams.get('matchId') ||
+    ''
+  );
+};
+
+const getScopedStorageKeys = roomId => {
+  const safeRoomId = normalizeRoomId(roomId);
+
+  return {
+    roomId: safeRoomId,
+    data: `${LEGACY_DATA_KEY}:${safeRoomId}`,
+    videoProgress: `${LEGACY_VIDEO_PROGRESS_KEY}:${safeRoomId}`,
+    tickerCommand: `${LEGACY_TICKER_COMMAND_KEY}:${safeRoomId}`
+  };
+};
 
 // 🧹 专门用来清理本地缓存中已失效的 blob 临时体验卡
 const cleanDeadBlobs = data => {
@@ -37,11 +79,21 @@ const cleanDeadBlobs = data => {
   return cleanedData;
 };
 
-const saveDataToLocalStorage = data => {
+const saveDataToLocalStorage = (storageKey, data) => {
   try {
-    localStorage.setItem('fries_cup_data', JSON.stringify(data));
+    localStorage.setItem(storageKey, JSON.stringify(data));
   } catch (err) {
-    console.error('[FCUP_STATE] Failed to save fries_cup_data:', err);
+    console.error(`[FCUP_STATE] Failed to save ${storageKey}:`, err);
+  }
+};
+
+const readJsonFromLocalStorage = storageKey => {
+  try {
+    const saved = localStorage.getItem(storageKey);
+    return saved ? JSON.parse(saved) : null;
+  } catch (err) {
+    console.error(`[FCUP_STATE] Failed to read ${storageKey}:`, err);
+    return null;
   }
 };
 
@@ -93,6 +145,8 @@ const normalizeRosterStaff = (base, value) => {
 };
 
 export function useMatchState() {
+  const storageKeys = useMemo(() => getScopedStorageKeys(getExplicitRoomId()), []);
+
   const [matchData, setMatchData] = useState(defaultData);
   const [videoProgress, setVideoProgress] = useState({ currentTime: 0, duration: 0 });
 
@@ -137,10 +191,10 @@ export function useMatchState() {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
     saveTimeoutRef.current = setTimeout(() => {
-      saveDataToLocalStorage(data);
+      saveDataToLocalStorage(storageKeys.data, data);
       saveTimeoutRef.current = null;
     }, 300);
-  }, []);
+  }, [storageKeys.data]);
 
   const flushSave = useCallback(() => {
     if (saveTimeoutRef.current) {
@@ -148,8 +202,8 @@ export function useMatchState() {
       saveTimeoutRef.current = null;
     }
 
-    saveDataToLocalStorage(matchDataRef.current);
-  }, []);
+    saveDataToLocalStorage(storageKeys.data, matchDataRef.current);
+  }, [storageKeys.data]);
 
   const updateData = useCallback(nextInput => {
     setMatchData(prev => {
@@ -164,26 +218,32 @@ export function useMatchState() {
   }, [getNormalizedData, scheduleSave]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('fries_cup_data');
+    const savedScopedData = readJsonFromLocalStorage(storageKeys.data);
+    const savedLegacyData = savedScopedData ? null : readJsonFromLocalStorage(LEGACY_DATA_KEY);
+    const initialData = savedScopedData || savedLegacyData;
 
-    if (saved) {
-      try {
-        const parsedData = JSON.parse(saved);
-        const cleanedData = cleanDeadBlobs(parsedData);
-        const normalized = getNormalizedData(cleanedData);
+    if (initialData) {
+      const cleanedData = cleanDeadBlobs(initialData);
+      const normalized = getNormalizedData(cleanedData);
 
-        matchDataRef.current = normalized;
-        setMatchData(normalized);
-      } catch (e) {
-        console.error('Data parse error:', e);
-      }
+      matchDataRef.current = normalized;
+      setMatchData(normalized);
+
+      if (!savedScopedData && savedLegacyData) saveDataToLocalStorage(storageKeys.data, normalized);
+    }
+
+    const savedScopedProgress = readJsonFromLocalStorage(storageKeys.videoProgress);
+    const savedLegacyProgress = savedScopedProgress ? null : readJsonFromLocalStorage(LEGACY_VIDEO_PROGRESS_KEY);
+
+    if (savedScopedProgress || savedLegacyProgress) {
+      setVideoProgress(savedScopedProgress || savedLegacyProgress);
     }
 
     const handleStorage = e => {
       if (!e.newValue) return;
 
       try {
-        if (e.key === 'fries_cup_data') {
+        if (e.key === storageKeys.data) {
           if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
             saveTimeoutRef.current = null;
@@ -195,11 +255,14 @@ export function useMatchState() {
 
           matchDataRef.current = normalized;
           setMatchData(normalized);
-        } else if (e.key === 'fries_cup_video_progress') {
+        } else if (e.key === storageKeys.videoProgress) {
           setVideoProgress(JSON.parse(e.newValue));
-        } else if (e.key === 'fries_cup_ticker_command' && e.newValue === 'OFF') {
+        } else if (e.key === storageKeys.tickerCommand && e.newValue === 'OFF') {
           updateData(prev => ({ ...prev, showTicker: false }));
-          localStorage.removeItem('fries_cup_ticker_command');
+          localStorage.removeItem(storageKeys.tickerCommand);
+        } else if (e.key === LEGACY_TICKER_COMMAND_KEY && e.newValue === 'OFF' && storageKeys.roomId === 'local-draft') {
+          updateData(prev => ({ ...prev, showTicker: false }));
+          localStorage.removeItem(LEGACY_TICKER_COMMAND_KEY);
         }
       } catch (err) {
         console.error('Storage sync error:', err);
@@ -218,7 +281,15 @@ export function useMatchState() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       flushSave();
     };
-  }, [getNormalizedData, updateData, flushSave]);
+  }, [
+    storageKeys.data,
+    storageKeys.videoProgress,
+    storageKeys.tickerCommand,
+    storageKeys.roomId,
+    getNormalizedData,
+    updateData,
+    flushSave
+  ]);
 
   return { matchData, matchDataRef, videoProgress, updateData };
 }
