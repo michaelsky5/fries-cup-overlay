@@ -16,12 +16,6 @@ const ROLE_TO_HERO_GROUP = {
   SUPPORT: 'support'
 };
 
-const ALL_HEROES = [
-  ...(HERO_DATA.tank || []),
-  ...(HERO_DATA.damage || []),
-  ...(HERO_DATA.support || [])
-];
-
 export const normalizeRosterRole = role => {
   const key = safeText(role).toUpperCase();
   return ROLE_ALIASES[key] || 'DAMAGE';

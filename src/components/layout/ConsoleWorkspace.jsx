@@ -184,7 +184,6 @@ function ConsoleWorkspace({
   handleUndo,
   previewScene,
   setPreviewScene,
-  renderScene,
   isTransitioning,
   takeScene,
 
@@ -243,12 +242,11 @@ function ConsoleWorkspace({
 
   const isTakeDisabled = isTransitioning || (broadcastRoomInfo.hasRoom && previewScene === matchData.globalScene);
 
-  const is1080Output = outputResolution === '1920x1080';
-  const isSelectorTight = is1080Output || isShort || isDense || isUltra;
+  const isSelectorTight = isShort || isDense || isUltra;
   const selectorBodyPadding = isSelectorTight ? '8px' : t.panelPadding;
   const selectorGap = isSelectorTight ? '5px' : '8px';
-  const quickSummaryPadding = isSelectorTight ? '8px' : isDense || isUltra ? '10px' : headerPanelBodyStyle.padding;
-  const quickSummaryGap = isSelectorTight ? '5px' : isDense || isUltra ? '6px' : '8px';
+  const quickSummaryPadding = isSelectorTight ? '8px' : headerPanelBodyStyle.padding;
+  const quickSummaryGap = isSelectorTight ? '5px' : '8px';
   const quickSummaryCols = isUltra ? '1fr' : isSelectorTight ? '1fr' : '1fr 1fr';
 
   const OPTIMAL_TAB_ORDER = [
