@@ -36,6 +36,124 @@ import BroadcastCoverScene from '../scenes/BroadcastCoverScene';
 const DEFAULT_BAN_ENTRY = 'damage/tbd';
 const resetBanList = () => [DEFAULT_BAN_ENTRY];
 
+const getBaseControlUrl = () => {
+  if (typeof window === 'undefined') return 'https://console.fries-cup.com/';
+  return new URL('/', window.location.origin).toString();
+};
+
+const getCurrentRoomId = () => {
+  if (typeof window === 'undefined') return '';
+  const url = new URL(window.location.href);
+  return (
+    url.searchParams.get('room') ||
+    url.searchParams.get('roomId') ||
+    url.searchParams.get('match') ||
+    url.searchParams.get('matchId') ||
+    ''
+  ).trim();
+};
+
+const getCurrentSyncUrl = () => {
+  if (typeof window === 'undefined') return '';
+  const url = new URL(window.location.href);
+  return (
+    url.searchParams.get('syncUrl') ||
+    url.searchParams.get('sync') ||
+    ''
+  ).trim();
+};
+
+const createBroadcastRoomId = () => {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const random = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `fcup-${yyyy}${mm}${dd}-${random}`.toLowerCase();
+};
+
+const buildBroadcastRoomUrl = (roomId, hash = '') => {
+  const url = new URL(getBaseControlUrl());
+  const syncUrl = getCurrentSyncUrl();
+
+  url.searchParams.set('room', roomId);
+  if (syncUrl) url.searchParams.set('syncUrl', syncUrl);
+  url.hash = hash;
+
+  return url.toString();
+};
+
+const getBroadcastRoomInfo = () => {
+  const roomId = getCurrentRoomId();
+  const syncUrl = getCurrentSyncUrl();
+
+  const hasRoom = !!roomId;
+  const controlUrl = hasRoom ? buildBroadcastRoomUrl(roomId) : getBaseControlUrl();
+  const overlayUrl = hasRoom ? buildBroadcastRoomUrl(roomId, 'overlay') : '';
+
+  return {
+    hasRoom,
+    roomId,
+    roomLabel: hasRoom ? roomId : 'NOT CREATED',
+    syncUrl: syncUrl || 'AUTO',
+    controlUrl,
+    overlayUrl
+  };
+};
+
+function GuideCopyRow({ label, value, copied, onCopy, disabled = false, accent = false }) {
+  return (
+    <div
+      style={{
+        border: `1px solid ${accent ? 'rgba(244,195,32,0.24)' : 'rgba(255,255,255,0.08)'}`,
+        background: accent ? 'rgba(244,195,32,0.055)' : 'rgba(255,255,255,0.035)',
+        padding: '10px',
+        display: 'grid',
+        gridTemplateColumns: '112px minmax(0,1fr) 72px',
+        gap: '10px',
+        alignItems: 'center'
+      }}
+    >
+      <div style={{ color: accent ? COLORS.yellow : COLORS.softWhite, fontSize: 11, fontWeight: 900, letterSpacing: 0.8 }}>
+        {label}
+      </div>
+
+      <div
+        style={{
+          color: disabled ? 'rgba(255,255,255,0.34)' : COLORS.white,
+          fontSize: 11,
+          fontWeight: 800,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          fontFamily: 'monospace'
+        }}
+        title={value}
+      >
+        {value || '-'}
+      </div>
+
+      <button
+        type="button"
+        disabled={disabled || !value}
+        onClick={() => onCopy(value, label)}
+        style={{
+          height: 28,
+          border: `1px solid ${copied === label ? COLORS.yellow : 'rgba(255,255,255,0.14)'}`,
+          background: copied === label ? 'rgba(244,195,32,0.16)' : 'rgba(0,0,0,0.35)',
+          color: copied === label ? COLORS.yellow : disabled ? 'rgba(255,255,255,0.28)' : COLORS.softWhite,
+          cursor: disabled || !value ? 'not-allowed' : 'pointer',
+          fontSize: 10,
+          fontWeight: 900,
+          letterSpacing: 0.8
+        }}
+      >
+        {copied === label ? 'COPIED' : 'COPY'}
+      </button>
+    </div>
+  );
+}
+
 function ConsoleWorkspace({
   density,
   densityTokens,
@@ -161,7 +279,40 @@ function ConsoleWorkspace({
 
   const [previewSceneScope, setPreviewSceneScope] = useState('ESSENTIAL');
   const [isExporting, setIsExporting] = useState(false);
+  const [isRoomPanelOpen, setIsRoomPanelOpen] = useState(false);
+  const [copiedGuideTarget, setCopiedGuideTarget] = useState('');
   const coverSceneRef = useRef(null);
+
+  const broadcastRoomInfo = useMemo(() => getBroadcastRoomInfo(), []);
+
+  const copyGuideText = useCallback((text, target) => {
+    if (!text) return;
+
+    const markCopied = () => {
+      setCopiedGuideTarget(target);
+      window.setTimeout(() => setCopiedGuideTarget(''), 1200);
+    };
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(markCopied).catch(() => {});
+      return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    markCopied();
+  }, []);
+
+  const createNewBroadcastRoom = useCallback(() => {
+    const nextRoomId = createBroadcastRoomId();
+    window.location.assign(buildBroadcastRoomUrl(nextRoomId));
+  }, []);
 
   const previewSceneEntries = useMemo(() => {
     const sourceEntries = Object.keys(sceneLabelMap).length > 0
@@ -197,16 +348,20 @@ function ConsoleWorkspace({
 
   const handleExportCover = async () => {
     if (!coverSceneRef.current) return;
+
     try {
       setIsExporting(true);
+
       const canvas = await html2canvas(coverSceneRef.current, {
         useCORS: true,
         scale: 1,
         backgroundColor: COLORS.mainDark || '#111'
       });
+
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       const mode = matchData.coverMode || 'GENERIC';
+
       link.download = `FCUP-Cover-${mode}-${Date.now()}.png`;
       link.href = dataUrl;
       link.click();
@@ -247,6 +402,18 @@ function ConsoleWorkspace({
       updateData(prev => normalizeResetBanState(prev || matchData));
     }, 0);
   }, [handleReset, updateData, normalizeResetBanState, matchData]);
+
+  const handleAutoTakeTab = useCallback(tab => {
+    setActiveTab(tab);
+
+    if (!isUnlocked && AUTO_TAKE_TABS.has(tab)) {
+      setPreviewScene(tab);
+
+      window.setTimeout(() => {
+        takeScene(tab);
+      }, 0);
+    }
+  }, [isUnlocked, setActiveTab, setPreviewScene, takeScene]);
 
   return (
     <div
@@ -301,6 +468,215 @@ function ConsoleWorkspace({
         }}
       />
 
+      {isRoomPanelOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 80,
+            background: 'rgba(0,0,0,0.72)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24
+          }}
+          onMouseDown={() => setIsRoomPanelOpen(false)}
+        >
+          <div
+            style={{
+              width: 'min(780px, 92vw)',
+              border: `1px solid ${COLORS.lineStrong}`,
+              background: 'rgba(16,16,16,0.98)',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.55)',
+              padding: 18,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 14
+            }}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+              <div>
+                <div style={{ color: COLORS.yellow, fontSize: 18, fontWeight: 950, letterSpacing: 1.2 }}>
+                  BROADCAST ROOM
+                </div>
+                <div style={{ color: COLORS.softWhite, fontSize: 12, fontWeight: 800, marginTop: 6, lineHeight: 1.55 }}>
+                  每场比赛建议创建一个独立导播房间。导播只需要复制本面板生成的 OBS Overlay 地址。
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsRoomPanelOpen(false)}
+                style={{
+                  width: 34,
+                  height: 34,
+                  border: '1px solid rgba(255,255,255,0.16)',
+                  background: 'rgba(255,255,255,0.04)',
+                  color: COLORS.white,
+                  cursor: 'pointer',
+                  fontSize: 18,
+                  fontWeight: 900
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                border: `1px solid ${broadcastRoomInfo.hasRoom ? 'rgba(46,204,113,0.36)' : 'rgba(255,77,77,0.32)'}`,
+                background: broadcastRoomInfo.hasRoom ? 'rgba(46,204,113,0.075)' : 'rgba(255,77,77,0.065)',
+                padding: '12px 14px',
+                display: 'grid',
+                gridTemplateColumns: '1fr auto',
+                gap: 14,
+                alignItems: 'center'
+              }}
+            >
+              <div>
+                <div style={{ color: broadcastRoomInfo.hasRoom ? '#2ecc71' : COLORS.red, fontSize: 12, fontWeight: 950, letterSpacing: 1 }}>
+                  {broadcastRoomInfo.hasRoom ? 'ROOM READY' : 'ROOM NOT CREATED'}
+                </div>
+                <div style={{ color: COLORS.white, fontSize: 18, fontWeight: 950, marginTop: 6, letterSpacing: 0.6, fontFamily: 'monospace' }}>
+                  {broadcastRoomInfo.roomLabel}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={createNewBroadcastRoom}
+                style={{
+                  height: 38,
+                  border: 'none',
+                  background: COLORS.yellow,
+                  color: COLORS.black,
+                  cursor: 'pointer',
+                  padding: '0 14px',
+                  fontSize: 12,
+                  fontWeight: 950,
+                  letterSpacing: 0.9
+                }}
+              >
+                {broadcastRoomInfo.hasRoom ? 'NEW ROOM' : 'CREATE ROOM'}
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gap: 8 }}>
+              <GuideCopyRow
+                label="CONTROL"
+                value={broadcastRoomInfo.controlUrl}
+                copied={copiedGuideTarget}
+                onCopy={copyGuideText}
+              />
+
+              <GuideCopyRow
+                label="OBS URL"
+                value={broadcastRoomInfo.overlayUrl || '请先点击 CREATE ROOM 生成本场 OBS 地址'}
+                copied={copiedGuideTarget}
+                onCopy={copyGuideText}
+                disabled={!broadcastRoomInfo.hasRoom}
+                accent
+              />
+
+              <GuideCopyRow
+                label="ROOM"
+                value={broadcastRoomInfo.roomLabel}
+                copied={copiedGuideTarget}
+                onCopy={copyGuideText}
+                disabled={!broadcastRoomInfo.hasRoom}
+              />
+
+              <GuideCopyRow
+                label="SYNC"
+                value={broadcastRoomInfo.syncUrl}
+                copied={copiedGuideTarget}
+                onCopy={copyGuideText}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: broadcastRoomInfo.hasRoom ? '1fr 1fr' : '1fr', gap: 8 }}>
+              {broadcastRoomInfo.hasRoom && (
+                <button
+                  type="button"
+                  onClick={() => copyGuideText(broadcastRoomInfo.overlayUrl, 'COPY OBS URL')}
+                  style={{
+                    height: 42,
+                    border: 'none',
+                    background: COLORS.yellow,
+                    color: COLORS.black,
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 950,
+                    letterSpacing: 1
+                  }}
+                >
+                  {copiedGuideTarget === 'COPY OBS URL' ? 'COPIED OBS URL' : 'COPY OBS URL'}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={createNewBroadcastRoom}
+                style={{
+                  height: 42,
+                  border: `1px solid ${broadcastRoomInfo.hasRoom ? COLORS.lineStrong : 'transparent'}`,
+                  background: broadcastRoomInfo.hasRoom ? 'rgba(255,255,255,0.04)' : COLORS.yellow,
+                  color: broadcastRoomInfo.hasRoom ? COLORS.softWhite : COLORS.black,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: 950,
+                  letterSpacing: 1
+                }}
+              >
+                {broadcastRoomInfo.hasRoom ? 'CREATE ANOTHER ROOM' : 'CREATE ROOM'}
+              </button>
+            </div>
+
+            <div
+              style={{
+                border: '1px solid rgba(244,195,32,0.18)',
+                background: 'rgba(244,195,32,0.055)',
+                padding: '12px 14px',
+                display: 'grid',
+                gap: 8
+              }}
+            >
+              <div style={{ color: COLORS.yellow, fontSize: 12, fontWeight: 950, letterSpacing: 1 }}>
+                导播使用方式
+              </div>
+
+              <div style={{ color: COLORS.softWhite, fontSize: 12, lineHeight: 1.65, fontWeight: 700 }}>
+                1. 第一次打开控制台后，先点击 <span style={{ color: COLORS.yellow }}>CREATE ROOM</span> 创建本场导播房间。<br />
+                2. 创建后复制 <span style={{ color: COLORS.yellow }}>OBS URL</span>，填进 OBS Browser Source。<br />
+                3. Preview 只是预览，不会同步；点击 TAKE 后才会进入 Program。<br />
+                4. Program 是唯一正式播出源，OBS Overlay 会自动跟随 Program。<br />
+                5. 多个导播同时使用时，只要房间不同，就不会互相覆盖。
+              </div>
+            </div>
+
+            <div
+              style={{
+                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(255,255,255,0.03)',
+                padding: '12px 14px',
+                color: 'rgba(255,255,255,0.68)',
+                fontSize: 11,
+                lineHeight: 1.6,
+                fontWeight: 700
+              }}
+            >
+              OBS Browser Source 建议关闭：
+              <span style={{ color: COLORS.yellow }}> Shutdown source when not visible </span>
+              和
+              <span style={{ color: COLORS.yellow }}> Refresh browser when scene becomes active</span>。
+              这样可以减少直播时 Overlay 被 OBS 自动刷新或休眠导致的不同步。
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         style={{
           ...workspaceFrameStyle,
@@ -344,10 +720,47 @@ function ConsoleWorkspace({
             >
               {isUnlocked ? tr('workspace.proMode') : tr('workspace.easyMode')}
             </span>
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: '900',
+                letterSpacing: '0.8px',
+                padding: '2px 7px',
+                backgroundColor: broadcastRoomInfo.hasRoom ? 'rgba(46,204,113,0.14)' : 'rgba(255,77,77,0.12)',
+                color: broadcastRoomInfo.hasRoom ? '#2ecc71' : COLORS.red,
+                border: `1px solid ${broadcastRoomInfo.hasRoom ? 'rgba(46,204,113,0.28)' : 'rgba(255,77,77,0.24)'}`,
+                borderRadius: '2px',
+                maxWidth: '220px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
+              title={broadcastRoomInfo.roomLabel}
+            >
+              {broadcastRoomInfo.hasRoom ? `ROOM ${broadcastRoomInfo.roomLabel}` : 'ROOM NOT SET'}
+            </span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <OBSConnector />
+
+            <button
+              type="button"
+              onClick={() => setIsRoomPanelOpen(true)}
+              style={{
+                ...ui.outlineBtn,
+                cursor: 'pointer',
+                height: '26px',
+                padding: '0 10px',
+                borderColor: broadcastRoomInfo.hasRoom ? 'rgba(46,204,113,0.36)' : 'rgba(244,195,32,0.34)',
+                color: broadcastRoomInfo.hasRoom ? '#2ecc71' : COLORS.yellow,
+                fontWeight: 900,
+                letterSpacing: '0.6px'
+              }}
+              title="Broadcast Room"
+            >
+              BROADCAST ROOM
+            </button>
 
             <div style={{ width: '1px', height: '16px', backgroundColor: COLORS.lineStrong, margin: '0 4px' }} />
 
@@ -385,8 +798,13 @@ function ConsoleWorkspace({
               </button>
             )}
 
-            <button style={{ ...ui.outlineBtn, cursor: 'pointer', height: '26px', padding: '0 10px' }} onClick={exportConfig}>{tr('workspace.exportConfig')}</button>
-            <button style={{ ...ui.outlineBtn, cursor: 'pointer', height: '26px', padding: '0 10px' }} onClick={importConfig}>{tr('workspace.importConfig')}</button>
+            <button style={{ ...ui.outlineBtn, cursor: 'pointer', height: '26px', padding: '0 10px' }} onClick={exportConfig}>
+              {tr('workspace.exportConfig')}
+            </button>
+
+            <button style={{ ...ui.outlineBtn, cursor: 'pointer', height: '26px', padding: '0 10px' }} onClick={importConfig}>
+              {tr('workspace.importConfig')}
+            </button>
 
             {isUnlocked && (
               <button
@@ -1109,13 +1527,7 @@ function ConsoleWorkspace({
                       <TabButton
                         key={tab}
                         active={activeTab === tab}
-                        onClick={() => {
-                          setActiveTab(tab);
-                          if (!isUnlocked && AUTO_TAKE_TABS.has(tab)) {
-                            setPreviewScene(tab);
-                            takeScene(tab, '[AUTO-TAKE] Menu');
-                          }
-                        }}
+                        onClick={() => handleAutoTakeTab(tab)}
                         label={sceneLabelMap[tab] || tab}
                         index={idx + 1}
                         compact={isSelectorTight}
@@ -1170,7 +1582,7 @@ function ConsoleWorkspace({
 
                   <MonitorFrame title={`${tr('workspace.program')} // ${matchData.globalScene}`} accent="#2ecc71" compact={isDense} density={density}>
                     <AutoFitScene>
-                      {renderProgramMonitorScene(renderScene)}
+                      {renderProgramMonitorScene()}
                       <StingerTransition
                         isActive={isTransitioning}
                         logoPath={matchData.stingerLogo || '/assets/logos/fc_logo.png'}

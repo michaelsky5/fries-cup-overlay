@@ -40,14 +40,18 @@ export const defaultData = {
   scoreB: 0,
 
   beginInfoEnabled: true,
+  beginInfoVisible: false,
+  autoBeginPendingAt: 0,
+  autoBeginTriggerAt: 0,
 
-  bansA: ['tank/dva'],
-  bansB: ['damage/tracer'],
+  bansA: ['damage/tbd'],
+  bansB: ['damage/tbd'],
   keyPlayerTriggerAt: 0,
   keyPlayerSide: 'A',
   keyPlayerName: '',
   showBanPhase: false,
   banOrderMode: 'A_FIRST',
+  heroBanTriggerAt: 0,
 
   playersA: ['PLAYER1', 'PLAYER2', 'PLAYER3', 'PLAYER4', 'PLAYER5'],
   playersB: ['PLAYER1', 'PLAYER2', 'PLAYER3', 'PLAYER4', 'PLAYER5'],
@@ -109,21 +113,21 @@ export const defaultData = {
   ],
 
   videoLibrary: [
-    { 
-      name: '朱诺英雄预览', 
-      path: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/juno-preview.mp4' 
+    {
+      name: '朱诺英雄预览',
+      path: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/juno-preview.mp4'
     },
-    { 
-      name: '芙蕾雅英雄预览', 
-      path: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/freja-preview.mp4' 
+    {
+      name: '芙蕾雅英雄预览',
+      path: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/freja-preview.mp4'
     },
-    { 
-      name: '斩仇英雄预览', 
-      path: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/vendetta-preview.mp4' 
+    {
+      name: '斩仇英雄预览',
+      path: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/vendetta-preview.mp4'
     },
-    { 
-      name: '无漾英雄预览', 
-      path: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/wuyang-preview.mp4' 
+    {
+      name: '无漾英雄预览',
+      path: 'https://github.com/michaelsky5/fries-cup-overlay/releases/download/v1.0.0/wuyang-preview.mp4'
     }
   ],
   videoPlaylist: [],

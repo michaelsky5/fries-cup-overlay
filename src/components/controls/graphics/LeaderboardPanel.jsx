@@ -235,6 +235,7 @@ function buildArtworkCandidates(row) {
 
 function parseClockStringToMinutes(value) {
   if (typeof value !== 'string') return 0;
+
   const s = value.trim();
   if (!s.includes(':')) return 0;
 
@@ -630,7 +631,7 @@ function SectionTitle({ children, right }) {
 
 export default function LeaderboardPanel({ db, dbStatus, density, densityTokens, is1080Compact }) {
   const { t: tr } = useTranslation();
-  const { matchData, updateWithHistory, setPreviewScene } = useMatchContext();
+  const { matchData, updateWithHistory, setPreviewScene, takeScene } = useMatchContext();
   const t = densityTokens || { panelPadding: '12px' };
   const rowH = is1080Compact ? 28 : 32;
 
@@ -743,7 +744,7 @@ export default function LeaderboardPanel({ db, dbStatus, density, densityTokens,
   };
 
   const handleTake = () => {
-    updateWithHistory('Take Leaderboard Snapshot', {
+    updateWithHistory('Set Leaderboard Snapshot', {
       ...matchData,
       leaderboardData: {
         ...formData,
@@ -751,11 +752,14 @@ export default function LeaderboardPanel({ db, dbStatus, density, densityTokens,
         metricKey: activeMetric.key,
         metricLabel: formData.metricLabel || activeMetric.metricLabel,
         generatedAt: 'FCUP 2026'
-      },
-      globalScene: 'LEADERBOARD_SCENE'
+      }
     });
 
-    if (setPreviewScene) setPreviewScene('LEADERBOARD_SCENE');
+    setPreviewScene?.('LEADERBOARD_SCENE');
+
+    window.setTimeout(() => {
+      takeScene?.('LEADERBOARD_SCENE');
+    }, 0);
   };
 
   return (

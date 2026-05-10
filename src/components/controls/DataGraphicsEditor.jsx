@@ -2,13 +2,20 @@ import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ShellPanel } from '../common/SharedUI';
 import { COLORS } from '../../constants/styles';
+import { useMatchContext } from '../../contexts/MatchContext';
 
-// 🌟 只导入季后赛模式保留的核心数据面板
 import PlayerSpotlightPanel from './graphics/PlayerSpotlightPanel';
 import PlayerComparisonPanel from './graphics/PlayerComparisonPanel';
 import TeamComparisonPanel from './graphics/TeamComparisonPanel';
 import LeaderboardPanel from './graphics/LeaderboardPanel';
 import MapProfilePanel from './graphics/MapProfilePanel';
+
+const DEFAULT_DB_URL = 'https://stats.fries-cup.com/data/friescup_db.json';
+const DB_CACHE_KEY = 'FCUP_DATA_GRAPHICS_DB_CACHE_V1';
+const DB_URL_CACHE_KEY = 'FCUP_DATA_GRAPHICS_DB_URL_V1';
+const GRAPHIC_TYPE_CACHE_KEY = 'FCUP_DATA_GRAPHICS_TYPE_V1';
+
+const EMPTY_DB = { players: [], teams: [], matches: [], player_totals: [], meta: null };
 
 const UI = {
   input: {
@@ -31,9 +38,6 @@ const UI = {
   }
 };
 
-const EMPTY_DB = { players: [], teams: [], matches: [], player_totals: [], meta: null };
-
-// 🌟 导航栏裁剪：只保留季后赛所需的 5 个核心入口
 const GRAPHIC_TYPES = [
   { key: 'PLAYER_SPOTLIGHT', labelKey: 'dataGraphicsEditor.tabs.playerSpotlight' },
   { key: 'PLAYER_COMPARISON', labelKey: 'dataGraphicsEditor.tabs.playerComparison' },
@@ -42,13 +46,127 @@ const GRAPHIC_TYPES = [
   { key: 'LEADERBOARD', labelKey: 'dataGraphicsEditor.tabs.leaderboard' }
 ];
 
-// 🌟 路由映射同步更新
 const ROUTE_COMPONENTS = {
   PLAYER_SPOTLIGHT: PlayerSpotlightPanel,
   PLAYER_COMPARISON: PlayerComparisonPanel,
   TEAM_COMPARISON: TeamComparisonPanel,
   MAP_PROFILE: MapProfilePanel,
   LEADERBOARD: LeaderboardPanel
+};
+
+const safeReadStorage = key => {
+  try { return localStorage.getItem(key); } catch { return null; }
+};
+
+const safeWriteStorage = (key, value) => {
+  try { localStorage.setItem(key, value); } catch (err) { console.warn(`[SYS_WARN] localStorage write failed: ${key}`, err); }
+};
+
+const readCachedDb = () => {
+  try {
+    const raw = safeReadStorage(DB_CACHE_KEY);
+    if (!raw) return EMPTY_DB;
+    const payload = JSON.parse(raw);
+    return payload?.db || EMPTY_DB;
+  } catch (err) {
+    console.warn('[SYS_WARN] DB cache parse failed:', err);
+    return EMPTY_DB;
+  }
+};
+
+const hasCachedDb = () => {
+  try {
+    const raw = safeReadStorage(DB_CACHE_KEY);
+    if (!raw) return false;
+    const payload = JSON.parse(raw);
+    return !!payload?.db;
+  } catch { return false; }
+};
+
+const cacheDb = (db, source = '') => {
+  safeWriteStorage(DB_CACHE_KEY, JSON.stringify({ db: db || EMPTY_DB, source, cachedAt: Date.now() }));
+};
+
+const normalizeTeamText = value => String(value ?? '').trim();
+
+const pickTeamValue = value => {
+  if (!value) return '';
+  if (typeof value === 'string' || typeof value === 'number') return normalizeTeamText(value);
+
+  return normalizeTeamText(
+    value.abbr ||
+    value.short ||
+    value.shortName ||
+    value.code ||
+    value.tag ||
+    value.id ||
+    value.teamId ||
+    value.name ||
+    value.fullName ||
+    value.displayName
+  );
+};
+
+const extractSideTeam = (matchData, side) => {
+  if (!matchData) return '';
+
+  const isA = side === 'A';
+  const directKeys = isA
+    ? ['teamA', 'teamAInfo', 'teamAData', 'team_a', 'homeTeam', 'leftTeam', 'blueTeam', 'team1', 'selectedTeamA', 'teamAName', 'teamAShort', 'teamAId']
+    : ['teamB', 'teamBInfo', 'teamBData', 'team_b', 'awayTeam', 'rightTeam', 'redTeam', 'team2', 'selectedTeamB', 'teamBName', 'teamBShort', 'teamBId'];
+
+  for (const key of directKeys) {
+    const picked = pickTeamValue(matchData[key]);
+    if (picked) return picked;
+  }
+
+  const nestedCandidates = [
+    matchData.teams?.[side],
+    matchData.teams?.[side.toLowerCase()],
+    matchData.teams?.[isA ? 0 : 1],
+    matchData.currentMatch?.[isA ? 'teamA' : 'teamB'],
+    matchData.currentMatch?.teams?.[side],
+    matchData.currentMatch?.teams?.[side.toLowerCase()],
+    matchData.currentMatch?.teams?.[isA ? 0 : 1],
+    matchData.liveMatch?.[isA ? 'teamA' : 'teamB'],
+    matchData.liveMatch?.teams?.[side],
+    matchData.liveMatch?.teams?.[side.toLowerCase()],
+    matchData.liveMatch?.teams?.[isA ? 0 : 1]
+  ];
+
+  for (const item of nestedCandidates) {
+    const picked = pickTeamValue(item);
+    if (picked) return picked;
+  }
+
+  return '';
+};
+
+const resolveDbTeamValue = (rawTeam, db) => {
+  const raw = normalizeTeamText(rawTeam);
+  if (!raw) return '';
+
+  const rawLower = raw.toLowerCase();
+  const teams = Array.isArray(db?.teams) ? db.teams : [];
+
+  const matched = teams.find(team => {
+    const fields = [
+      team.abbr,
+      team.short,
+      team.shortName,
+      team.code,
+      team.tag,
+      team.id,
+      team.teamId,
+      team.name,
+      team.fullName,
+      team.displayName
+    ];
+
+    return fields.some(field => normalizeTeamText(field).toLowerCase() === rawLower);
+  });
+
+  return pickTeamValue(matched) || raw;
 };
 
 const railNavItemStyle = active => ({
@@ -67,13 +185,45 @@ const railNavItemStyle = active => ({
 
 export default function DataGraphicsEditor({ is1080Compact, density, densityTokens }) {
   const { t: tr } = useTranslation();
+  const { matchData } = useMatchContext();
+
   const t = densityTokens || { panelPadding: '12px' };
   const controlRowHeight = is1080Compact ? '36px' : '40px';
 
-  const [db, setDb] = useState(EMPTY_DB);
-  const [dbUrl, setDbUrl] = useState('https://stats.fries-cup.com/data/friescup_db.json');
-  const [dbStatus, setDbStatus] = useState('UNLOADED');
-  const [graphicType, setGraphicType] = useState('PLAYER_SPOTLIGHT');
+  const [db, setDb] = useState(() => readCachedDb());
+  const [dbUrl, setDbUrl] = useState(() => safeReadStorage(DB_URL_CACHE_KEY) || DEFAULT_DB_URL);
+  const [dbStatus, setDbStatus] = useState(() => hasCachedDb() ? 'LOADED' : 'UNLOADED');
+  const [graphicType, setGraphicTypeState] = useState(() => {
+    const cachedType = safeReadStorage(GRAPHIC_TYPE_CACHE_KEY);
+    return GRAPHIC_TYPES.some(item => item.key === cachedType) ? cachedType : 'PLAYER_SPOTLIGHT';
+  });
+
+  const currentMatchTeams = useMemo(() => {
+    const rawTeamA = extractSideTeam(matchData, 'A');
+    const rawTeamB = extractSideTeam(matchData, 'B');
+    const teamA = resolveDbTeamValue(rawTeamA, db);
+    const teamB = resolveDbTeamValue(rawTeamB, db);
+
+    return {
+      teamA,
+      teamB,
+      rawTeamA,
+      rawTeamB,
+      hasCurrentMatchTeams: !!teamA && !!teamB
+    };
+  }, [matchData, db]);
+
+  const setGraphicType = key => {
+    setGraphicTypeState(key);
+    safeWriteStorage(GRAPHIC_TYPE_CACHE_KEY, key);
+  };
+
+  const commitDb = (nextDb, source = '') => {
+    const safeDb = nextDb || EMPTY_DB;
+    setDb(safeDb);
+    setDbStatus('LOADED');
+    cacheDb(safeDb, source);
+  };
 
   const handleLoadDb = async () => {
     try {
@@ -81,8 +231,9 @@ export default function DataGraphicsEditor({ is1080Compact, density, densityToke
       const res = await fetch(dbUrl, { cache: 'no-store' });
       if (!res.ok) throw new Error(`DB_LOAD_FAILED: ${res.status}`);
       const data = await res.json();
-      setDb(data || EMPTY_DB);
-      setDbStatus('LOADED');
+
+      commitDb(data || EMPTY_DB, dbUrl);
+      safeWriteStorage(DB_URL_CACHE_KEY, dbUrl);
     } catch (err) {
       console.error('[SYS_ERR] DB Load Failed:', err);
       setDbStatus('ERROR');
@@ -94,11 +245,11 @@ export default function DataGraphicsEditor({ is1080Compact, density, densityToke
     if (!file) return;
 
     const reader = new FileReader();
+
     reader.onload = event => {
       try {
         const parsed = JSON.parse(event.target.result);
-        setDb(parsed || EMPTY_DB);
-        setDbStatus('LOADED');
+        commitDb(parsed || EMPTY_DB, file.name);
         setDbUrl(tr('dataGraphicsEditor.localFileImported'));
       } catch (err) {
         console.error('[SYS_ERR] JSON Parse Failed:', err);
@@ -111,8 +262,24 @@ export default function DataGraphicsEditor({ is1080Compact, density, densityToke
   };
 
   const panelEnv = useMemo(
-    () => ({ db, dbStatus, density, densityTokens, is1080Compact }),
-    [db, dbStatus, density, densityTokens, is1080Compact]
+    () => ({
+      db,
+      dbStatus,
+      density,
+      densityTokens,
+      is1080Compact,
+
+      // 给涉及双方队伍的图文面板使用
+      preferredTeamA: currentMatchTeams.teamA,
+      preferredTeamB: currentMatchTeams.teamB,
+      defaultTeamA: currentMatchTeams.teamA,
+      defaultTeamB: currentMatchTeams.teamB,
+      autoTeamA: currentMatchTeams.teamA,
+      autoTeamB: currentMatchTeams.teamB,
+      currentMatchTeams,
+      autoPreferCurrentMatch: currentMatchTeams.hasCurrentMatchTeams
+    }),
+    [db, dbStatus, density, densityTokens, is1080Compact, currentMatchTeams]
   );
 
   const ActivePanel = ROUTE_COMPONENTS[graphicType] || PlayerSpotlightPanel;
@@ -187,6 +354,24 @@ export default function DataGraphicsEditor({ is1080Compact, density, densityToke
                 <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileUpload} />
               </label>
             </div>
+
+            {currentMatchTeams.hasCurrentMatchTeams && (
+              <div
+                style={{
+                  border: '1px solid rgba(244,195,32,0.24)',
+                  background: 'rgba(244,195,32,0.06)',
+                  color: COLORS.yellow,
+                  padding: '8px 10px',
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: '0.5px',
+                  lineHeight: 1.35,
+                  textTransform: 'uppercase'
+                }}
+              >
+                AUTO MATCH TEAMS · {currentMatchTeams.teamA} VS {currentMatchTeams.teamB}
+              </div>
+            )}
 
             {(dbStatus === 'ERROR' || dbStatus === 'UNLOADED') && (
               <div

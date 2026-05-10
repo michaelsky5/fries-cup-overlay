@@ -35,6 +35,13 @@ import TeamComparisonScene from './components/scenes/graphics/TeamComparisonScen
 import MapProfileScene from './components/scenes/graphics/MapProfileScene';
 import LeaderboardScene from './components/scenes/graphics/LeaderboardScene';
 
+import {
+  getProgramRoomId,
+  getProgramSyncServerUrl,
+  publishProgramState,
+  subscribeProgramState
+} from './services/programSyncClient';
+
 import { COLORS, getDensityTokens } from './constants/styles';
 import { LOGO_LIST } from './constants/logos';
 import { defaultData } from './constants/defaultData';
@@ -73,16 +80,40 @@ const resetMapBans = map => ({
 
 const parseSeriesCount = value => {
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
+
   if (typeof value === 'string') {
     const matched = value.match(/\d+/);
     if (matched) return Number(matched[0]);
   }
+
   return null;
 };
 
 const getMapWinnerSide = map => {
   const value = String(map?.winner || map?.winnerSide || '').trim().toUpperCase();
   return value === 'A' || value === 'B' ? value : '';
+};
+
+const stripSceneFieldsFromPlainUpdate = input => {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+
+  const { globalScene, ...rest } = input;
+  return rest;
+};
+
+const shouldAllowSceneChangeFromHistory = actionName => {
+  const text = String(actionName || '').toUpperCase();
+
+  return (
+    text.includes('TAKE') ||
+    text.includes('CUT') ||
+    text.includes('BROADCAST') ||
+    text.includes('AUTO-TAKE') ||
+    text.includes('推送') ||
+    text.includes('切入') ||
+    text.includes('切换') ||
+    text.includes('上墙')
+  );
 };
 
 const getConsolePresetMeta = (value, viewportW = 0, t) => {
@@ -121,8 +152,12 @@ function MainApp() {
   const isOverlay = typeof window !== 'undefined' && window.location.hash.startsWith('#overlay');
   const { t } = useTranslation();
 
+  const programRoomId = useMemo(() => getProgramRoomId(), []);
+  const programSyncServerUrl = useMemo(() => getProgramSyncServerUrl(), []);
+
   const { w, h, density, isDense, isUltra, isShort } = useViewport();
   const { matchData, matchDataRef, videoProgress, updateData: originalUpdateData } = useMatchState();
+
   const {
     history,
     setHistory,
@@ -139,7 +174,7 @@ function MainApp() {
     takeScene: originalTakeScene
   } = useSceneController(matchData, matchDataRef, originalUpdateData, setHistory);
 
-  const { obsStatus, obsConfig, connectOBS, broadcastState, onReceiveSync } = useOBS();
+  const { obsStatus, broadcastState, onReceiveSync } = useOBS();
 
   const [activeTab, setActiveTab] = useState('LIVE');
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -159,104 +194,214 @@ function MainApp() {
   const showModal = useCallback(config => setModalConfig({ ...config, isOpen: true }), []);
 
   useEffect(() => {
+    if (isOverlay || typeof document === 'undefined') return undefined;
+
+    const muteMediaElement = media => {
+      if (!media) return;
+
+      media.muted = true;
+      media.volume = 0;
+      media.setAttribute('muted', '');
+    };
+
+    const muteAllMedia = () => {
+      document.querySelectorAll('video, audio').forEach(muteMediaElement);
+    };
+
+    const handleMediaEvent = event => {
+      const target = event.target;
+
+      if (typeof HTMLMediaElement !== 'undefined' && target instanceof HTMLMediaElement) {
+        muteMediaElement(target);
+      }
+    };
+
+    muteAllMedia();
+
+    const observer = typeof MutationObserver !== 'undefined'
+      ? new MutationObserver(muteAllMedia)
+      : null;
+
+    if (observer) {
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    }
+
+    document.addEventListener('play', handleMediaEvent, true);
+    document.addEventListener('volumechange', handleMediaEvent, true);
+    document.addEventListener('loadedmetadata', handleMediaEvent, true);
+
+    return () => {
+      if (observer) observer.disconnect();
+
+      document.removeEventListener('play', handleMediaEvent, true);
+      document.removeEventListener('volumechange', handleMediaEvent, true);
+      document.removeEventListener('loadedmetadata', handleMediaEvent, true);
+    };
+  }, [isOverlay]);
+
+  useEffect(() => {
     if (!isOverlay) return undefined;
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const pwdFromUrl = urlParams.get('pwd');
-    const connectUrl = obsConfig.url || 'ws://127.0.0.1:4455';
-    const connectPwd = pwdFromUrl || obsConfig.password || '';
+    let lastProgramKey = '';
 
-    console.log('Overlay attempting to connect with pwd:', connectPwd ? '***' : 'NONE');
-    connectOBS(connectUrl, connectPwd);
-
-    const cleanup = onReceiveSync(remotePayload => {
+    const applyProgramPayload = remotePayload => {
       if (!remotePayload) return;
 
-      if (remotePayload.matchData) {
-        const incomingData = remotePayload.globalScene
-          ? { ...remotePayload.matchData, globalScene: remotePayload.globalScene }
-          : remotePayload.matchData;
+      const incomingScene =
+        remotePayload.programScene ||
+        remotePayload.globalScene ||
+        remotePayload.matchData?.globalScene ||
+        'LIVE';
 
-        originalUpdateData(incomingData);
+      const key = [
+        remotePayload.roomId || remotePayload.room || programRoomId,
+        remotePayload.sequence || '',
+        remotePayload.timestamp || '',
+        incomingScene
+      ].join(':');
+
+      if (key && key === lastProgramKey) return;
+      lastProgramKey = key;
+
+      if (remotePayload.matchData) {
+        originalUpdateData({
+          ...remotePayload.matchData,
+          globalScene: incomingScene
+        });
         return;
       }
 
-      if (remotePayload.globalScene) {
-        originalUpdateData(prev => ({
-          ...prev,
-          globalScene: remotePayload.globalScene
-        }));
-      }
+      originalUpdateData(prev => ({
+        ...prev,
+        globalScene: incomingScene
+      }));
+    };
+
+    const cleanupProgramSync = subscribeProgramState(applyProgramPayload, {
+      roomId: programRoomId,
+      serverUrl: programSyncServerUrl
     });
 
-    return typeof cleanup === 'function' ? cleanup : undefined;
+    const cleanupOBS = onReceiveSync(applyProgramPayload);
+
+    return () => {
+      if (typeof cleanupProgramSync === 'function') cleanupProgramSync();
+      if (typeof cleanupOBS === 'function') cleanupOBS();
+    };
   }, [
     isOverlay,
-    obsConfig.url,
-    obsConfig.password,
-    connectOBS,
+    programRoomId,
+    programSyncServerUrl,
     onReceiveSync,
     originalUpdateData
   ]);
 
   const syncToOverlay = useCallback((newData, newScene) => {
-    if (obsStatus !== 'connected' || isOverlay) return;
+    if (isOverlay) return;
 
     const baseData = newData || matchDataRef.current || matchData;
     const targetScene = newScene || baseData?.globalScene || matchDataRef.current?.globalScene || renderScene || 'LIVE';
     const payloadData = { ...baseData, globalScene: targetScene };
 
-    broadcastState({
+    const payload = {
+      type: 'FCUP_PROGRAM_STATE',
+      roomId: programRoomId,
+      room: programRoomId,
       matchData: payloadData,
-      globalScene: targetScene
+      globalScene: targetScene,
+      programScene: targetScene,
+      source: 'console',
+      timestamp: Date.now()
+    };
+
+    publishProgramState(payload, {
+      roomId: programRoomId,
+      serverUrl: programSyncServerUrl
+    }).catch(err => {
+      console.warn('[FCUP_APP] publishProgramState failed.', err);
     });
-  }, [obsStatus, isOverlay, broadcastState, matchDataRef, matchData, renderScene]);
+
+    if (obsStatus === 'connected') {
+      broadcastState(payload);
+    }
+  }, [
+    isOverlay,
+    matchDataRef,
+    matchData,
+    renderScene,
+    programRoomId,
+    programSyncServerUrl,
+    obsStatus,
+    broadcastState
+  ]);
 
   const handleUpdateDataAndSync = useCallback(newData => {
     const baseData = matchDataRef.current || matchData;
     const resolvedInput = typeof newData === 'function' ? newData(baseData) : newData;
-    const nextData = { ...baseData, ...(resolvedInput || {}) };
 
-    originalUpdateData(resolvedInput || {});
-    syncToOverlay(nextData, nextData.globalScene);
+    const safeInput = stripSceneFieldsFromPlainUpdate(resolvedInput);
+    const targetScene = baseData.globalScene || 'LIVE';
+    const nextData = { ...baseData, ...(safeInput || {}), globalScene: targetScene };
+
+    originalUpdateData(safeInput || {});
+    syncToOverlay(nextData, targetScene);
   }, [matchDataRef, matchData, originalUpdateData, syncToOverlay]);
 
   const handleUpdateWithHistoryAndSync = useCallback((actionName, newData) => {
     const baseData = matchDataRef.current || matchData;
     const resolvedInput = typeof newData === 'function' ? newData(baseData) : newData;
-    const nextData = { ...baseData, ...(resolvedInput || {}) };
 
-    originalUpdateWithHistory(actionName, resolvedInput || {});
-    syncToOverlay(nextData, nextData.globalScene);
+    const allowSceneChange = shouldAllowSceneChangeFromHistory(actionName);
+    const safeInput = allowSceneChange
+      ? resolvedInput
+      : stripSceneFieldsFromPlainUpdate(resolvedInput);
+
+    const targetScene = allowSceneChange
+      ? (safeInput?.globalScene || baseData.globalScene || 'LIVE')
+      : (baseData.globalScene || 'LIVE');
+
+    const nextData = { ...baseData, ...(safeInput || {}), globalScene: targetScene };
+
+    originalUpdateWithHistory(actionName, safeInput || {});
+    syncToOverlay(nextData, targetScene);
   }, [matchDataRef, matchData, originalUpdateWithHistory, syncToOverlay]);
 
   const handleTakeSceneAndSync = useCallback(targetScene => {
+    if (!targetScene) return;
+
     const baseData = matchDataRef.current || matchData;
-    const currentScene = baseData.globalScene || 'LIVE';
-
-    originalTakeScene(targetScene);
-
-    if (!targetScene || currentScene === targetScene || isTransitioning) return;
-
     const shouldAutoBegin = targetScene === 'LIVE' && !!baseData.beginInfoEnabled;
+
     const nextData = {
       ...baseData,
       globalScene: targetScene,
       autoBeginPendingAt: shouldAutoBegin ? Date.now() : 0
     };
 
+    originalTakeScene(targetScene);
     syncToOverlay(nextData, targetScene);
-  }, [matchDataRef, matchData, originalTakeScene, isTransitioning, syncToOverlay]);
+  }, [matchDataRef, matchData, originalTakeScene, syncToOverlay]);
 
   const handleUndoAndSync = useCallback(() => {
     originalHandleUndo();
-    setTimeout(() => syncToOverlay(matchDataRef.current), 50);
-  }, [originalHandleUndo, syncToOverlay, matchDataRef]);
+
+    setTimeout(() => {
+      const currentData = matchDataRef.current || matchData;
+      syncToOverlay(currentData, currentData?.globalScene || 'LIVE');
+    }, 50);
+  }, [originalHandleUndo, syncToOverlay, matchDataRef, matchData]);
 
   const getSeriesMapTotal = useCallback(() => {
     const lineupLen = Array.isArray(matchData.mapLineup) ? matchData.mapLineup.length : 0;
     if (lineupLen > 0) return lineupLen;
-    return parseSeriesCount(matchData.bestOf) || parseSeriesCount(matchData.seriesLength) || parseSeriesCount(matchData.totalMaps) || 5;
+
+    return parseSeriesCount(matchData.bestOf) ||
+      parseSeriesCount(matchData.seriesLength) ||
+      parseSeriesCount(matchData.totalMaps) ||
+      5;
   }, [matchData.mapLineup, matchData.bestOf, matchData.seriesLength, matchData.totalMaps]);
 
   const getCurrentMapIndex = useCallback(total => {
@@ -269,7 +414,9 @@ function MainApp() {
   }), []);
 
   const updateCurrentMapWinner = useCallback(winner => {
-    const lineup = Array.isArray(matchData.mapLineup) ? matchData.mapLineup.map(map => ({ ...map })) : [];
+    const lineup = Array.isArray(matchData.mapLineup)
+      ? matchData.mapLineup.map(map => ({ ...map }))
+      : [];
 
     if (!lineup.length) {
       handleUpdateWithHistoryAndSync(
@@ -290,7 +437,13 @@ function MainApp() {
     }
 
     const idx = getCurrentMapIndex(lineup.length);
-    lineup[idx] = { ...lineup[idx], winner, winnerSide: winner };
+
+    lineup[idx] = {
+      ...lineup[idx],
+      winner,
+      winnerSide: winner
+    };
+
     const nextScore = recountScoreFromMapLineup(lineup);
 
     handleUpdateWithHistoryAndSync(t('history.setMapWinner', { map: idx + 1, winner }), {
@@ -304,14 +457,29 @@ function MainApp() {
       },
       mapLineup: lineup
     });
-  }, [matchData, handleUpdateWithHistoryAndSync, t, getCurrentMapIndex, recountScoreFromMapLineup]);
+  }, [
+    matchData,
+    handleUpdateWithHistoryAndSync,
+    t,
+    getCurrentMapIndex,
+    recountScoreFromMapLineup
+  ]);
 
   const clearCurrentMapWinner = useCallback(() => {
-    const lineup = Array.isArray(matchData.mapLineup) ? matchData.mapLineup.map(map => ({ ...map })) : [];
+    const lineup = Array.isArray(matchData.mapLineup)
+      ? matchData.mapLineup.map(map => ({ ...map }))
+      : [];
+
     if (!lineup.length) return;
 
     const idx = getCurrentMapIndex(lineup.length);
-    lineup[idx] = { ...lineup[idx], winner: '', winnerSide: '' };
+
+    lineup[idx] = {
+      ...lineup[idx],
+      winner: '',
+      winnerSide: ''
+    };
+
     const nextScore = recountScoreFromMapLineup(lineup);
 
     handleUpdateWithHistoryAndSync(t('history.clearMapWinner', { map: idx + 1 }), {
@@ -321,12 +489,41 @@ function MainApp() {
       winnerSide: '',
       mapLineup: lineup
     });
-  }, [matchData, getCurrentMapIndex, recountScoreFromMapLineup, handleUpdateWithHistoryAndSync, t]);
+  }, [
+    matchData,
+    getCurrentMapIndex,
+    recountScoreFromMapLineup,
+    handleUpdateWithHistoryAndSync,
+    t
+  ]);
 
-  const handleScoreAUp = useCallback(() => handleUpdateWithHistoryAndSync(t('history.teamAPlus'), { ...matchData, scoreA: (matchData.scoreA || 0) + 1 }), [handleUpdateWithHistoryAndSync, matchData, t]);
-  const handleScoreADown = useCallback(() => handleUpdateWithHistoryAndSync(t('history.teamAMinus'), { ...matchData, scoreA: Math.max(0, (matchData.scoreA || 0) - 1) }), [handleUpdateWithHistoryAndSync, matchData, t]);
-  const handleScoreBUp = useCallback(() => handleUpdateWithHistoryAndSync(t('history.teamBPlus'), { ...matchData, scoreB: (matchData.scoreB || 0) + 1 }), [handleUpdateWithHistoryAndSync, matchData, t]);
-  const handleScoreBDown = useCallback(() => handleUpdateWithHistoryAndSync(t('history.teamBMinus'), { ...matchData, scoreB: Math.max(0, (matchData.scoreB || 0) - 1) }), [handleUpdateWithHistoryAndSync, matchData, t]);
+  const handleScoreAUp = useCallback(() => {
+    handleUpdateWithHistoryAndSync(t('history.teamAPlus'), {
+      ...matchData,
+      scoreA: (matchData.scoreA || 0) + 1
+    });
+  }, [handleUpdateWithHistoryAndSync, matchData, t]);
+
+  const handleScoreADown = useCallback(() => {
+    handleUpdateWithHistoryAndSync(t('history.teamAMinus'), {
+      ...matchData,
+      scoreA: Math.max(0, (matchData.scoreA || 0) - 1)
+    });
+  }, [handleUpdateWithHistoryAndSync, matchData, t]);
+
+  const handleScoreBUp = useCallback(() => {
+    handleUpdateWithHistoryAndSync(t('history.teamBPlus'), {
+      ...matchData,
+      scoreB: (matchData.scoreB || 0) + 1
+    });
+  }, [handleUpdateWithHistoryAndSync, matchData, t]);
+
+  const handleScoreBDown = useCallback(() => {
+    handleUpdateWithHistoryAndSync(t('history.teamBMinus'), {
+      ...matchData,
+      scoreB: Math.max(0, (matchData.scoreB || 0) - 1)
+    });
+  }, [handleUpdateWithHistoryAndSync, matchData, t]);
 
   const setWinnerA = useCallback(() => updateCurrentMapWinner('A'), [updateCurrentMapWinner]);
   const setWinnerB = useCallback(() => updateCurrentMapWinner('B'), [updateCurrentMapWinner]);
@@ -335,13 +532,21 @@ function MainApp() {
   const nextMap = useCallback(() => {
     const total = getSeriesMapTotal();
     const current = Number(matchData.currentMap) || 1;
-    handleUpdateWithHistoryAndSync(t('history.nextMap'), { ...matchData, currentMap: clamp(current + 1, 1, total) });
+
+    handleUpdateWithHistoryAndSync(t('history.nextMap'), {
+      ...matchData,
+      currentMap: clamp(current + 1, 1, total)
+    });
   }, [getSeriesMapTotal, matchData, handleUpdateWithHistoryAndSync, t]);
 
   const prevMap = useCallback(() => {
     const total = getSeriesMapTotal();
     const current = Number(matchData.currentMap) || 1;
-    handleUpdateWithHistoryAndSync(t('history.previousMap'), { ...matchData, currentMap: clamp(current - 1, 1, total) });
+
+    handleUpdateWithHistoryAndSync(t('history.previousMap'), {
+      ...matchData,
+      currentMap: clamp(current - 1, 1, total)
+    });
   }, [getSeriesMapTotal, matchData, handleUpdateWithHistoryAndSync, t]);
 
   const resetSeriesScore = useCallback(() => {
@@ -360,10 +565,21 @@ function MainApp() {
     });
   }, [matchData, handleUpdateWithHistoryAndSync, t]);
 
-  const toggleTicker = useCallback(() => handleUpdateDataAndSync({ ...matchData, showTicker: !matchData.showTicker }), [handleUpdateDataAndSync, matchData]);
-  const toggleNames = useCallback(() => handleUpdateDataAndSync({ ...matchData, showPlayers: !matchData.showPlayers }), [handleUpdateDataAndSync, matchData]);
+  const toggleTicker = useCallback(() => {
+    handleUpdateDataAndSync({
+      ...matchData,
+      showTicker: !matchData.showTicker
+    });
+  }, [handleUpdateDataAndSync, matchData]);
 
-  const toggleBans = useCallback(() =>
+  const toggleNames = useCallback(() => {
+    handleUpdateDataAndSync({
+      ...matchData,
+      showPlayers: !matchData.showPlayers
+    });
+  }, [handleUpdateDataAndSync, matchData]);
+
+  const toggleBans = useCallback(() => {
     handleUpdateWithHistoryAndSync(
       matchData.showBans ? t('history.disableBanMode') : t('history.enableBanMode'),
       {
@@ -371,45 +587,76 @@ function MainApp() {
         showBans: !matchData.showBans,
         showBanPhase: !matchData.showBans ? matchData.showBanPhase : false
       }
-    ), [handleUpdateWithHistoryAndSync, matchData, t]);
+    );
+  }, [handleUpdateWithHistoryAndSync, matchData, t]);
 
   const toggleVoice = useCallback(() => {
-    const next = matchData.activeComms === 'A' ? 'B' : matchData.activeComms === 'B' ? null : 'A';
-    handleUpdateDataAndSync({ ...matchData, activeComms: next });
+    const next = matchData.activeComms === 'A'
+      ? 'B'
+      : matchData.activeComms === 'B'
+        ? null
+        : 'A';
+
+    handleUpdateDataAndSync({
+      ...matchData,
+      activeComms: next
+    });
   }, [handleUpdateDataAndSync, matchData]);
 
-  const voiceToA = useCallback(() => handleUpdateDataAndSync({ ...matchData, activeComms: 'A' }), [handleUpdateDataAndSync, matchData]);
-  const voiceToB = useCallback(() => handleUpdateDataAndSync({ ...matchData, activeComms: 'B' }), [handleUpdateDataAndSync, matchData]);
-  const voiceOff = useCallback(() => handleUpdateDataAndSync({ ...matchData, activeComms: null }), [handleUpdateDataAndSync, matchData]);
+  const voiceToA = useCallback(() => {
+    handleUpdateDataAndSync({
+      ...matchData,
+      activeComms: 'A'
+    });
+  }, [handleUpdateDataAndSync, matchData]);
+
+  const voiceToB = useCallback(() => {
+    handleUpdateDataAndSync({
+      ...matchData,
+      activeComms: 'B'
+    });
+  }, [handleUpdateDataAndSync, matchData]);
+
+  const voiceOff = useCallback(() => {
+    handleUpdateDataAndSync({
+      ...matchData,
+      activeComms: null
+    });
+  }, [handleUpdateDataAndSync, matchData]);
 
   const toggleAutoBegin = useCallback(() => {
     const nextEnabled = !matchData.beginInfoEnabled;
 
-    handleUpdateWithHistoryAndSync(nextEnabled ? t('history.autoBeginOn') : t('history.autoBeginOff'), {
-      ...matchData,
-      beginInfoEnabled: nextEnabled,
-      beginInfoVisible: false,
-      autoBeginPendingAt: 0,
-      beginInfoTriggerAt: matchData.beginInfoTriggerAt || 0
-    });
+    handleUpdateWithHistoryAndSync(
+      nextEnabled ? t('history.autoBeginOn') : t('history.autoBeginOff'),
+      {
+        ...matchData,
+        beginInfoEnabled: nextEnabled,
+        beginInfoVisible: false,
+        autoBeginPendingAt: 0,
+        beginInfoTriggerAt: matchData.beginInfoTriggerAt || 0
+      }
+    );
   }, [matchData, handleUpdateWithHistoryAndSync, t]);
 
-  const hudOn = useCallback(() =>
+  const hudOn = useCallback(() => {
     handleUpdateWithHistoryAndSync(t('history.hudOn'), {
       ...matchData,
       showTicker: true,
       showPlayers: true,
       showBans: true
-    }), [handleUpdateWithHistoryAndSync, matchData, t]);
+    });
+  }, [handleUpdateWithHistoryAndSync, matchData, t]);
 
-  const hudOff = useCallback(() =>
+  const hudOff = useCallback(() => {
     handleUpdateWithHistoryAndSync(t('history.hudOff'), {
       ...matchData,
       showTicker: false,
       showPlayers: false,
       showBans: false,
       showBanPhase: false
-    }), [handleUpdateWithHistoryAndSync, matchData, t]);
+    });
+  }, [handleUpdateWithHistoryAndSync, matchData, t]);
 
   const toggleProModeLock = useCallback(() => setIsUnlocked(prev => !prev), []);
 
@@ -437,8 +684,17 @@ function MainApp() {
     });
 
     const currentStats = matchData.statsTemplateData || {};
-    const swappedWinner = matchData.winner === 'A' ? 'B' : matchData.winner === 'B' ? 'A' : matchData.winner || '';
-    const swappedWinnerSide = matchData.winnerSide === 'A' ? 'B' : matchData.winnerSide === 'B' ? 'A' : matchData.winnerSide || '';
+    const swappedWinner = matchData.winner === 'A'
+      ? 'B'
+      : matchData.winner === 'B'
+        ? 'A'
+        : matchData.winner || '';
+
+    const swappedWinnerSide = matchData.winnerSide === 'A'
+      ? 'B'
+      : matchData.winnerSide === 'B'
+        ? 'A'
+        : matchData.winnerSide || '';
 
     handleUpdateWithHistoryAndSync(t('history.swapTeams'), {
       ...matchData,
@@ -467,7 +723,11 @@ function MainApp() {
       winnerSide: swappedWinnerSide,
       winnerScene: {
         ...(matchData.winnerScene || {}),
-        winner: matchData.winnerScene?.winner === 'A' ? 'B' : matchData.winnerScene?.winner === 'B' ? 'A' : matchData.winnerScene?.winner || swappedWinner
+        winner: matchData.winnerScene?.winner === 'A'
+          ? 'B'
+          : matchData.winnerScene?.winner === 'B'
+            ? 'A'
+            : matchData.winnerScene?.winner || swappedWinner
       },
       mapLineup: nextMapLineup,
       statsTemplateData: {
@@ -575,16 +835,36 @@ function MainApp() {
 
   const silentMatchData = useMemo(() => ({
     ...matchData,
+    videoMuted: true,
+    highlightMuted: true,
     autoBeginTrigger: 0,
-    beginInfoVisible: false
+    beginInfoVisible: false,
+    autoBeginPendingAt: 0,
+    beginInfoTriggerAt: 0
   }), [matchData]);
 
-  const renderMonitorScene = useCallback(sceneKey => renderSceneByKey(sceneKey, silentMatchData, sceneKey === 'LIVE' && sceneKey === renderScene), [silentMatchData, renderScene]);
-  const renderPreviewMonitorScene = useCallback(sceneKey => renderSceneByKey(sceneKey, silentMatchData, false), [silentMatchData]);
-  const renderProgramMonitorScene = useCallback(sceneKey => renderSceneByKey(sceneKey, silentMatchData, sceneKey === 'LIVE'), [silentMatchData]);
+  const renderMonitorScene = useCallback(sceneKey => renderSceneByKey(
+    sceneKey,
+    silentMatchData,
+    sceneKey === 'LIVE' && sceneKey === renderScene
+  ), [silentMatchData, renderScene]);
+
+  const renderPreviewMonitorScene = useCallback(sceneKey => renderSceneByKey(
+    sceneKey,
+    silentMatchData,
+    false
+  ), [silentMatchData]);
+
+  const renderProgramMonitorScene = useCallback(() => {
+    const programScene = matchData.globalScene || 'LIVE';
+    return renderSceneByKey(programScene, silentMatchData, programScene === 'LIVE');
+  }, [matchData.globalScene, silentMatchData]);
 
   const syncOutputResolution = useCallback(value => {
-    handleUpdateDataAndSync({ ...matchData, outputMode: value === '3840x2160' ? '4K' : '1080P' });
+    handleUpdateDataAndSync({
+      ...matchData,
+      outputMode: value === '3840x2160' ? '4K' : '1080P'
+    });
   }, [handleUpdateDataAndSync, matchData]);
 
   const enterEasyMode = useCallback(() => {
@@ -651,6 +931,7 @@ function MainApp() {
         try {
           const parsed = JSON.parse(data);
           handleUpdateDataAndSync(parsed);
+
           showModal({
             type: 'alert',
             title: t('modals.importSuccess.title'),
@@ -751,11 +1032,12 @@ function MainApp() {
     const outW = is4K ? 3840 : 1920;
     const outH = is4K ? 2160 : 1080;
     const scale = is4K ? 2 : 1;
+    const programScene = matchData.globalScene || 'LIVE';
 
     return (
       <div style={{ width: `${outW}px`, height: `${outH}px`, position: 'relative', overflow: 'hidden', background: 'transparent' }}>
         <div style={{ width: '1920px', height: '1080px', position: 'absolute', left: 0, top: 0, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-          {renderSceneByKey(renderScene, matchData, renderScene === 'LIVE')}
+          {renderSceneByKey(programScene, matchData, programScene === 'LIVE')}
           <StingerTransition
             isActive={isTransitioning}
             logoPath={matchData.stingerLogo || '/assets/logos/fc_logo.png'}
@@ -775,7 +1057,9 @@ function MainApp() {
     videoProgress,
     showModal,
     setPreviewScene,
-    takeScene: handleTakeSceneAndSync
+    takeScene: handleTakeSceneAndSync,
+    programRoomId,
+    programSyncServerUrl
   }), [
     matchData,
     handleUpdateDataAndSync,
@@ -785,7 +1069,9 @@ function MainApp() {
     videoProgress,
     showModal,
     setPreviewScene,
-    handleTakeSceneAndSync
+    handleTakeSceneAndSync,
+    programRoomId,
+    programSyncServerUrl
   ]);
 
   return (

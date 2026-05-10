@@ -1,20 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
-// 🚀 引入 i18n
 import { useTranslation } from 'react-i18next';
 import { useMatchContext } from '../../contexts/MatchContext';
 import { ShellPanel } from '../common/SharedUI';
 import { COLORS, panelBase } from '../../constants/styles';
 import { createEditorUi } from '../../utils/editorUi';
 
-export default function RightSidebar({ previewScene, showRightColumn, density = 'standard', densityTokens }) {
-  // 🚀 初始化翻译函数并命名为 tr
-  const { t: tr } = useTranslation();
+const createSnapshotData = source => {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
+  const { snapshots, globalScene, programScene, ...rest } = source;
+  return rest;
+};
 
+export default function RightSidebar({ previewScene, showRightColumn, density = 'standard', densityTokens }) {
+  const { t: tr } = useTranslation();
   const { matchData, updateData, updateWithHistory, history, videoProgress, showModal } = useMatchContext();
+
   const snapshots = matchData.snapshots || [];
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(matchData.autoSaveEnabled ?? true);
-  
-  const lastSaveTime = useRef(Date.now()); 
+  const lastSaveTime = useRef(Date.now());
 
   const t = densityTokens || { panelPadding: '12px', buttonPadding: '10px 12px', buttonFontSize: 12, inputFontSize: 12 };
   const ui = createEditorUi(t, density);
@@ -24,6 +27,7 @@ export default function RightSidebar({ previewScene, showRightColumn, density = 
 
   useEffect(() => {
     if (!autoSaveEnabled) return;
+
     const interval = setInterval(() => {
       if (Date.now() - lastSaveTime.current >= 3 * 60 * 1000 - 100) {
         updateData(prev => {
@@ -31,15 +35,20 @@ export default function RightSidebar({ previewScene, showRightColumn, density = 
           const newSnapshot = {
             id: Date.now(),
             time: new Date().toLocaleTimeString('en-US', { hour12: false }),
-            // 🚀 使用带变量的翻译
             label: tr('rightSidebar.autoSaveLabel', { map: prev.currentMap || 1 }),
-            data: { ...prev, snapshots: undefined }
+            data: createSnapshotData(prev)
           };
-          return { ...prev, snapshots: [newSnapshot, ...currentSnapshots].slice(0, 15) };
+
+          return {
+            ...prev,
+            snapshots: [newSnapshot, ...currentSnapshots].slice(0, 15)
+          };
         });
+
         lastSaveTime.current = Date.now();
       }
-    }, 30000); 
+    }, 30000);
+
     return () => clearInterval(interval);
   }, [autoSaveEnabled, updateData, tr]);
 
@@ -60,25 +69,42 @@ export default function RightSidebar({ previewScene, showRightColumn, density = 
 
   const handleTakeSnapshot = () => {
     showModal({
-      type: 'prompt', 
-      title: tr('rightSidebar.takeSnapshotTitle'), 
-      message: tr('rightSidebar.snapshotPrompt'), 
+      type: 'prompt',
+      title: tr('rightSidebar.takeSnapshotTitle'),
+      message: tr('rightSidebar.snapshotPrompt'),
       placeholder: tr('rightSidebar.snapshotPlaceholder', { map: matchData.currentMap || 1 }),
       onConfirm: val => {
         const label = val || tr('rightSidebar.manualSnapshot', { map: matchData.currentMap || 1 });
-        const newSnapshot = { id: Date.now(), time: new Date().toLocaleTimeString('en-US', { hour12: false }), label, data: { ...matchData, snapshots: undefined } };
-        updateData({ ...matchData, snapshots: [newSnapshot, ...snapshots].slice(0, 15) });
+        const newSnapshot = {
+          id: Date.now(),
+          time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+          label,
+          data: createSnapshotData(matchData)
+        };
+
+        updateData({
+          ...matchData,
+          snapshots: [newSnapshot, ...snapshots].slice(0, 15)
+        });
       }
     });
   };
 
   const handleRestore = snap => {
     showModal({
-      type: 'confirm', 
-      title: tr('rightSidebar.restoreSnapshotTitle'), 
-      isDanger: true, 
+      type: 'confirm',
+      title: tr('rightSidebar.restoreSnapshotTitle'),
+      isDanger: true,
       message: tr('rightSidebar.restoreSnapshotWarning', { label: snap.label }),
-      onConfirm: () => updateWithHistory(`Restore Snapshot: ${snap.label}`, { ...snap.data, snapshots: matchData.snapshots })
+      onConfirm: () => {
+        const restoredData = createSnapshotData(snap.data);
+
+        updateWithHistory(`Restore Snapshot: ${snap.label}`, {
+          ...matchData,
+          ...restoredData,
+          snapshots: matchData.snapshots
+        });
+      }
     });
   };
 
@@ -109,23 +135,124 @@ export default function RightSidebar({ previewScene, showRightColumn, density = 
         <ShellPanel title={tr('rightSidebar.dataSnapshotTitle')} accent density={density} bodyStyle={{ ...ui.panelBody, padding: isCompactSidebar ? '10px' : ui.panelBody?.padding }}>
           <div style={{ ...ui.stack, gap: sectionGap }}>
             <div style={{ ...ui.inline2, gap: sectionGap }}>
-              <button onClick={handleTakeSnapshot} style={{ ...ui.actionBtn, backgroundColor: COLORS.yellow, color: COLORS.black, padding: buttonPad || ui.actionBtn.padding, fontSize: isCompactSidebar ? '11px' : undefined, fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', lineHeight: 1 }}>{tr('rightSidebar.snapshotBtn')}</button>
-              <button onClick={toggleAutoSave} style={{ ...ui.btn, backgroundColor: autoSaveEnabled ? '#2ecc71' : '#444', color: autoSaveEnabled ? '#fff' : '#888', padding: buttonPad || ui.btn.padding, fontSize: isCompactSidebar ? '11px' : undefined, fontWeight: '900', cursor: 'pointer', transition: 'background-color 0.2s, color 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', lineHeight: 1 }}>{tr('rightSidebar.autoSaveBtn')}</button>
+              <button
+                onClick={handleTakeSnapshot}
+                style={{
+                  ...ui.actionBtn,
+                  backgroundColor: COLORS.yellow,
+                  color: COLORS.black,
+                  padding: buttonPad || ui.actionBtn.padding,
+                  fontSize: isCompactSidebar ? '11px' : undefined,
+                  fontWeight: '900',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  lineHeight: 1
+                }}
+              >
+                {tr('rightSidebar.snapshotBtn')}
+              </button>
+
+              <button
+                onClick={toggleAutoSave}
+                style={{
+                  ...ui.btn,
+                  backgroundColor: autoSaveEnabled ? '#2ecc71' : '#444',
+                  color: autoSaveEnabled ? '#fff' : '#888',
+                  padding: buttonPad || ui.btn.padding,
+                  fontSize: isCompactSidebar ? '11px' : undefined,
+                  fontWeight: '900',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s, color 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  lineHeight: 1
+                }}
+              >
+                {tr('rightSidebar.autoSaveBtn')}
+              </button>
             </div>
 
             <div className="fc-custom-scroll" style={{ display: 'flex', flexDirection: 'column', gap: sectionGap, maxHeight: snapshotMaxHeight, overflowY: 'auto', paddingRight: '6px' }}>
               {snapshots.length ? snapshots.map(snap => (
-                <div key={snap.id} style={{ ...panelBase, padding: cardPadding, flexShrink: 0, borderLeft: snap.label.includes('[AUTO]') || snap.label.includes('[自动]') ? '2px solid #2ecc71' : `2px solid ${COLORS.yellow}` }}>
+                <div
+                  key={snap.id}
+                  style={{
+                    ...panelBase,
+                    padding: cardPadding,
+                    flexShrink: 0,
+                    borderLeft: snap.label.includes('[AUTO]') || snap.label.includes('[自动]') ? '2px solid #2ecc71' : `2px solid ${COLORS.yellow}`
+                  }}
+                >
                   <div style={{ marginBottom: isCompactSidebar ? '8px' : '10px' }}>
-                    <div style={{ fontSize: cardTitleSize, fontWeight: '900', color: COLORS.white, textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{snap.label}</div>
-                    <div style={{ fontSize: cardMetaSize, color: COLORS.faintWhite, marginTop: '3px', letterSpacing: '0.4px' }}>{snap.time}</div>
+                    <div style={{ fontSize: cardTitleSize, fontWeight: '900', color: COLORS.white, textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {snap.label}
+                    </div>
+                    <div style={{ fontSize: cardMetaSize, color: COLORS.faintWhite, marginTop: '3px', letterSpacing: '0.4px' }}>
+                      {snap.time}
+                    </div>
                   </div>
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                    <button onClick={() => handleRestore(snap)} style={{ ...ui.outlineBtn, color: COLORS.yellow, borderColor: COLORS.yellow, padding: buttonPad || ui.outlineBtn.padding, fontSize: isCompactSidebar ? '11px' : undefined, fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', lineHeight: 1 }}>{tr('rightSidebar.restoreBtn')}</button>
-                    <button onClick={() => updateData({ ...matchData, snapshots: snapshots.filter(s => s.id !== snap.id) })} style={{ ...ui.outlineBtn, color: COLORS.red, borderColor: 'transparent', padding: buttonPad || ui.outlineBtn.padding, fontSize: isCompactSidebar ? '11px' : undefined, fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', lineHeight: 1 }}>{tr('rightSidebar.deleteBtn')}</button>
+                    <button
+                      onClick={() => handleRestore(snap)}
+                      style={{
+                        ...ui.outlineBtn,
+                        color: COLORS.yellow,
+                        borderColor: COLORS.yellow,
+                        padding: buttonPad || ui.outlineBtn.padding,
+                        fontSize: isCompactSidebar ? '11px' : undefined,
+                        fontWeight: '900',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        lineHeight: 1
+                      }}
+                    >
+                      {tr('rightSidebar.restoreBtn')}
+                    </button>
+
+                    <button
+                      onClick={() => updateData({ ...matchData, snapshots: snapshots.filter(s => s.id !== snap.id) })}
+                      style={{
+                        ...ui.outlineBtn,
+                        color: COLORS.red,
+                        borderColor: 'transparent',
+                        padding: buttonPad || ui.outlineBtn.padding,
+                        fontSize: isCompactSidebar ? '11px' : undefined,
+                        fontWeight: '900',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        lineHeight: 1
+                      }}
+                    >
+                      {tr('rightSidebar.deleteBtn')}
+                    </button>
                   </div>
                 </div>
-              )) : <div style={{ ...panelBase, padding: cardPadding, color: COLORS.faintWhite, fontSize: isCompactSidebar ? '11px' : '12px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{tr('rightSidebar.noSnapshots')}</div>}
+              )) : (
+                <div
+                  style={{
+                    ...panelBase,
+                    padding: cardPadding,
+                    color: COLORS.faintWhite,
+                    fontSize: isCompactSidebar ? '11px' : '12px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.6px'
+                  }}
+                >
+                  {tr('rightSidebar.noSnapshots')}
+                </div>
+              )}
             </div>
           </div>
         </ShellPanel>
@@ -133,9 +260,47 @@ export default function RightSidebar({ previewScene, showRightColumn, density = 
         <ShellPanel title={tr('rightSidebar.liveStatusTitle')} accent density={density} bodyStyle={{ ...ui.panelBody, padding: isCompactSidebar ? '10px' : ui.panelBody?.padding }}>
           <div style={{ display: 'grid', gap: sectionGap }}>
             {statusItems.map(item => (
-              <div key={item.label} style={{ ...panelBase, minHeight: liveStatusHeight, height: liveStatusHeight, padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', gap: '8px' }}>
-                <div style={{ fontSize: isCompactSidebar ? '10px' : '11px', fontWeight: '900', color: COLORS.softWhite, letterSpacing: '1.2px', textTransform: 'uppercase', lineHeight: 1, flexShrink: 0 }}>{item.label}</div>
-                <div style={{ fontSize: density === 'spacious' ? '15px' : '14px', fontWeight: '900', color: item.color, lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textTransform: 'uppercase' }}>{item.value}</div>
+              <div
+                key={item.label}
+                style={{
+                  ...panelBase,
+                  minHeight: liveStatusHeight,
+                  height: liveStatusHeight,
+                  padding: '0 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  boxSizing: 'border-box',
+                  gap: '8px'
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: isCompactSidebar ? '10px' : '11px',
+                    fontWeight: '900',
+                    color: COLORS.softWhite,
+                    letterSpacing: '1.2px',
+                    textTransform: 'uppercase',
+                    lineHeight: 1,
+                    flexShrink: 0
+                  }}
+                >
+                  {item.label}
+                </div>
+                <div
+                  style={{
+                    fontSize: density === 'spacious' ? '15px' : '14px',
+                    fontWeight: '900',
+                    color: item.color,
+                    lineHeight: 1,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  {item.value}
+                </div>
               </div>
             ))}
           </div>
@@ -144,12 +309,36 @@ export default function RightSidebar({ previewScene, showRightColumn, density = 
         <ShellPanel title={tr('rightSidebar.operationLogTitle')} accent density={density} bodyStyle={{ ...ui.panelBody, padding: isCompactSidebar ? '10px' : ui.panelBody?.padding }}>
           <div className="fc-custom-scroll" style={{ display: 'flex', flexDirection: 'column', gap: sectionGap, maxHeight: logMaxHeight, overflowY: 'auto', paddingRight: '6px' }}>
             {history && history.length ? history.slice().reverse().map((entry, idx) => (
-              // 🚀 核心修复点：在这里加上了 -${idx}
-              <div key={`${entry.time || idx}-${entry.action || idx}-${idx}`} style={{ ...panelBase, padding: cardPadding, borderLeft: idx === 0 ? `3px solid ${COLORS.yellow}` : `2px solid rgba(255,255,255,0.12)`, flexShrink: 0 }}>
-                <div style={{ fontSize: cardMetaSize, color: COLORS.faintWhite, marginBottom: '6px', letterSpacing: '0.4px' }}>[{entry.time || '--:--:--'}]</div>
-                <div style={{ fontSize: cardTitleSize, fontWeight: '900', color: COLORS.white, textTransform: 'uppercase', lineHeight: 1.25 }}>{entry.action || tr('rightSidebar.unknownAction')}</div>
+              <div
+                key={`${entry.time || idx}-${entry.action || idx}-${idx}`}
+                style={{
+                  ...panelBase,
+                  padding: cardPadding,
+                  borderLeft: idx === 0 ? `3px solid ${COLORS.yellow}` : `2px solid rgba(255,255,255,0.12)`,
+                  flexShrink: 0
+                }}
+              >
+                <div style={{ fontSize: cardMetaSize, color: COLORS.faintWhite, marginBottom: '6px', letterSpacing: '0.4px' }}>
+                  [{entry.time || '--:--:--'}]
+                </div>
+                <div style={{ fontSize: cardTitleSize, fontWeight: '900', color: COLORS.white, textTransform: 'uppercase', lineHeight: 1.25 }}>
+                  {entry.action || tr('rightSidebar.unknownAction')}
+                </div>
               </div>
-            )) : <div style={{ ...panelBase, padding: cardPadding, color: COLORS.faintWhite, fontSize: isCompactSidebar ? '11px' : '12px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{tr('rightSidebar.noLogs')}</div>}
+            )) : (
+              <div
+                style={{
+                  ...panelBase,
+                  padding: cardPadding,
+                  color: COLORS.faintWhite,
+                  fontSize: isCompactSidebar ? '11px' : '12px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.6px'
+                }}
+              >
+                {tr('rightSidebar.noLogs')}
+              </div>
+            )}
           </div>
         </ShellPanel>
       </div>

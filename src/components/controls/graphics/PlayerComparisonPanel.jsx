@@ -3,8 +3,8 @@ import { useMatchContext } from '../../../contexts/MatchContext';
 import { ShellPanel } from '../../common/SharedUI';
 import { COLORS, labelStyle } from '../../../constants/styles';
 
-// 🌟 新增：季后赛 8 强白名单常量
 const PLAYOFF_TEAMS = ['NGP', 'TNS', 'YOU', 'ZS', 'HYW', 'SPC', 'XCFN.G', 'FG'];
+const PLAYER_COMPARISON_CACHE_KEY = 'FCUP_DATA_GRAPHICS_PLAYER_COMPARISON_PANEL_V1';
 
 const UI = {
   input: {
@@ -51,28 +51,37 @@ const UI = {
 
 const safeArr = v => Array.isArray(v) ? v : [];
 const toNum = v => Number.isFinite(Number(v)) ? Number(v) : 0;
+const safeText = v => String(v ?? '').trim();
+const normaliseKey = v => safeText(v).toLowerCase();
+const normaliseShort = v => safeText(v).toUpperCase();
+
+function readPanelCache() {
+  try {
+    const raw = localStorage.getItem(PLAYER_COMPARISON_CACHE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writePanelCache(payload) {
+  try {
+    localStorage.setItem(PLAYER_COMPARISON_CACHE_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.warn('[SYS_WARN] PlayerComparison cache write failed:', err);
+  }
+}
 
 function getSafeId(p, idx) {
   return p?.player_id || p?.id || p?.nickname || `p_${idx}`;
 }
 
 function getBattleTag(player) {
-  return (
-    player?.battletag ||
-    player?.battle_tag ||
-    player?.battleTag ||
-    player?.player_name ||
-    ''
-  );
+  return player?.battletag || player?.battle_tag || player?.battleTag || player?.player_name || '';
 }
 
 function getDisplayName(player) {
-  return (
-    player?.display_name ||
-    player?.nickname ||
-    getBattleTag(player) ||
-    'Unknown'
-  );
+  return player?.display_name || player?.nickname || getBattleTag(player) || 'Unknown';
 }
 
 function getPlayerTeamId(player) {
@@ -83,31 +92,149 @@ function formatPlayerOptionLabel(player) {
   const display = getDisplayName(player);
   const battletag = getBattleTag(player);
   const team = player?.team_short_name || '-';
+
   if (battletag && battletag !== display) return `${display} · ${battletag} [${team}]`;
   return `${display} [${team}]`;
 }
 
-// 🌟 新增辅助函数：提取选手的常用英雄
 function parseTopHeroes(value) {
   if (Array.isArray(value)) return value.filter(Boolean);
-  if (typeof value === 'string') {
-    return value.split('/').map(v => v.trim()).filter(Boolean);
-  }
+  if (typeof value === 'string') return value.split('/').map(v => v.trim()).filter(Boolean);
   return [];
 }
 
-// 🌟 新增辅助函数：英雄名称转文件名 (处理大小写、空格、冒号、点号、音标等)
 function formatHeroFileName(heroName) {
   if (!heroName || typeof heroName !== 'string') return '';
+
   return heroName
-    .toLowerCase() // 1. 转小写
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // 2. 去除音标 (Lúcio -> lucio)
-    .replace(/\./g, '') // 3. 去除点 (D.Va -> dva)
-    .replace(/[^a-z0-9]+/g, '_') // 4. 非字母数字全转下划线 (Soldier: 76 -> soldier_76)
-    .replace(/^_+|_+$/g, ''); // 5. 清除首尾多余下划线
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\./g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 }
 
-// 🌟 升级：为兜底数据生成器补充 hero 和 role 字段的提取
+function pickTeamValue(value) {
+  if (!value) return '';
+  if (typeof value === 'string' || typeof value === 'number') return safeText(value);
+
+  return safeText(
+    value.team_short_name ||
+    value.shortName ||
+    value.short ||
+    value.abbr ||
+    value.code ||
+    value.tag ||
+    value.id ||
+    value.team_id ||
+    value.teamId ||
+    value.team_name ||
+    value.name ||
+    value.fullName ||
+    value.displayName
+  );
+}
+
+function extractSideTeam(matchData, side) {
+  if (!matchData) return '';
+
+  const isA = side === 'A';
+  const directKeys = isA
+    ? ['teamA', 'teamAInfo', 'teamAData', 'team_a', 'homeTeam', 'leftTeam', 'blueTeam', 'team1', 'selectedTeamA', 'teamAName', 'teamAShort', 'teamAId']
+    : ['teamB', 'teamBInfo', 'teamBData', 'team_b', 'awayTeam', 'rightTeam', 'redTeam', 'team2', 'selectedTeamB', 'teamBName', 'teamBShort', 'teamBId'];
+
+  for (const key of directKeys) {
+    const picked = pickTeamValue(matchData[key]);
+    if (picked) return picked;
+  }
+
+  const nestedCandidates = [
+    matchData.teams?.[side],
+    matchData.teams?.[side.toLowerCase()],
+    matchData.teams?.[isA ? 0 : 1],
+    matchData.currentMatch?.[isA ? 'teamA' : 'teamB'],
+    matchData.currentMatch?.teams?.[side],
+    matchData.currentMatch?.teams?.[side.toLowerCase()],
+    matchData.currentMatch?.teams?.[isA ? 0 : 1],
+    matchData.liveMatch?.[isA ? 'teamA' : 'teamB'],
+    matchData.liveMatch?.teams?.[side],
+    matchData.liveMatch?.teams?.[side.toLowerCase()],
+    matchData.liveMatch?.teams?.[isA ? 0 : 1]
+  ];
+
+  for (const item of nestedCandidates) {
+    const picked = pickTeamValue(item);
+    if (picked) return picked;
+  }
+
+  return '';
+}
+
+function buildTeamOption(team) {
+  const id = safeText(team?.team_id || team?.id || team?.teamId || team?.team_short_name);
+  const name = safeText(team?.team_name || team?.name || team?.fullName || team?.displayName);
+  const short = safeText(team?.team_short_name || team?.short || team?.abbr || team?.code || team?.tag || team?.team_name || team?.name);
+
+  return {
+    id,
+    name,
+    short,
+    playoff: PLAYOFF_TEAMS.includes(normaliseShort(short)) || PLAYOFF_TEAMS.includes(normaliseShort(name)) || PLAYOFF_TEAMS.includes(normaliseShort(id)),
+    aliases: [
+      id,
+      name,
+      short,
+      team?.team_id,
+      team?.id,
+      team?.teamId,
+      team?.team_name,
+      team?.name,
+      team?.short,
+      team?.team_short_name,
+      team?.abbr,
+      team?.code,
+      team?.tag,
+      team?.fullName,
+      team?.displayName
+    ].map(safeText).filter(Boolean)
+  };
+}
+
+function findTeamOptionByRef(teamOptions, ref) {
+  const raw = pickTeamValue(ref);
+  if (!raw) return null;
+
+  const key = normaliseKey(raw);
+
+  return teamOptions.find(team => team.aliases.some(alias => normaliseKey(alias) === key)) || null;
+}
+
+function teamMatchesRefSet(team, refSet) {
+  return team.aliases.some(alias => refSet.has(normaliseShort(alias)));
+}
+
+function playerMatchesTeamScope(player, refSet) {
+  const values = [
+    player?.team_id,
+    player?.team_name,
+    player?.team_short_name,
+    player?.short,
+    player?.team
+  ].map(normaliseShort).filter(Boolean);
+
+  return values.some(value => PLAYOFF_TEAMS.includes(value) || refSet.has(value));
+}
+
+function roleMatches(playerRole, targetRole) {
+  const r = String(playerRole || '').toUpperCase();
+  const target = String(targetRole || '').toUpperCase();
+
+  if (target === 'SUP') return r === 'SUP' || r === 'SUPPORT';
+  if (target === 'DPS') return r === 'DPS' || r === 'DAMAGE';
+  return r === target;
+}
+
 function buildFallbackPlayerTotals(players = []) {
   return safeArr(players).map((player, idx) => {
     const logs = safeArr(player?.match_logs).filter(log => toNum(log?.playtimeMinutes) > 0);
@@ -238,23 +365,37 @@ const liveEditorStyle = {
   gap: 8
 };
 
-export default function PlayerComparisonPanel({ db, dbStatus, density, densityTokens, is1080Compact }) {
+export default function PlayerComparisonPanel({
+  db,
+  dbStatus,
+  density,
+  densityTokens,
+  is1080Compact,
+  preferredTeamA = '',
+  preferredTeamB = '',
+  defaultTeamA = '',
+  defaultTeamB = '',
+  autoTeamA = '',
+  autoTeamB = '',
+  currentMatchTeams
+}) {
   const { matchData, updateWithHistory, setPreviewScene, takeScene } = useMatchContext();
   const t = densityTokens || { panelPadding: '12px' };
   const rowH = is1080Compact ? '32px' : '36px';
+  const initialCache = useMemo(() => readPanelCache(), []);
 
-  const [teamAId, setTeamAId] = useState('');
-  const [teamBId, setTeamBId] = useState('');
-  const [playerAId, setPlayerAId] = useState('');
-  const [playerBId, setPlayerBId] = useState('');
-  const [presetKey, setPresetKey] = useState('DPS');
+  const [teamAId, setTeamAId] = useState(initialCache.teamAId || '');
+  const [teamBId, setTeamBId] = useState(initialCache.teamBId || '');
+  const [playerAId, setPlayerAId] = useState(initialCache.playerAId || '');
+  const [playerBId, setPlayerBId] = useState(initialCache.playerBId || '');
+  const [presetKey, setPresetKey] = useState(initialCache.presetKey || 'DPS');
 
   const [formData, setFormData] = useState({
-    nameA: '',
-    teamA: '',
-    nameB: '',
-    teamB: '',
-    metrics: [
+    nameA: initialCache.formData?.nameA || '',
+    teamA: initialCache.formData?.teamA || '',
+    nameB: initialCache.formData?.nameB || '',
+    teamB: initialCache.formData?.teamB || '',
+    metrics: initialCache.formData?.metrics || [
       { label: '击杀 / 10分', a: '', b: '' },
       { label: '助攻 / 10分', a: '', b: '' },
       { label: '死亡 / 10分', a: '', b: '' },
@@ -263,73 +404,161 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
     ]
   });
 
-  const playerPool = useMemo(() => {
+  const autoTeamRefs = useMemo(() => {
+    const rawTeamA = preferredTeamA || defaultTeamA || autoTeamA || currentMatchTeams?.teamA || extractSideTeam(matchData, 'A');
+    const rawTeamB = preferredTeamB || defaultTeamB || autoTeamB || currentMatchTeams?.teamB || extractSideTeam(matchData, 'B');
+
+    return {
+      rawTeamA,
+      rawTeamB
+    };
+  }, [
+    preferredTeamA,
+    preferredTeamB,
+    defaultTeamA,
+    defaultTeamB,
+    autoTeamA,
+    autoTeamB,
+    currentMatchTeams,
+    matchData
+  ]);
+
+  const rawCurrentTeamSet = useMemo(() => {
+    return new Set([autoTeamRefs.rawTeamA, autoTeamRefs.rawTeamB].map(normaliseShort).filter(Boolean));
+  }, [autoTeamRefs]);
+
+  const rawPlayerSource = useMemo(() => {
     const source = safeArr(db?.player_totals).length
       ? safeArr(db.player_totals).map(p => ({
           ...p,
           battletag: p?.battletag || p?.battle_tag || p?.battleTag || p?.player_name || '',
           kdr: toNum(p.total_dth) > 0 ? toNum(p.total_elim) / toNum(p.total_dth) : toNum(p.total_elim),
-          top_3_heroes: parseTopHeroes(p.top_3_heroes) // 挂载解析好的英雄数据
+          top_3_heroes: parseTopHeroes(p.top_3_heroes)
         }))
       : buildFallbackPlayerTotals(db?.players);
 
-    return [...source]
-      .filter(p => PLAYOFF_TEAMS.includes(p?.team_short_name)) // 🌟 核心拦截：彻底剔除非八强选手
-      .sort((a, b) => {
-        const teamA = a?.team_short_name || '';
-        const teamB = b?.team_short_name || '';
-        if (teamA !== teamB) return teamA.localeCompare(teamB);
-        const nameA = getDisplayName(a);
-        const nameB = getDisplayName(b);
-        return nameA.localeCompare(nameB);
-      });
+    return source;
   }, [db]);
 
   const teamOptions = useMemo(() => {
     const map = new Map();
 
     safeArr(db?.teams).forEach(team => {
-      const id = team?.team_id || team?.id || team?.team_short_name || '';
-      const short = team?.team_short_name || team?.short || team?.team_name || '未知';
-      
-      // 🌟 核心拦截：仅将季后赛白名单队伍加入下拉选项
-      if (!id || !PLAYOFF_TEAMS.includes(short)) return;
-      
-      map.set(id, {
-        id,
-        name: team?.team_name || team?.name || team?.team_short_name || '未知队伍',
-        short
-      });
+      const option = buildTeamOption(team);
+      if (!option.id && !option.short) return;
+
+      const shouldInclude = option.playoff || teamMatchesRefSet(option, rawCurrentTeamSet);
+      if (!shouldInclude) return;
+
+      map.set(option.id || option.short, option);
     });
 
     if (!map.size) {
-      playerPool.forEach((player, idx) => {
-        const id = getPlayerTeamId(player) || `team_${idx}`;
-        const short = player?.team_short_name || player?.team_name || '未知';
-        
-        // 🌟 兜底逻辑同理：非八强队伍直接跳过
-        if (!map.has(id) && PLAYOFF_TEAMS.includes(short)) {
-          map.set(id, {
-            id,
-            name: player?.team_name || player?.team_short_name || '未知队伍',
-            short
-          });
-        }
+      rawPlayerSource.forEach((player, idx) => {
+        const option = buildTeamOption({
+          team_id: getPlayerTeamId(player) || `team_${idx}`,
+          team_name: player?.team_name || player?.team_short_name || '未知队伍',
+          team_short_name: player?.team_short_name || player?.team_name || '未知'
+        });
+
+        const shouldInclude = option.playoff || teamMatchesRefSet(option, rawCurrentTeamSet);
+        if (shouldInclude && !map.has(option.id || option.short)) map.set(option.id || option.short, option);
       });
     }
 
-    return Array.from(map.values()).sort((a, b) => a.short.localeCompare(b.short));
-  }, [db, playerPool]);
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.playoff !== b.playoff) return a.playoff ? -1 : 1;
+      return (a.short || a.name).localeCompare(b.short || b.name);
+    });
+  }, [db, rawPlayerSource, rawCurrentTeamSet]);
+
+  const detectedMatchTeams = useMemo(() => {
+    const teamA = findTeamOptionByRef(teamOptions, autoTeamRefs.rawTeamA);
+    const teamB = findTeamOptionByRef(teamOptions, autoTeamRefs.rawTeamB);
+
+    return {
+      rawTeamA: autoTeamRefs.rawTeamA,
+      rawTeamB: autoTeamRefs.rawTeamB,
+      teamA,
+      teamB,
+      hasCurrentMatchTeams: !!teamA?.id && !!teamB?.id && teamA.id !== teamB.id
+    };
+  }, [teamOptions, autoTeamRefs]);
+
+  const activeTeamScopeSet = useMemo(() => {
+    const values = [
+      detectedMatchTeams.rawTeamA,
+      detectedMatchTeams.rawTeamB,
+      detectedMatchTeams.teamA?.id,
+      detectedMatchTeams.teamA?.short,
+      detectedMatchTeams.teamA?.name,
+      detectedMatchTeams.teamB?.id,
+      detectedMatchTeams.teamB?.short,
+      detectedMatchTeams.teamB?.name
+    ].map(normaliseShort).filter(Boolean);
+
+    return new Set(values);
+  }, [detectedMatchTeams]);
+
+  const playerPool = useMemo(() => {
+    return [...rawPlayerSource]
+      .filter(player => playerMatchesTeamScope(player, activeTeamScopeSet))
+      .sort((a, b) => {
+        const teamA = a?.team_short_name || '';
+        const teamB = b?.team_short_name || '';
+
+        if (teamA !== teamB) return teamA.localeCompare(teamB);
+
+        const nameA = getDisplayName(a);
+        const nameB = getDisplayName(b);
+
+        return nameA.localeCompare(nameB);
+      });
+  }, [rawPlayerSource, activeTeamScopeSet]);
 
   const filteredPlayersA = useMemo(
-    () => playerPool.filter(player => !teamAId || getPlayerTeamId(player) === teamAId),
+    () => playerPool.filter(player =>
+      !teamAId ||
+      getPlayerTeamId(player) === teamAId ||
+      normaliseShort(player?.team_short_name) === normaliseShort(teamAId)
+    ),
     [playerPool, teamAId]
   );
 
   const filteredPlayersB = useMemo(
-    () => playerPool.filter(player => !teamBId || getPlayerTeamId(player) === teamBId),
+    () => playerPool.filter(player =>
+      !teamBId ||
+      getPlayerTeamId(player) === teamBId ||
+      normaliseShort(player?.team_short_name) === normaliseShort(teamBId)
+    ),
     [playerPool, teamBId]
   );
+
+  useEffect(() => {
+    if (dbStatus !== 'LOADED' || !detectedMatchTeams.hasCurrentMatchTeams) return;
+
+    setTeamAId(detectedMatchTeams.teamA.id);
+    setTeamBId(detectedMatchTeams.teamB.id);
+  }, [
+    dbStatus,
+    detectedMatchTeams.hasCurrentMatchTeams,
+    detectedMatchTeams.teamA?.id,
+    detectedMatchTeams.teamB?.id
+  ]);
+
+  useEffect(() => {
+    if (dbStatus !== 'LOADED') return;
+
+    if (teamAId && !teamOptions.some(team => team.id === teamAId)) {
+      setTeamAId('');
+      setPlayerAId('');
+    }
+
+    if (teamBId && !teamOptions.some(team => team.id === teamBId)) {
+      setTeamBId('');
+      setPlayerBId('');
+    }
+  }, [dbStatus, teamOptions, teamAId, teamBId]);
 
   useEffect(() => {
     if (playerAId && !filteredPlayersA.some((p, idx) => getSafeId(p, idx) === playerAId)) setPlayerAId('');
@@ -338,6 +567,24 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
   useEffect(() => {
     if (playerBId && !filteredPlayersB.some((p, idx) => getSafeId(p, idx) === playerBId)) setPlayerBId('');
   }, [playerBId, filteredPlayersB]);
+
+  useEffect(() => {
+    writePanelCache({
+      teamAId,
+      teamBId,
+      playerAId,
+      playerBId,
+      presetKey,
+      formData
+    });
+  }, [
+    teamAId,
+    teamBId,
+    playerAId,
+    playerBId,
+    presetKey,
+    formData
+  ]);
 
   const selectedPlayerA = useMemo(
     () => playerPool.find((p, idx) => getSafeId(p, idx) === playerAId) || null,
@@ -355,9 +602,9 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
 
     setFormData(prev => ({
       ...prev,
-      nameA: getDisplayName(pA) || prev.nameA,
+      nameA: pA ? getDisplayName(pA) : prev.nameA,
       teamA: pA?.team_short_name || prev.teamA,
-      nameB: getDisplayName(pB) || prev.nameB,
+      nameB: pB ? getDisplayName(pB) : prev.nameB,
       teamB: pB?.team_short_name || prev.teamB,
       metrics: preset.metrics.map(metric => ({
         label: metric.label,
@@ -377,11 +624,11 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
 
     if (teamAId && teamBId) {
       const left = filteredPlayersA
-        .filter(p => String(p?.role || '').toUpperCase() === role)
+        .filter(p => roleMatches(p?.role, role))
         .sort((a, b) => toNum(b[sortKey]) - toNum(a[sortKey]))[0];
 
       const right = filteredPlayersB
-        .filter(p => String(p?.role || '').toUpperCase() === role)
+        .filter(p => roleMatches(p?.role, role))
         .sort((a, b) => toNum(b[sortKey]) - toNum(a[sortKey]))[0];
 
       if (left) setPlayerAId(getSafeId(left, 0));
@@ -389,15 +636,15 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
       return;
     }
 
-    // 🌟 因为 playerPool 已经被过滤为 8 强，此处的全局检索绝对安全
     const pool = playerPool
-      .filter(p => String(p?.role || '').toUpperCase() === role)
+      .filter(p => roleMatches(p?.role, role))
       .sort((a, b) => toNum(b[sortKey]) - toNum(a[sortKey]));
 
     if (pool[0]) {
       setPlayerAId(getSafeId(pool[0], 0));
       setTeamAId(getPlayerTeamId(pool[0]));
     }
+
     if (pool[1]) {
       setPlayerBId(getSafeId(pool[1], 1));
       setTeamBId(getPlayerTeamId(pool[1]));
@@ -411,7 +658,11 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
       teamA: prev.teamB,
       nameB: prev.nameA,
       teamB: prev.teamA,
-      metrics: prev.metrics.map(row => ({ ...row, a: row.b, b: row.a }))
+      metrics: prev.metrics.map(row => ({
+        ...row,
+        a: row.b,
+        b: row.a
+      }))
     }));
 
     setTeamAId(teamBId);
@@ -428,7 +679,6 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
   };
 
   const handleTake = () => {
-    // 🌟 提取前获取原名，并在打包进 payload 前彻底格式化文件名
     const rawHeroA = selectedPlayerA?.most_played_hero || (Array.isArray(selectedPlayerA?.top_3_heroes) ? selectedPlayerA.top_3_heroes[0] : '');
     const rawHeroB = selectedPlayerB?.most_played_hero || (Array.isArray(selectedPlayerB?.top_3_heroes) ? selectedPlayerB.top_3_heroes[0] : '');
 
@@ -452,6 +702,12 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
       roleA: selectedPlayerA?.role || 'FLEX',
       roleB: selectedPlayerB?.role || 'FLEX',
       metrics: formData.metrics,
+      autoMatchTeams: {
+        teamA: detectedMatchTeams.teamA?.short || '',
+        teamB: detectedMatchTeams.teamB?.short || '',
+        rawTeamA: detectedMatchTeams.rawTeamA || '',
+        rawTeamB: detectedMatchTeams.rawTeamB || ''
+      },
       stat1Label: formData.metrics[0]?.label || '',
       stat1A: formData.metrics[0]?.a || '',
       stat1B: formData.metrics[0]?.b || '',
@@ -469,21 +725,44 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
       stat5B: formData.metrics[4]?.b || ''
     };
 
-    updateWithHistory('Take Player Comparison', {
+    updateWithHistory('Set Player Comparison Data', {
       ...matchData,
       playerComparisonData: payload,
-      dataGraphics: { type: 'PLAYER_COMPARISON', payload },
-      globalScene: 'H2H_SCENE'
+      dataGraphics: {
+        type: 'PLAYER_COMPARISON',
+        payload
+      }
     });
 
-    if (setPreviewScene) setPreviewScene('H2H_SCENE');
-    if (takeScene) takeScene('H2H_SCENE');
+    setPreviewScene?.('H2H_SCENE');
+
+    window.setTimeout(() => {
+      takeScene?.('H2H_SCENE');
+    }, 0);
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '360px minmax(0,1fr)', gap: 10, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: is1080Compact ? '1fr' : '360px minmax(0,1fr)', gap: 10, alignItems: 'start' }}>
       <ShellPanel title="自动填充" accent density={density} bodyStyle={{ padding: t.panelPadding }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {detectedMatchTeams.hasCurrentMatchTeams && (
+            <div
+              style={{
+                border: '1px solid rgba(244,195,32,0.24)',
+                background: 'rgba(244,195,32,0.06)',
+                color: COLORS.yellow,
+                padding: '8px 10px',
+                fontSize: 11,
+                fontWeight: 900,
+                letterSpacing: '0.5px',
+                lineHeight: 1.35,
+                textTransform: 'uppercase'
+              }}
+            >
+              AUTO MATCH TEAMS · {detectedMatchTeams.teamA.short} VS {detectedMatchTeams.teamB.short}
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div>
               <div style={labelStyle}>左侧队伍</div>
@@ -495,8 +774,8 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
               >
                 <option value="">-- 先选队伍 A --</option>
                 {teamOptions.map(team => (
-                  <option key={`TA_${team.id}`} value={team.id}>
-                    {team.short}
+                  <option key={`TA_${team.id || team.short}`} value={team.id}>
+                    {team.playoff ? '★ ' : ''}{team.short}
                   </option>
                 ))}
               </select>
@@ -512,8 +791,8 @@ export default function PlayerComparisonPanel({ db, dbStatus, density, densityTo
               >
                 <option value="">-- 先选队伍 B --</option>
                 {teamOptions.map(team => (
-                  <option key={`TB_${team.id}`} value={team.id}>
-                    {team.short}
+                  <option key={`TB_${team.id || team.short}`} value={team.id}>
+                    {team.playoff ? '★ ' : ''}{team.short}
                   </option>
                 ))}
               </select>

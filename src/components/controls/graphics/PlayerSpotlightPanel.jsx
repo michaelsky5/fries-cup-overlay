@@ -671,7 +671,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
     });
 
     return Array.from(map.values()).sort((a, b) => a.short.localeCompare(b.short));
-  }, [db, rosterPlayers, teamScope]);
+  }, [db, rosterPlayers, teamScope, tr]);
 
   const filteredPlayers = useMemo(
     () => rosterPlayers.filter(player => isPlayerInTeam(player, teamId)),
@@ -809,15 +809,20 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
       ...formData
     };
 
-    updateWithHistory('Take Player Spotlight Graphic', {
+    updateWithHistory('Set Player Spotlight Graphic', {
       ...matchData,
       playerSpotlightData: payload,
-      dataGraphics: { type: 'PLAYER_SPOTLIGHT', payload },
-      globalScene: 'MVP_SCENE'
+      dataGraphics: {
+        type: 'PLAYER_SPOTLIGHT',
+        payload
+      }
     });
 
-    if (setPreviewScene) setPreviewScene('MVP_SCENE');
-    if (takeScene) takeScene('MVP_SCENE');
+    setPreviewScene?.('MVP_SCENE');
+
+    window.setTimeout(() => {
+      takeScene?.('MVP_SCENE');
+    }, 0);
   };
 
   return (
@@ -921,7 +926,7 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
             >
               {tr('dataGraphicsPanels.playerSpotlight.focusPlayer', { defaultValue: '焦点选手' })}
             </button>
-          
+
             <button
               type="button"
               style={UI.chip(formData.cardTag === tr('dataGraphicsPanels.playerSpotlight.starPlayer', { defaultValue: '明星选手' }))}

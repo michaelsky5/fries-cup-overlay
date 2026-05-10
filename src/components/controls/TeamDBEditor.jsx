@@ -101,6 +101,76 @@ const splitCoaches = value =>
     .map(splitNameAndTag)
     .filter(item => item.nickname || item.battleTag);
 
+const hasStaffValue = value =>
+  !!(String(value?.nickname || '').trim() || String(value?.battleTag || '').trim());
+
+const normalizeStaffMember = value => {
+  if (!value) return { nickname: '', battleTag: '' };
+  if (typeof value === 'string') return splitNameAndTag(value);
+
+  const raw =
+    value.battleTag ||
+    value.battle_tag ||
+    value.battletag ||
+    value.displayName ||
+    value.display_name ||
+    value.nickname ||
+    value.name ||
+    '';
+
+  const parsed = splitNameAndTag(raw);
+
+  return {
+    nickname: value.nickname || value.displayName || value.display_name || value.name || parsed.nickname || '',
+    battleTag: value.battleTag || value.battle_tag || value.battletag || parsed.battleTag || ''
+  };
+};
+
+const normalizeManager = value => {
+  const manager = normalizeStaffMember(value);
+  return hasStaffValue(manager) ? manager : { nickname: '', battleTag: '' };
+};
+
+const normalizeCoaches = value => {
+  if (Array.isArray(value)) return value.map(normalizeStaffMember).filter(hasStaffValue);
+  return splitCoaches(value);
+};
+
+const pickStaffCandidate = (...values) =>
+  values.find(value => {
+    if (Array.isArray(value)) return value.length > 0;
+    if (value && typeof value === 'object') return Object.values(value).some(v => String(v || '').trim());
+    return String(value || '').trim();
+  });
+
+const getPresetStaff = preset => {
+  const data = preset?.data || {};
+  const staff = data.rosterStaff || data.staff || {};
+
+  const managerSource = pickStaffCandidate(
+    data.manager,
+    data.teamManager,
+    data.team_manager,
+    staff.manager,
+    preset?.manager,
+    preset?.team_manager
+  );
+
+  const coachesSource = pickStaffCandidate(
+    data.coaches,
+    data.teamCoach,
+    data.team_coach,
+    staff.coaches,
+    preset?.coaches,
+    preset?.team_coach
+  );
+
+  return {
+    manager: normalizeManager(managerSource),
+    coaches: normalizeCoaches(coachesSource)
+  };
+};
+
 const pickHeroKey = (rawHero, role) => {
   const options = getRosterHeroOptions(role) || [];
   if (!options.length) return '';
@@ -192,6 +262,8 @@ const normalizeTeamPresetForDB = preset => {
     }
   }, '');
 
+  const staff = getPresetStaff(preset);
+
   return {
     ...preset,
     data: {
@@ -199,7 +271,9 @@ const normalizeTeamPresetForDB = preset => {
       logoKey,
       logo: resolvedLogo,
       logoPath: resolvedLogo,
-      teamLogo: resolvedLogo
+      teamLogo: resolvedLogo,
+      manager: staff.manager,
+      coaches: staff.coaches
     }
   };
 };
@@ -272,6 +346,11 @@ const mergePresetLibrary = (currentLibrary, incomingPresets) => {
       const existingLogo = getPresetLogo(existing);
       const safeLogo = incomingLogo && !isTbdLogoKey(incomingLogo) ? incomingLogo : existingLogo;
 
+      const existingStaff = getPresetStaff(existing);
+      const incomingStaff = getPresetStaff(preset);
+      const safeManager = hasStaffValue(incomingStaff.manager) ? incomingStaff.manager : existingStaff.manager;
+      const safeCoaches = incomingStaff.coaches.length ? incomingStaff.coaches : existingStaff.coaches;
+
       next[existedIndex] = normalizeTeamPresetForDB({
         ...existing,
         ...preset,
@@ -281,7 +360,9 @@ const mergePresetLibrary = (currentLibrary, incomingPresets) => {
           logoKey: preset.data?.logoKey || existing.data?.logoKey || preset.key || existing.key || '',
           logo: safeLogo || '',
           logoPath: safeLogo || '',
-          teamLogo: safeLogo || ''
+          teamLogo: safeLogo || '',
+          manager: safeManager,
+          coaches: safeCoaches
         }
       });
     } else {
@@ -314,6 +395,87 @@ export default function TeamDBEditor({
   const ui = createEditorUi(densityTokens, density);
 
   const tx = (key, fallback, options = {}) => tr(key, { defaultValue: fallback, ...options });
+
+  const normalizeExportKey = value =>
+    String(value || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9\u4E00-\u9FA5]+/g, '');
+
+  const getPresetIdentityTokens = preset => {
+    const data = preset?.data || {};
+
+    return [
+      preset?.key,
+      preset?.name,
+      data.teamName,
+      data.teamShortName,
+      data.teamCode,
+      data.clubName
+    ]
+      .map(normalizeExportKey)
+      .filter(Boolean);
+  };
+
+  const findLiveStaffForPreset = preset => {
+    const presetTokens = getPresetIdentityTokens(preset);
+
+    const sideList = [
+      {
+        side: 'A',
+        activeKey: matchData.rosterActivePresetKeyA,
+        teamName: matchData.teamA,
+        teamShort: matchData.teamShortA,
+        staff: matchData.rosterStaffA
+      },
+      {
+        side: 'B',
+        activeKey: matchData.rosterActivePresetKeyB,
+        teamName: matchData.teamB,
+        teamShort: matchData.teamShortB,
+        staff: matchData.rosterStaffB
+      }
+    ];
+
+    return sideList.find(item => {
+      const staff = item.staff || {};
+      const sideTokens = [
+        item.activeKey,
+        staff.presetKey,
+        staff.presetName,
+        item.teamName,
+        item.teamShort,
+        staff.clubName
+      ]
+        .map(normalizeExportKey)
+        .filter(Boolean);
+
+      return sideTokens.some(token => presetTokens.includes(token));
+    })?.staff || null;
+  };
+
+  const hydratePresetForExport = preset => {
+    const data = preset?.data || {};
+    const presetStaff = getPresetStaff(preset);
+    const liveStaff = findLiveStaffForPreset(preset);
+
+    const liveManager = normalizeManager(liveStaff?.manager);
+    const liveCoaches = normalizeCoaches(liveStaff?.coaches);
+
+    const manager = hasStaffValue(presetStaff.manager) ? presetStaff.manager : liveManager;
+    const coaches = presetStaff.coaches.length ? presetStaff.coaches : liveCoaches;
+
+    return normalizeTeamPresetForDB({
+      ...preset,
+      data: {
+        ...data,
+        manager,
+        coaches,
+        clubName: data.clubName || liveStaff?.clubName || '',
+        showClubName: data.showClubName ?? liveStaff?.showClubName ?? false
+      }
+    });
+  };
 
   const saveImportedPresets = (presets, actionLabel) => {
     const normalizedPresets = normalizeTeamPresetLibraryForDB(presets);
@@ -399,7 +561,7 @@ export default function TeamDBEditor({
   };
 
   const exportDB = () => {
-    const exportLibrary = normalizeTeamPresetLibraryForDB(library);
+    const exportLibrary = library.map(hydratePresetForExport);
 
     navigator.clipboard
       .writeText(JSON.stringify(exportLibrary, null, 2))
@@ -642,6 +804,11 @@ export default function TeamDBEditor({
               const logoValue = normalizedTeam.data?.logo || normalizedTeam.data?.logoPath || normalizedTeam.data?.teamLogo || '';
               const hasLogo = !!logoValue && !isTbdLogoKey(logoValue);
 
+              const manager = normalizedTeam.data?.manager || {};
+              const coaches = normalizedTeam.data?.coaches || [];
+              const managerName = manager.nickname || manager.battleTag || '';
+              const coachNames = coaches.map(c => c.nickname || c.battleTag).filter(Boolean);
+
               return (
                 <div
                   key={team.key}
@@ -651,7 +818,7 @@ export default function TeamDBEditor({
                     borderLeft: `3px solid ${COLORS.yellow}`,
                     height: '100%',
                     display: 'grid',
-                    gridTemplateRows: 'auto auto 1fr',
+                    gridTemplateRows: 'auto auto auto 1fr',
                     gap: '12px',
                     boxSizing: 'border-box'
                   }}
@@ -759,6 +926,42 @@ export default function TeamDBEditor({
                     >
                       <div style={labelStyle}>{tr('teamDbEditor.status')}</div>
                       <div style={valueStyle}>{players.length ? tr('teamDbEditor.ready') : tr('teamDbEditor.incomplete')}</div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: isDense ? '1fr' : '1fr 1fr',
+                      gap: '8px'
+                    }}
+                  >
+                    <div
+                      style={{
+                        border: `1px solid ${COLORS.line}`,
+                        background: 'rgba(255,255,255,0.02)',
+                        padding: '8px 10px',
+                        display: 'grid',
+                        gap: '3px',
+                        minWidth: 0
+                      }}
+                    >
+                      <div style={labelStyle}>MANAGER</div>
+                      <div style={valueStyle}>{managerName || '-'}</div>
+                    </div>
+
+                    <div
+                      style={{
+                        border: `1px solid ${COLORS.line}`,
+                        background: 'rgba(255,255,255,0.02)',
+                        padding: '8px 10px',
+                        display: 'grid',
+                        gap: '3px',
+                        minWidth: 0
+                      }}
+                    >
+                      <div style={labelStyle}>COACH</div>
+                      <div style={valueStyle}>{coachNames.join(', ') || '-'}</div>
                     </div>
                   </div>
 

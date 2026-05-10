@@ -345,7 +345,7 @@ export default function LiveEditor({
   isDense, isUltra, isShort, density = 'standard', densityTokens
 }) {
   const { t: tr } = useTranslation();
-  const { matchData, updateData, updateWithHistory, setPreviewScene } = useMatchContext();
+  const { matchData, updateData, updateWithHistory, setPreviewScene, takeScene } = useMatchContext();
 
   const t = densityTokens || {
     panelPadding: '12px', inputPadding: '8px 10px', inputFontSize: 12, buttonPadding: '8px 10px', buttonFontSize: 12, blockGap: 10
@@ -424,7 +424,7 @@ export default function LiveEditor({
     const prevMap = nextMapLineup[currentMapIdx] || {};
     const archivedBansA = normalizeBanList(matchData.bansA);
     const archivedBansB = normalizeBanList(matchData.bansB);
-
+  
     nextMapLineup[currentMapIdx] = {
       ...prevMap,
       winner: nextWinner,
@@ -445,7 +445,7 @@ export default function LiveEditor({
       return side === 'B' ? sum + 1 : sum;
     }, 0);
 
-    updateWithHistory(`Set Team ${nextWinner} as winner and TAKE`, {
+    updateWithHistory(`Set Team ${nextWinner} as map winner`, {
       ...matchData,
       scoreA: nextScoreA,
       scoreB: nextScoreB,
@@ -456,7 +456,8 @@ export default function LiveEditor({
       showBanPhase: false,
       heroBanTriggerAt: 0,
       autoBeginTriggerAt: 0,
-      globalScene: 'WINNER',
+      winner: nextWinner,
+      winnerSide: nextWinner,
       winnerScene: {
         ...(matchData.winnerScene || {}),
         winner: nextWinner,
@@ -465,12 +466,17 @@ export default function LiveEditor({
     });
 
     setPreviewScene?.('WINNER');
+
+    window.setTimeout(() => {
+      takeScene?.('WINNER');
+    }, 0);
   }, [
     matchData,
     currentMapIdx,
     currentMapData.attackSide,
     updateWithHistory,
-    setPreviewScene
+    setPreviewScene,
+    takeScene
   ]);
 
   const handleResetMatch = useCallback(() => {

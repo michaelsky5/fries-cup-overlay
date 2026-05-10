@@ -20,13 +20,25 @@ const UI = {
   insetLine: 'inset 0 0 0 1px rgba(255,255,255,0.04)'
 };
 
-const hasBanValue = bans => Array.isArray(bans) && bans.some(Boolean);
+const DEFAULT_BAN_ENTRY = 'damage/tbd';
+
+const hasDefinedBanSlot = bans =>
+  Array.isArray(bans) && bans.some(item => String(item || '').trim());
+
+const getLiveFirstBans = (liveBans, mapBans) => {
+  if (hasDefinedBanSlot(liveBans)) return liveBans;
+  if (hasDefinedBanSlot(mapBans)) return mapBans;
+  return [DEFAULT_BAN_ENTRY];
+};
 
 const getBanInfo = bans => {
-  const raw = Array.isArray(bans) ? (bans.find(Boolean) || '') : '';
-  if (!raw) return { role: 'damage', hero: 'tbd' };
-  if (!raw.includes('/')) return { role: 'damage', hero: raw };
-  const [role, hero] = raw.split('/');
+  const raw = Array.isArray(bans) ? (bans.find(item => String(item || '').trim()) || DEFAULT_BAN_ENTRY) : DEFAULT_BAN_ENTRY;
+  const str = String(raw || DEFAULT_BAN_ENTRY).trim().toLowerCase();
+
+  if (!str) return { role: 'damage', hero: 'tbd' };
+  if (!str.includes('/')) return { role: 'damage', hero: str || 'tbd' };
+
+  const [role, hero] = str.split('/');
   return { role: role || 'damage', hero: hero || 'tbd' };
 };
 
@@ -69,6 +81,7 @@ function TechCorner({ top = true, left = true, color = COLORS.yellow }) {
 
 function OrderBadge({ order = 1, side = 'left' }) {
   const isLeft = side === 'left';
+
   return (
     <div
       style={{
@@ -116,7 +129,17 @@ function PendingState() {
   return (
     <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
       <div style={{ display: 'grid', gap: 16, justifyItems: 'center' }}>
-        <div style={{ color: COLORS.yellow, fontWeight: 900, fontSize: 52, letterSpacing: 1.2, lineHeight: 1, textTransform: 'uppercase', textShadow: '0 0 18px rgba(244,195,32,0.10)' }}>
+        <div
+          style={{
+            color: COLORS.yellow,
+            fontWeight: 900,
+            fontSize: 52,
+            letterSpacing: 1.2,
+            lineHeight: 1,
+            textTransform: 'uppercase',
+            textShadow: '0 0 18px rgba(244,195,32,0.10)'
+          }}
+        >
           Pending
         </div>
         <div style={{ width: 240, height: 4, background: 'linear-gradient(90deg, rgba(244,195,32,0.00) 0%, rgba(244,195,32,0.92) 50%, rgba(244,195,32,0.00) 100%)' }} />
@@ -136,7 +159,9 @@ function TeamBanCard({ side = 'left', order = 1, teamName, banInfo, reveal = fal
 
   const [imgSrc, setImgSrc] = useState(getScreenshotPath(banInfo));
 
-  useEffect(() => setImgSrc(getScreenshotPath(banInfo)), [banInfo?.hero, banInfo?.role]);
+  useEffect(() => {
+    setImgSrc(getScreenshotPath(banInfo));
+  }, [banInfo?.hero, banInfo?.role]);
 
   return (
     <div
@@ -161,12 +186,37 @@ function TeamBanCard({ side = 'left', order = 1, teamName, banInfo, reveal = fal
       <OrderBadge order={order} side={side} />
 
       <div style={{ position: 'absolute', top: 26, [isLeft ? 'right' : 'left']: 40, zIndex: 7, textAlign: isLeft ? 'right' : 'left' }}>
-        <div style={{ color: COLORS.white, fontSize: 45, fontWeight: 900, lineHeight: 1.3, letterSpacing: 1, textTransform: 'uppercase', maxWidth: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 2px 8px rgba(0,0,0,0.22)' }}>
+        <div
+          style={{
+            color: COLORS.white,
+            fontSize: 45,
+            fontWeight: 900,
+            lineHeight: 1.3,
+            letterSpacing: 1,
+            textTransform: 'uppercase',
+            maxWidth: 500,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            textShadow: '0 2px 8px rgba(0,0,0,0.22)'
+          }}
+        >
           {teamName || 'TEAM'}
         </div>
       </div>
 
-      <div style={{ position: 'absolute', top: 102, left: 18, right: 18, bottom: 104, overflow: 'hidden', border: `1px solid rgba(255,255,255,0.05)`, background: isTbd ? 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.00) 100%)' : 'transparent' }}>
+      <div
+        style={{
+          position: 'absolute',
+          top: 102,
+          left: 18,
+          right: 18,
+          bottom: 104,
+          overflow: 'hidden',
+          border: `1px solid rgba(255,255,255,0.05)`,
+          background: isTbd ? 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.00) 100%)' : 'transparent'
+        }}
+      >
         {!isTbd ? (
           <>
             <img
@@ -174,7 +224,11 @@ function TeamBanCard({ side = 'left', order = 1, teamName, banInfo, reveal = fal
               alt={heroName}
               onError={() => setImgSrc(getFallbackPortraitPath(banInfo))}
               style={{
-                position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
                 opacity: reveal ? 1 : 0,
                 transform: reveal ? 'scale(1.03)' : 'scale(1.08)',
                 filter: reveal ? 'blur(0px)' : 'blur(8px)',
@@ -190,11 +244,15 @@ function TeamBanCard({ side = 'left', order = 1, teamName, banInfo, reveal = fal
 
             <div
               style={{
-                position: 'absolute', top: 0, bottom: 0, width: '24%',
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                width: '24%',
                 background: 'linear-gradient(90deg, rgba(255,255,255,0.00) 0%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.00) 100%)',
                 transform: 'translateX(-120%)',
                 animation: reveal ? 'banCardSweep 760ms cubic-bezier(.2,.8,.2,1) 140ms forwards' : 'none',
-                mixBlendMode: 'screen', pointerEvents: 'none',
+                mixBlendMode: 'screen',
+                pointerEvents: 'none',
                 willChange: 'transform',
                 backfaceVisibility: 'hidden'
               }}
@@ -208,7 +266,24 @@ function TeamBanCard({ side = 'left', order = 1, teamName, banInfo, reveal = fal
         )}
       </div>
 
-      <div style={{ position: 'absolute', left: 18, right: 18, bottom: 18, minHeight: 78, background: 'linear-gradient(180deg, rgba(24,24,24,0.98) 0%, rgba(16,16,16,0.99) 100%)', borderTop: `2px solid ${COLORS.yellow}`, borderLeft: `1px solid ${COLORS.line}`, borderRight: `1px solid ${COLORS.line}`, borderBottom: `1px solid ${COLORS.line}`, display: 'grid', alignContent: 'center', padding: '12px 16px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)' }}>
+      <div
+        style={{
+          position: 'absolute',
+          left: 18,
+          right: 18,
+          bottom: 18,
+          minHeight: 78,
+          background: 'linear-gradient(180deg, rgba(24,24,24,0.98) 0%, rgba(16,16,16,0.99) 100%)',
+          borderTop: `2px solid ${COLORS.yellow}`,
+          borderLeft: `1px solid ${COLORS.line}`,
+          borderRight: `1px solid ${COLORS.line}`,
+          borderBottom: `1px solid ${COLORS.line}`,
+          display: 'grid',
+          alignContent: 'center',
+          padding: '12px 16px',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)'
+        }}
+      >
         <div style={{ display: 'grid', gap: 4, justifyItems: isLeft ? 'start' : 'end' }}>
           <div style={{ color: COLORS.softWhite, fontSize: 11, fontWeight: 800, letterSpacing: 1.4, textTransform: 'uppercase' }}>
             {isTbd ? 'Ban Status' : roleLabel}
@@ -233,13 +308,20 @@ export default function BanPhaseScene({ matchData, triggerAt }) {
     return Array.isArray(matchData?.mapLineup) ? matchData.mapLineup[currentMapIndex] : null;
   }, [matchData?.currentMap, matchData?.mapLineup]);
 
-  const sourceBansA = hasBanValue(currentMapData?.bansA) ? currentMapData.bansA : matchData?.bansA;
-  const sourceBansB = hasBanValue(currentMapData?.bansB) ? currentMapData.bansB : matchData?.bansB;
+  const sourceBansA = useMemo(
+    () => getLiveFirstBans(matchData?.bansA, currentMapData?.bansA),
+    [matchData?.bansA, currentMapData?.bansA]
+  );
+
+  const sourceBansB = useMemo(
+    () => getLiveFirstBans(matchData?.bansB, currentMapData?.bansB),
+    [matchData?.bansB, currentMapData?.bansB]
+  );
 
   const banA = useMemo(() => getBanInfo(sourceBansA), [sourceBansA]);
   const banB = useMemo(() => getBanInfo(sourceBansB), [sourceBansB]);
 
-  const orderMode = matchData?.banOrderMode || 'A_FIRST';
+  const orderMode = matchData?.banOrderMode || currentMapData?.banOrderMode || 'A_FIRST';
   const isAFirst = orderMode === 'A_FIRST';
 
   useEffect(() => {
@@ -308,7 +390,24 @@ export default function BanPhaseScene({ matchData, triggerAt }) {
       <div style={{ position: 'absolute', left: '90px', top: '90px', width: '520px', height: '520px', border: '1px solid rgba(244,195,32,0.05)', transform: 'rotate(45deg)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', right: '-80px', bottom: '-80px', width: '420px', height: '420px', border: '1px solid rgba(255,255,255,0.03)', transform: 'rotate(45deg)', pointerEvents: 'none' }} />
 
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '44px', background: 'rgba(255,255,255,0.02)', borderBottom: `1px solid ${COLORS.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px', boxSizing: 'border-box', backdropFilter: 'blur(4px)', zIndex: 20 }}>
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '44px',
+          background: 'rgba(255,255,255,0.02)',
+          borderBottom: `1px solid ${COLORS.line}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 30px',
+          boxSizing: 'border-box',
+          backdropFilter: 'blur(4px)',
+          zIndex: 20
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ width: '10px', height: '10px', background: COLORS.yellow, boxShadow: '0 0 12px rgba(244,195,32,0.28)' }} />
           <span style={{ fontSize: '12px', fontWeight: '900', letterSpacing: '2px', color: COLORS.softWhite }}>FCUP_BAN_INTERFACE</span>
@@ -321,8 +420,14 @@ export default function BanPhaseScene({ matchData, triggerAt }) {
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
         <div
           style={{
-            fontSize: '250px', fontWeight: '900', lineHeight: 0.9, letterSpacing: '8px', color: 'transparent',
-            WebkitTextStroke: '2px rgba(255,255,255,0.08)', textTransform: 'uppercase', userSelect: 'none',
+            fontSize: '250px',
+            fontWeight: '900',
+            lineHeight: 0.9,
+            letterSpacing: '8px',
+            color: 'transparent',
+            WebkitTextStroke: '2px rgba(255,255,255,0.08)',
+            textTransform: 'uppercase',
+            userSelect: 'none',
             animation: 'banTextDrop 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
             willChange: 'transform, opacity'
           }}
@@ -333,7 +438,7 @@ export default function BanPhaseScene({ matchData, triggerAt }) {
 
       <div style={{ position: 'absolute', inset: '150px 120px 92px', display: 'grid', gridTemplateColumns: '1fr 42px 1fr', gap: 28, alignItems: 'stretch' }}>
         <TeamBanCard side="left" order={orderA} teamName={matchData.teamA} banInfo={banA} reveal={revealA} />
-        
+
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 2, height: '74%', background: 'linear-gradient(180deg, rgba(244,195,32,0.00) 0%, rgba(244,195,32,0.42) 18%, rgba(244,195,32,0.42) 82%, rgba(244,195,32,0.00) 100%)' }} />
         </div>
