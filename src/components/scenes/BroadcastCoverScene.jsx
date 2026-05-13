@@ -19,8 +19,13 @@ const UI = {
   insetLine: 'inset 0 0 0 1px rgba(255,255,255,0.04)'
 };
 
+export const COVER_EXPORT_SIZE = {
+  '16:9': { width: 1920, height: 1080, ratio: '16:9' },
+  '4:3': { width: 1440, height: 1080, ratio: '4:3' }
+};
+
 const DEFAULT_DATA = {
-  coverMode: 'GENERIC', 
+  coverMode: 'GENERIC',
   aspectRatio: '16:9',
   titleMain: 'FRIES CUP',
   titleSubEn: 'ACADEMY',
@@ -39,15 +44,15 @@ const DEFAULT_DATA = {
   phaseSubCn: '瑞士轮',
   coverCasters: 'AAA / BBB',
   coverAdmins: 'CCC / DDD',
-  
+
   teamA: 'TEAM A',
   teamB: 'TEAM B',
   logoA: '',
   logoB: '',
-  rosterStaffA: { clubName: '' }, 
+  rosterStaffA: { clubName: '' },
   rosterStaffB: { clubName: '' },
-  rosterPresetLibrary: [], 
-  
+  rosterPresetLibrary: [],
+
   matchStage: 'OPEN QUALIFIER',
   roundLabel: 'ROUND 01',
   matchTime: '19:30 CST',
@@ -62,20 +67,28 @@ const DEFAULT_DATA = {
 const safe = (v, fallback = '') => (v === undefined || v === null || v === '' ? fallback : String(v));
 const up = (v, fallback = '') => safe(v, fallback).toUpperCase();
 
-// --- 子组件 (全部还原为你最初的 16:9 原版比例) ---
-
 const TopBar = memo(({ data, isMatch }) => {
   const { topLeftLabel, topLeftYear, topRightLabelMatch, topRightLabelGeneric } = data;
-  const rightLabel = isMatch 
-    ? up(topRightLabelMatch, 'MATCH // READY') 
+  const rightLabel = isMatch
+    ? up(topRightLabelMatch, 'MATCH // READY')
     : up(topRightLabelGeneric, 'BROADCAST // STANDBY');
 
   return (
     <div style={{
-      position: 'absolute', top: 0, left: 0, right: 0, height: '44px',
-      background: 'rgba(255,255,255,0.02)', borderBottom: `1px solid ${COLORS.line}`,
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 30px', boxSizing: 'border-box', backdropFilter: 'blur(4px)', zIndex: 30
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: '44px',
+      background: 'rgba(255,255,255,0.02)',
+      borderBottom: `1px solid ${COLORS.line}`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '0 30px',
+      boxSizing: 'border-box',
+      backdropFilter: 'blur(4px)',
+      zIndex: 30
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div style={{ width: '10px', height: '10px', background: COLORS.yellow, boxShadow: '0 0 12px rgba(244,195,32,0.28)' }} />
@@ -87,6 +100,7 @@ const TopBar = memo(({ data, isMatch }) => {
           {up(topLeftYear, '2026')}
         </span>
       </div>
+
       <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '2px', color: 'rgba(255,255,255,0.38)' }}>
         {rightLabel}
       </div>
@@ -96,8 +110,10 @@ const TopBar = memo(({ data, isMatch }) => {
 
 const FrameShell = memo(({ children }) => (
   <div style={{
-    position: 'absolute', inset: '96px 120px 92px',
-    border: UI.outerFrame, boxShadow: `${UI.hardShadow}, ${UI.insetLine}`,
+    position: 'absolute',
+    inset: '96px 120px 92px',
+    border: UI.outerFrame,
+    boxShadow: `${UI.hardShadow}, ${UI.insetLine}`,
     background: 'linear-gradient(180deg, rgba(255,255,255,0.018) 0%, rgba(255,255,255,0.008) 100%)',
     overflow: 'hidden'
   }}>
@@ -105,8 +121,8 @@ const FrameShell = memo(({ children }) => (
     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `linear-gradient(90deg, ${COLORS.yellow} 0%, rgba(244,195,32,0.28) 100%)`, boxShadow: UI.yellowGlow }} />
 
     <div style={{ position: 'absolute', top: '28px', left: '28px', width: '18px', height: '18px', borderTop: `2px solid ${COLORS.yellow}`, borderLeft: `2px solid ${COLORS.yellow}` }} />
-    <div style={{ position: 'absolute', top: '28px', right: '28px', width: '18px', height: '18px', borderTop: `2px solid rgba(255,255,255,0.10)`, borderRight: `2px solid rgba(255,255,255,0.10)` }} />
-    <div style={{ position: 'absolute', bottom: '28px', left: '28px', width: '18px', height: '18px', borderBottom: `2px solid rgba(255,255,255,0.10)`, borderLeft: `2px solid rgba(255,255,255,0.10)` }} />
+    <div style={{ position: 'absolute', top: '28px', right: '28px', width: '18px', height: '18px', borderTop: '2px solid rgba(255,255,255,0.10)', borderRight: '2px solid rgba(255,255,255,0.10)' }} />
+    <div style={{ position: 'absolute', bottom: '28px', left: '28px', width: '18px', height: '18px', borderBottom: '2px solid rgba(255,255,255,0.10)', borderLeft: '2px solid rgba(255,255,255,0.10)' }} />
     <div style={{ position: 'absolute', bottom: '28px', right: '28px', width: '18px', height: '18px', borderBottom: `2px solid ${COLORS.yellow}`, borderRight: `2px solid ${COLORS.yellow}` }} />
     {children}
   </div>
@@ -115,9 +131,16 @@ const FrameShell = memo(({ children }) => (
 const Watermark = memo(({ text, size = 220, x = 0, y = 0 }) => (
   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', overflow: 'hidden' }}>
     <div style={{
-      fontSize: `${size}px`, fontWeight: 900, letterSpacing: '8px', color: 'transparent',
-      WebkitTextStroke: '1px rgba(255,255,255,0.08)', textTransform: 'uppercase',
-      lineHeight: 0.9, transform: `translate(${x}px, ${y}px)`, whiteSpace: 'nowrap', userSelect: 'none'
+      fontSize: `${size}px`,
+      fontWeight: 900,
+      letterSpacing: '8px',
+      color: 'transparent',
+      WebkitTextStroke: '1px rgba(255,255,255,0.08)',
+      textTransform: 'uppercase',
+      lineHeight: 0.9,
+      transform: `translate(${x}px, ${y}px)`,
+      whiteSpace: 'nowrap',
+      userSelect: 'none'
     }}>
       {up(text, 'BROADCAST')}
     </div>
@@ -126,9 +149,15 @@ const Watermark = memo(({ text, size = 220, x = 0, y = 0 }) => (
 
 const GenericInfoPanel = memo(({ data }) => (
   <div style={{
-    background: 'rgba(255,255,255,0.02)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`,
-    padding: '24px 26px', position: 'relative', overflow: 'hidden', minHeight: '250px',
-    display: 'grid', gridTemplateRows: '1fr 1fr'
+    background: 'rgba(255,255,255,0.02)',
+    border: UI.outerFrame,
+    boxShadow: `${UI.panelShadow}, ${UI.insetLine}`,
+    padding: '24px 26px',
+    position: 'relative',
+    overflow: 'hidden',
+    minHeight: '250px',
+    display: 'grid',
+    gridTemplateRows: '1fr 1fr'
   }}>
     <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.014) 0 1px, transparent 1px 22px)', opacity: 0.38, pointerEvents: 'none' }} />
     <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
@@ -157,14 +186,24 @@ const GenericInfoPanel = memo(({ data }) => (
 const GenericCover = memo(({ data }) => (
   <>
     <Watermark text={data.genericWatermark} />
+
     <div style={{
-      position: 'absolute', left: '64px', right: '64px', top: '190px', bottom: '160px',
-      display: 'grid', gridTemplateColumns: 'minmax(760px, 1fr) 390px', gap: '42px', zIndex: 10, alignItems: 'center'
+      position: 'absolute',
+      left: '64px',
+      right: '64px',
+      top: '190px',
+      bottom: '160px',
+      display: 'grid',
+      gridTemplateColumns: 'minmax(760px, 1fr) 390px',
+      gap: '42px',
+      zIndex: 10,
+      alignItems: 'center'
     }}>
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
         <div style={{ fontSize: '112px', fontWeight: 900, color: COLORS.white, lineHeight: 0.92, letterSpacing: '2px', textTransform: 'uppercase' }}>
           {up(data.titleMain, 'FRIES CUP')}
         </div>
+
         <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
           <div style={{ width: '10px', height: '10px', background: COLORS.yellow }} />
           <span style={{ fontSize: '24px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '2.6px', textTransform: 'uppercase' }}>
@@ -175,9 +214,11 @@ const GenericCover = memo(({ data }) => (
             {up(data.titleSubCn, '薯条杯学院赛')}
           </span>
         </div>
+
         <div style={{ width: '620px', height: '8px', marginTop: '24px', background: `linear-gradient(90deg, ${COLORS.yellow} 0%, rgba(244,195,32,0.16) 100%)`, border: '1px solid rgba(244,195,32,0.18)', boxShadow: UI.yellowGlow, position: 'relative' }}>
           <div style={{ position: 'absolute', right: '-1px', top: '-1px', width: '38px', height: '8px', background: COLORS.yellow, opacity: 0.16 }} />
         </div>
+
         <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '18px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
             {up(data.phaseMainEn, 'OPEN QUALIFIER')}
@@ -188,6 +229,7 @@ const GenericCover = memo(({ data }) => (
           </span>
         </div>
       </div>
+
       <div style={{ alignSelf: 'center' }}>
         <GenericInfoPanel data={data} />
       </div>
@@ -202,20 +244,45 @@ const TeamLogoBox = memo(({ logo, alt, align = 'left', size = 178 }) => {
 
   return (
     <div style={{
-      width: `${size}px`, height: `${size}px`, background: 'rgba(255,255,255,0.03)',
-      border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      position: 'relative', overflow: 'hidden', flexShrink: 0
+      width: `${size}px`,
+      height: `${size}px`,
+      background: 'rgba(255,255,255,0.03)',
+      border: UI.outerFrame,
+      boxShadow: `${UI.panelShadow}, ${UI.insetLine}`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      overflow: 'hidden',
+      flexShrink: 0
     }}>
       <div style={{
-        position: 'absolute', top: padding, [align]: padding,
-        width: cornerSize, height: cornerSize, borderTop: `2px solid ${COLORS.yellow}`,
+        position: 'absolute',
+        top: padding,
+        [align]: padding,
+        width: cornerSize,
+        height: cornerSize,
+        borderTop: `2px solid ${COLORS.yellow}`,
         ...(align === 'left' ? { borderLeft: `2px solid ${COLORS.yellow}` } : { borderRight: `2px solid ${COLORS.yellow}` })
       }} />
+
       {logo ? (
-        <img src={logo} alt={alt} style={{ width: '74%', height: '74%', objectFit: 'contain', display: 'block' }} />
+        <img
+          src={logo}
+          alt={alt || 'team logo'}
+          crossOrigin="anonymous"
+          draggable={false}
+          style={{
+            width: '74%',
+            height: '74%',
+            objectFit: 'contain',
+            display: 'block'
+          }}
+        />
       ) : (
-        <div style={{ fontSize: isSmall ? '18px' : '20px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>LOGO</div>
+        <div style={{ fontSize: isSmall ? '18px' : '20px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
+          LOGO
+        </div>
       )}
     </div>
   );
@@ -228,7 +295,7 @@ const getUnifiedNameStyle = (nameA = '', nameB = '') => {
 
   if (maxLen <= 8) return { fontSize: '72px', letterSpacing: '1px' };
   if (maxLen <= 12) return { fontSize: '56px', letterSpacing: '0px' };
-  if (maxLen <= 16) return { fontSize: '46px', letterSpacing: '-0.5px' }; 
+  if (maxLen <= 16) return { fontSize: '46px', letterSpacing: '-0.5px' };
   if (maxLen <= 22) return { fontSize: '38px', letterSpacing: '-1px' };
   return { fontSize: '32px', letterSpacing: '-1.5px' };
 };
@@ -239,16 +306,26 @@ const TeamNameBlock = memo(({ name, club, align = 'left', unifiedStyle }) => {
   return (
     <div style={{ minWidth: 0, display: 'flex', alignSelf: 'stretch', justifyContent: isLeft ? 'flex-end' : 'flex-start' }}>
       <div style={{
-        width: '100%', height: '100%', minWidth: 0, textAlign: isLeft ? 'right' : 'left',
-        display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: isLeft ? 'flex-end' : 'flex-start',
-        borderRight: isLeft ? `4px solid ${COLORS.yellow}` : 'none', borderLeft: !isLeft ? `4px solid ${COLORS.yellow}` : 'none',
-        paddingRight: isLeft ? '24px' : '0', paddingLeft: !isLeft ? '24px' : '0', overflow: 'hidden'
+        width: '100%',
+        height: '100%',
+        minWidth: 0,
+        textAlign: isLeft ? 'right' : 'left',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: isLeft ? 'flex-end' : 'flex-start',
+        borderRight: isLeft ? `4px solid ${COLORS.yellow}` : 'none',
+        borderLeft: !isLeft ? `4px solid ${COLORS.yellow}` : 'none',
+        paddingRight: isLeft ? '24px' : '0',
+        paddingLeft: !isLeft ? '24px' : '0',
+        overflow: 'hidden'
       }}>
         {club && (
           <div style={{ fontSize: '13px', color: COLORS.yellow, letterSpacing: '4px', fontWeight: 900, marginBottom: '6px', textTransform: 'uppercase', opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
             {up(club)}
           </div>
         )}
+
         <div style={{ fontWeight: 900, color: COLORS.white, textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '3px 3px 0 rgba(0,0,0,0.5)', lineHeight: 1, maxWidth: '100%', ...unifiedStyle }}>
           {up(name, 'TEAM')}
         </div>
@@ -261,7 +338,10 @@ const InfoCard = memo(({ label, value, highlight = false }) => (
   <div style={{
     background: highlight ? 'linear-gradient(180deg, rgba(244,195,32,0.16) 0%, rgba(244,195,32,0.08) 100%)' : 'rgba(255,255,255,0.03)',
     border: highlight ? '1px solid rgba(244,195,32,0.22)' : UI.outerFrame,
-    boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '18px 20px', position: 'relative', overflow: 'hidden'
+    boxShadow: `${UI.panelShadow}, ${UI.insetLine}`,
+    padding: '18px 20px',
+    position: 'relative',
+    overflow: 'hidden'
   }}>
     <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 22px)', opacity: 0.45, pointerEvents: 'none' }} />
     <div style={{ position: 'relative', zIndex: 1, fontSize: '11px', fontWeight: 900, color: highlight ? 'rgba(244,195,32,0.82)' : COLORS.faintWhite, letterSpacing: '2px', textTransform: 'uppercase' }}>
@@ -274,15 +354,30 @@ const InfoCard = memo(({ label, value, highlight = false }) => (
 ));
 
 const MatchCover = memo(({ data }) => {
-  const { roundLabel, matchStage, matchFormat, matchTime, casterLabel, casterNames, teamA, teamB, logoA, logoB, showLogos, rosterStaffA, rosterStaffB, rosterPresetLibrary } = data;
-  
+  const {
+    roundLabel,
+    matchStage,
+    matchFormat,
+    matchTime,
+    casterLabel,
+    casterNames,
+    teamA,
+    teamB,
+    logoA,
+    logoB,
+    showLogos,
+    rosterStaffA,
+    rosterStaffB,
+    rosterPresetLibrary
+  } = data;
+
   const safeRound = up(roundLabel, 'ROUND 01');
   const safeStage = up(matchStage, 'OPEN QUALIFIER');
 
   const findClubName = (teamName, staffData, fallback) => {
     if (!teamName) return fallback || '';
     const preset = (rosterPresetLibrary || []).find(p => p.name === teamName || p.data?.teamName === teamName);
-    if (preset && preset.data && typeof preset.data.clubName === 'string') return preset.data.clubName; 
+    if (preset && preset.data && typeof preset.data.clubName === 'string') return preset.data.clubName;
     if (staffData && typeof staffData.clubName === 'string') return staffData.clubName;
     return fallback || '';
   };
@@ -294,22 +389,50 @@ const MatchCover = memo(({ data }) => {
   return (
     <>
       <Watermark text={data.matchWatermark || 'MATCHDAY'} size={240} />
-      <div style={{ position: 'absolute', top: '170px', left: '64px', right: '64px', bottom: '160px', zIndex: 10, display: 'grid', gridTemplateRows: 'auto auto 1fr auto', gap: '22px' }}>
-        
+
+      <div style={{
+        position: 'absolute',
+        top: '170px',
+        left: '64px',
+        right: '64px',
+        bottom: '160px',
+        zIndex: 10,
+        display: 'grid',
+        gridTemplateRows: 'auto auto 1fr auto',
+        gap: '22px'
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-          <div style={{ background: COLORS.yellow, color: COLORS.black, padding: '8px 16px', fontSize: '13px', fontWeight: 900, letterSpacing: '1.8px', textTransform: 'uppercase', boxShadow: UI.yellowGlow }}>{safeRound}</div>
-          <div style={{ background: 'rgba(255,255,255,0.03)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '8px 16px', fontSize: '13px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '1.8px', textTransform: 'uppercase' }}>{safeStage}</div>
-          <div style={{ background: 'rgba(255,255,255,0.03)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '8px 16px', fontSize: '13px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '1.8px', textTransform: 'uppercase' }}>{up(matchFormat, 'BO3')}</div>
+          <div style={{ background: COLORS.yellow, color: COLORS.black, padding: '8px 16px', fontSize: '13px', fontWeight: 900, letterSpacing: '1.8px', textTransform: 'uppercase', boxShadow: UI.yellowGlow }}>
+            {safeRound}
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '8px 16px', fontSize: '13px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '1.8px', textTransform: 'uppercase' }}>
+            {safeStage}
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: UI.outerFrame, boxShadow: `${UI.panelShadow}, ${UI.insetLine}`, padding: '8px 16px', fontSize: '13px', fontWeight: 900, color: COLORS.softWhite, letterSpacing: '1.8px', textTransform: 'uppercase' }}>
+            {up(matchFormat, 'BO3')}
+          </div>
         </div>
 
-        <div style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.012) 100%)', border: UI.outerFrame, boxShadow: `${UI.hardShadow}, ${UI.insetLine}`, minHeight: '360px', position: 'relative', overflow: 'hidden' }}>
+        <div style={{
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.012) 100%)',
+          border: UI.outerFrame,
+          boxShadow: `${UI.hardShadow}, ${UI.insetLine}`,
+          minHeight: '360px',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
           <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.014) 0 1px, transparent 1px 22px)', opacity: 0.42, pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `linear-gradient(90deg, ${COLORS.yellow} 0%, rgba(244,195,32,0.16) 100%)` }} />
-          
+
           <div style={{
-            position: 'relative', zIndex: 1, height: '100%', display: 'grid',
+            position: 'relative',
+            zIndex: 1,
+            height: '100%',
+            display: 'grid',
             gridTemplateColumns: showLogos === false ? '1fr 124px 1fr' : '156px minmax(0,1.35fr) 124px minmax(0,1.35fr) 156px',
-            alignItems: 'center', columnGap: '20px', padding: '42px 28px'
+            alignItems: 'center',
+            columnGap: '20px',
+            padding: '42px 28px'
           }}>
             {showLogos !== false && <TeamLogoBox logo={logoA} alt={teamA} align="left" size={156} />}
             <TeamNameBlock name={teamA} club={clubA} align="left" unifiedStyle={unifiedTeamStyle} />
@@ -317,7 +440,9 @@ const MatchCover = memo(({ data }) => {
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <div style={{ width: '124px', height: '124px', background: COLORS.yellow, color: COLORS.black, borderLeft: `2px solid ${COLORS.black}`, borderRight: `2px solid ${COLORS.black}`, boxShadow: UI.yellowGlow, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
                 <div style={{ position: 'absolute', inset: '10px', border: '1px solid rgba(0,0,0,0.12)' }} />
-                <span style={{ position: 'relative', zIndex: 1, fontSize: '34px', fontWeight: 900, letterSpacing: '2px', textTransform: 'uppercase' }}>VS</span>
+                <span style={{ position: 'relative', zIndex: 1, fontSize: '34px', fontWeight: 900, letterSpacing: '2px', textTransform: 'uppercase' }}>
+                  VS
+                </span>
               </div>
             </div>
 
@@ -339,29 +464,36 @@ const MatchCover = memo(({ data }) => {
 const BottomBar = memo(({ data, isMatch }) => {
   const left = up(data.footerLeft, 'FRIES CUP LIVE ROOM');
   const center = up(data.footerCenter, 'FRIES-CUP.COM');
-  const rightBase = isMatch 
-    ? `${up(data.matchTime, '19:30 CST')}${data.matchFormat ? ` // ${up(data.matchFormat)}` : ''}` 
+  const rightBase = isMatch
+    ? `${up(data.matchTime, '19:30 CST')}${data.matchFormat ? ` // ${up(data.matchFormat)}` : ''}`
     : up(data.footerRight, 'LIVE COVER SYSTEM');
 
   return (
     <>
       <div style={{ position: 'absolute', left: '64px', right: '64px', bottom: '70px', height: '2px', background: 'rgba(255,255,255,0.08)', zIndex: 12 }} />
       <div style={{ position: 'absolute', left: '64px', right: '64px', bottom: '42px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', zIndex: 12 }}>
-        <span style={{ fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.26)', letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{left}</span>
-        {data.showFooterCenter !== false && <span style={{ fontSize: '11px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{center}</span>}
-        <span style={{ fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.26)', letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{rightBase}</span>
+        <span style={{ fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.26)', letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+          {left}
+        </span>
+        {data.showFooterCenter !== false && (
+          <span style={{ fontSize: '11px', fontWeight: 900, color: COLORS.yellow, letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+            {center}
+          </span>
+        )}
+        <span style={{ fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.26)', letterSpacing: '1.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+          {rightBase}
+        </span>
       </div>
     </>
   );
 });
 
-// --- 主渲染出口 ---
 const BroadcastCoverScene = forwardRef(({ matchData = {} }, ref) => {
   const data = { ...DEFAULT_DATA, ...matchData };
   const isMatch = up(data.coverMode) === 'MATCH';
   const is43 = data.aspectRatio === '4:3';
+  const exportSize = COVER_EXPORT_SIZE[is43 ? '4:3' : '16:9'];
 
-  // 抽离核心的 16:9 内容
   const content169 = (
     <>
       <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 40px)', opacity: 0.18, pointerEvents: 'none' }} />
@@ -376,34 +508,42 @@ const BroadcastCoverScene = forwardRef(({ matchData = {} }, ref) => {
     </>
   );
 
-  // ✅ 核心修复：如果是 4:3 模式，在外层套一个 Letterbox (信箱模式) 包装器
   if (is43) {
     return (
       <div
         ref={ref}
+        data-cover-export-root="true"
+        data-cover-ratio="4:3"
+        data-export-width={exportSize.width}
+        data-export-height={exportSize.height}
         style={{
-          width: '1440px', // 目标 4:3 宽度
-          height: '1080px', // 目标 4:3 高度
-          backgroundImage: `url('/assets/bg/43_bg.png')`, // 垫底你指定的背景图
+          width: `${exportSize.width}px`,
+          height: `${exportSize.height}px`,
+          minWidth: `${exportSize.width}px`,
+          minHeight: `${exportSize.height}px`,
+          backgroundImage: `url('/assets/bg/43_bg.png')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           display: 'flex',
-          alignItems: 'center',     // 上下居中！
+          alignItems: 'center',
           justifyContent: 'center',
           overflow: 'hidden',
-          backgroundColor: '#000'
+          backgroundColor: '#000',
+          position: 'relative',
+          fontFamily: '"HarmonyOS Sans SC", "Microsoft YaHei", sans-serif',
+          transform: 'translateZ(0)'
         }}
       >
         <div style={{
-          width: '1920px', 
+          width: '1920px',
           height: '1080px',
-          position: 'relative', 
+          position: 'relative',
           overflow: 'hidden',
-          backgroundColor: COLORS.black, 
+          backgroundColor: COLORS.black,
           fontFamily: '"HarmonyOS Sans SC", "Microsoft YaHei", sans-serif',
           backgroundImage: `radial-gradient(circle at center, rgba(42,42,42,0.90) 0%, rgba(42,42,42,0.98) 100%), linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%)`,
-          transform: 'scale(0.75)', // 1440 / 1920 = 0.75，精准缩放，左右完美撑满
-          transformOrigin: 'center', 
+          transform: 'scale(0.75)',
+          transformOrigin: 'center',
           flexShrink: 0
         }}>
           {content169}
@@ -412,18 +552,24 @@ const BroadcastCoverScene = forwardRef(({ matchData = {} }, ref) => {
     );
   }
 
-  // 16:9 正常模式
   return (
     <div
       ref={ref}
+      data-cover-export-root="true"
+      data-cover-ratio="16:9"
+      data-export-width={exportSize.width}
+      data-export-height={exportSize.height}
       style={{
-        width: '1920px', 
-        height: '1080px', 
-        position: 'relative', 
+        width: `${exportSize.width}px`,
+        height: `${exportSize.height}px`,
+        minWidth: `${exportSize.width}px`,
+        minHeight: `${exportSize.height}px`,
+        position: 'relative',
         overflow: 'hidden',
-        backgroundColor: COLORS.black, 
+        backgroundColor: COLORS.black,
         fontFamily: '"HarmonyOS Sans SC", "Microsoft YaHei", sans-serif',
-        backgroundImage: `radial-gradient(circle at center, rgba(42,42,42,0.90) 0%, rgba(42,42,42,0.98) 100%), linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%)`
+        backgroundImage: `radial-gradient(circle at center, rgba(42,42,42,0.90) 0%, rgba(42,42,42,0.98) 100%), linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%)`,
+        transform: 'translateZ(0)'
       }}
     >
       {content169}

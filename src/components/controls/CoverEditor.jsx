@@ -1,5 +1,4 @@
 import React from 'react';
-// 🚀 引入 i18n
 import { useTranslation } from 'react-i18next';
 import { COLORS, UI } from '../../constants/styles';
 import { LOGO_LIST } from '../../constants/logos';
@@ -46,15 +45,17 @@ const ToggleBtn = ({ active, onClick, children, ui }) => (
   </button>
 );
 
-function buildTeamOptions(matchData) {
+function buildTeamOptions(matchData = {}) {
   const map = new Map();
 
   const rosterLibrary = Array.isArray(matchData.rosterPresetLibrary) ? matchData.rosterPresetLibrary : [];
   rosterLibrary.forEach(team => {
     const key = String(team?.key || team?.name || '').trim();
     if (!key) return;
+
     const teamName = String(team?.name || team?.key || '').trim();
     const logoPath = team?.data?.logo || team?.data?.logoPath || team?.data?.teamLogo || '';
+
     map.set(key, {
       key,
       label: teamName && teamName !== key ? `${teamName} [${key}]` : key,
@@ -67,8 +68,10 @@ function buildTeamOptions(matchData) {
   legacyPresets.forEach(team => {
     const key = String(team?.shortName || team?.fullName || '').trim();
     if (!key || map.has(key)) return;
+
     const teamName = String(team?.fullName || team?.shortName || '').trim();
     const logoPath = team?.logoPath || '';
+
     map.set(key, {
       key,
       label: teamName && team?.shortName ? `${teamName} [${team.shortName}]` : teamName || key,
@@ -83,8 +86,7 @@ function buildTeamOptions(matchData) {
 function ensureLogoValue(currentValue) {
   const raw = String(currentValue || '').trim();
   if (!raw) return '';
-  const exists = LOGO_LIST.some(l => l.path === raw);
-  return exists ? raw : raw;
+  return raw;
 }
 
 function CoverModePanel({ coverMode, setField, ui, density, tr }) {
@@ -149,77 +151,37 @@ function GenericPanel({ matchData, setField, ui, density, tr }) {
       <div style={{ display: 'grid', gap: '12px' }}>
         <div style={rowStyle}>
           <Field label={tr('coverEditor.phaseMainEn')}>
-            <TextInput
-              value={matchData.phaseMainEn}
-              onChange={v => setField('phaseMainEn', v)}
-              placeholder="OPEN QUALIFIER"
-              ui={ui}
-            />
+            <TextInput value={matchData.phaseMainEn} onChange={v => setField('phaseMainEn', v)} placeholder="OPEN QUALIFIER" ui={ui} />
           </Field>
           <Field label={tr('coverEditor.phaseMainCn')}>
-            <TextInput
-              value={matchData.phaseMainCn}
-              onChange={v => setField('phaseMainCn', v)}
-              placeholder="公开预选赛"
-              ui={ui}
-            />
+            <TextInput value={matchData.phaseMainCn} onChange={v => setField('phaseMainCn', v)} placeholder="公开预选赛" ui={ui} />
           </Field>
         </div>
 
         <div style={rowStyle}>
           <Field label={tr('coverEditor.casterLabelEn')}>
-            <TextInput
-              value={matchData.coverCasterLabelEn}
-              onChange={v => setField('coverCasterLabelEn', v)}
-              placeholder="CASTERS"
-              ui={ui}
-            />
+            <TextInput value={matchData.coverCasterLabelEn} onChange={v => setField('coverCasterLabelEn', v)} placeholder="CASTERS" ui={ui} />
           </Field>
           <Field label={tr('coverEditor.casterLabelCn')}>
-            <TextInput
-              value={matchData.coverCasterLabelCn}
-              onChange={v => setField('coverCasterLabelCn', v)}
-              placeholder="解说"
-              ui={ui}
-            />
+            <TextInput value={matchData.coverCasterLabelCn} onChange={v => setField('coverCasterLabelCn', v)} placeholder="解说" ui={ui} />
           </Field>
         </div>
 
         <div style={rowStyle}>
           <Field label={tr('coverEditor.adminLabelEn')}>
-            <TextInput
-              value={matchData.coverAdminLabelEn}
-              onChange={v => setField('coverAdminLabelEn', v)}
-              placeholder="ADMIN"
-              ui={ui}
-            />
+            <TextInput value={matchData.coverAdminLabelEn} onChange={v => setField('coverAdminLabelEn', v)} placeholder="ADMIN" ui={ui} />
           </Field>
           <Field label={tr('coverEditor.adminLabelCn')}>
-            <TextInput
-              value={matchData.coverAdminLabelCn}
-              onChange={v => setField('coverAdminLabelCn', v)}
-              placeholder="赛管"
-              ui={ui}
-            />
+            <TextInput value={matchData.coverAdminLabelCn} onChange={v => setField('coverAdminLabelCn', v)} placeholder="赛管" ui={ui} />
           </Field>
         </div>
 
         <div style={rowStyle}>
           <Field label={tr('coverEditor.coverCasters')}>
-            <TextInput
-              value={matchData.coverCasters}
-              onChange={v => setField('coverCasters', v)}
-              placeholder="AAA / BBB"
-              ui={ui}
-            />
+            <TextInput value={matchData.coverCasters} onChange={v => setField('coverCasters', v)} placeholder="AAA / BBB" ui={ui} />
           </Field>
           <Field label={tr('coverEditor.coverAdmins')}>
-            <TextInput
-              value={matchData.coverAdmins}
-              onChange={v => setField('coverAdmins', v)}
-              placeholder="CCC / DDD"
-              ui={ui}
-            />
+            <TextInput value={matchData.coverAdmins} onChange={v => setField('coverAdmins', v)} placeholder="CCC / DDD" ui={ui} />
           </Field>
         </div>
       </div>
@@ -231,7 +193,7 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions,
   const applyTeamPreset = (side, presetKey) => {
     const preset = teamOptions.find(t => t.key === presetKey);
     const rawLogo = preset?.logoPath || '';
-    const matchedLogo = LOGO_LIST.find(l => l.path === rawLogo)?.path || rawLogo || (LOGO_LIST[0]?.path || '');
+    const matchedLogo = LOGO_LIST.find(l => l.path === rawLogo)?.path || rawLogo || '';
 
     const patch = side === 'A'
       ? {
@@ -261,11 +223,7 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions,
       <div style={{ display: 'grid', gap: '12px' }}>
         <div style={rowStyle}>
           <Field label={tr('coverEditor.presetTeamA')}>
-            <SelectInput
-              value={matchData.coverTeamPresetA || ''}
-              onChange={v => applyTeamPreset('A', v)}
-              ui={ui}
-            >
+            <SelectInput value={matchData.coverTeamPresetA || ''} onChange={v => applyTeamPreset('A', v)} ui={ui}>
               <option value="">{tr('coverEditor.selectPresetA')}</option>
               {teamOptions.map(option => (
                 <option key={`A-${option.key}`} value={option.key}>
@@ -276,11 +234,7 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions,
           </Field>
 
           <Field label={tr('coverEditor.presetTeamB')}>
-            <SelectInput
-              value={matchData.coverTeamPresetB || ''}
-              onChange={v => applyTeamPreset('B', v)}
-              ui={ui}
-            >
+            <SelectInput value={matchData.coverTeamPresetB || ''} onChange={v => applyTeamPreset('B', v)} ui={ui}>
               <option value="">{tr('coverEditor.selectPresetB')}</option>
               {teamOptions.map(option => (
                 <option key={`B-${option.key}`} value={option.key}>
@@ -303,9 +257,7 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions,
         <div style={rowStyle}>
           <Field label={tr('coverEditor.logoA')}>
             <SelectInput value={logoAValue} onChange={v => setField('logoA', v)} ui={ui}>
-              {!LOGO_LIST.some(l => l.path === logoAValue) && logoAValue ? (
-                <option value={logoAValue}>{logoAValue}</option>
-              ) : null}
+              {!LOGO_LIST.some(l => l.path === logoAValue) && logoAValue ? <option value={logoAValue}>{logoAValue}</option> : null}
               <option value="">{tr('coverEditor.selectLogoA')}</option>
               {LOGO_LIST.map(l => (
                 <option key={`logo-a-${l.path}`} value={l.path}>
@@ -317,9 +269,7 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions,
 
           <Field label={tr('coverEditor.logoB')}>
             <SelectInput value={logoBValue} onChange={v => setField('logoB', v)} ui={ui}>
-              {!LOGO_LIST.some(l => l.path === logoBValue) && logoBValue ? (
-                <option value={logoBValue}>{logoBValue}</option>
-              ) : null}
+              {!LOGO_LIST.some(l => l.path === logoBValue) && logoBValue ? <option value={logoBValue}>{logoBValue}</option> : null}
               <option value="">{tr('coverEditor.selectLogoB')}</option>
               {LOGO_LIST.map(l => (
                 <option key={`logo-b-${l.path}`} value={l.path}>
@@ -359,11 +309,7 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions,
 
         <SectionHint
           density={density}
-          text={
-            teamOptions.length
-              ? tr('coverEditor.teamPresetHint')
-              : tr('coverEditor.noPresetHint')
-          }
+          text={teamOptions.length ? tr('coverEditor.teamPresetHint') : tr('coverEditor.noPresetHint')}
         />
       </div>
     </ShellPanel>
@@ -373,13 +319,12 @@ function MatchPanel({ matchData, updateData, setField, ui, density, teamOptions,
 export default function CoverEditor({
   density = 'standard',
   densityTokens,
-  matchData,
+  matchData = {},
   updateData,
   blockGap = 12,
-  onExport,      
-  isExporting    
+  onExport,
+  isExporting
 }) {
-  // 🚀 初始化翻译钩子
   const { t: tr } = useTranslation();
 
   const ui = createEditorUi(densityTokens, density);
@@ -387,8 +332,15 @@ export default function CoverEditor({
   const setField = (key, value) => updateData({ ...matchData, [key]: value });
 
   const teamOptions = buildTeamOptions(matchData);
-  // ✅ 获取当前画幅比例，默认为 16:9
   const currentRatio = matchData.aspectRatio || '16:9';
+  const exportSize = currentRatio === '4:3'
+    ? { width: 1440, height: 1080, ratio: '4:3' }
+    : { width: 1920, height: 1080, ratio: '16:9' };
+
+  const handleExportClick = () => {
+    if (!onExport || isExporting) return;
+    onExport(exportSize);
+  };
 
   return (
     <div
@@ -399,12 +351,10 @@ export default function CoverEditor({
         alignItems: 'start'
       }}
     >
-      {/* 左列：通用设置 + 导出面板 */}
       <div style={{ display: 'grid', gap: blockGap }}>
         <CoverModePanel coverMode={coverMode} setField={setField} ui={ui} density={density} tr={tr} />
         <BrandingPanel matchData={matchData} setField={setField} ui={ui} density={density} tr={tr} />
 
-        {/* ✅ 新增的导出与画幅设置区域 */}
         {onExport && (
           <ShellPanel
             title={tr('coverEditor.exportSettings') || 'EXPORT SETTINGS'}
@@ -412,19 +362,17 @@ export default function CoverEditor({
             density={density}
             bodyStyle={{ padding: density === 'spacious' ? '14px' : '12px', display: 'grid', gap: '12px' }}
           >
-            {/* 画幅比例切换器 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <ToggleBtn active={currentRatio === '16:9'} onClick={() => setField('aspectRatio', '16:9')} ui={ui}>
-                16:9 
+                16:9
               </ToggleBtn>
               <ToggleBtn active={currentRatio === '4:3'} onClick={() => setField('aspectRatio', '4:3')} ui={ui}>
-                4:3 
+                4:3
               </ToggleBtn>
             </div>
 
-            {/* 导出按钮 */}
             <button
-              onClick={onExport}
+              onClick={handleExportClick}
               disabled={isExporting}
               style={{
                 ...ui.btn,
@@ -444,11 +392,15 @@ export default function CoverEditor({
             >
               {isExporting ? tr('coverEditor.generating') : tr('coverEditor.exportBtn')}
             </button>
+
+            <SectionHint
+              density={density}
+              text={`${exportSize.ratio} / ${exportSize.width}×${exportSize.height}`}
+            />
           </ShellPanel>
         )}
       </div>
 
-      {/* 右列：对应模式的详细表单 */}
       {coverMode === 'GENERIC' ? (
         <GenericPanel matchData={matchData} setField={setField} ui={ui} density={density} tr={tr} />
       ) : (

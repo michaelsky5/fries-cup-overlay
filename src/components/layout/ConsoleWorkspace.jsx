@@ -35,6 +35,37 @@ import BroadcastCoverScene from '../scenes/BroadcastCoverScene';
 const DEFAULT_BAN_ENTRY = 'damage/tbd';
 const resetBanList = () => [DEFAULT_BAN_ENTRY];
 
+const COVER_EXPORT_SIZE = {
+  '16:9': { width: 1920, height: 1080, ratio: '16:9' },
+  '4:3': { width: 1440, height: 1080, ratio: '4:3' }
+};
+
+const waitNextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
+
+const waitForExportImages = async node => {
+  const imgs = Array.from(node?.querySelectorAll?.('img') || []);
+
+  await Promise.all(
+    imgs.map(img => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+
+      return new Promise(resolve => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+    })
+  );
+};
+
+const downloadDataUrl = (dataUrl, filename) => {
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = dataUrl;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 const getBaseControlUrl = () => {
   if (typeof window === 'undefined') return 'https://console.fries-cup.com/';
   return new URL('/', window.location.origin).toString();
@@ -375,25 +406,55 @@ function ConsoleWorkspace({
     ];
   }, [sceneLabelMap, previewSceneScope, previewScene]);
 
-  const handleExportCover = async () => {
-    if (!coverSceneRef.current) return;
+  const handleExportCover = async (exportMeta = {}) => {
+    const node = coverSceneRef.current;
+
+    if (!node) {
+      console.warn('[Cover Export] coverSceneRef.current is null.');
+      alert(br('exportCoverFailedMessage'));
+      return;
+    }
+
+    const ratio = exportMeta?.ratio || node.dataset?.coverRatio || matchData.aspectRatio || '16:9';
+    const normalizedRatio = ratio === '4:3' ? '4:3' : '16:9';
+    const defaultSize = COVER_EXPORT_SIZE[normalizedRatio];
+    const width = Number(exportMeta?.width || node.dataset?.exportWidth || defaultSize.width);
+    const height = Number(exportMeta?.height || node.dataset?.exportHeight || defaultSize.height);
+    const rect = node.getBoundingClientRect();
+
+    console.log('[Cover Export]', { node, rect, ratio: normalizedRatio, width, height });
+
+    if (!rect.width || !rect.height) {
+      console.warn('[Cover Export] export node has zero size.');
+      alert(br('exportCoverFailedMessage'));
+      return;
+    }
 
     try {
       setIsExporting(true);
 
-      const canvas = await html2canvas(coverSceneRef.current, {
+      await document.fonts?.ready;
+      await waitForExportImages(node);
+      await waitNextFrame();
+      await waitNextFrame();
+
+      const canvas = await html2canvas(node, {
         useCORS: true,
+        allowTaint: false,
         scale: 1,
-        backgroundColor: COLORS.mainDark || '#111'
+        width,
+        height,
+        windowWidth: width,
+        windowHeight: height,
+        backgroundColor: '#000000',
+        logging: false
       });
 
       const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
       const mode = matchData.coverMode || 'GENERIC';
+      const filename = `FCUP-Cover-${mode}-${normalizedRatio.replace(':', 'x')}-${Date.now()}.png`;
 
-      link.download = `FCUP-Cover-${mode}-${Date.now()}.png`;
-      link.href = dataUrl;
-      link.click();
+      downloadDataUrl(dataUrl, filename);
     } catch (error) {
       console.error(br('exportCoverFailedLog'), error);
       alert(br('exportCoverFailedMessage'));
@@ -458,6 +519,9 @@ function ConsoleWorkspace({
     openRoomRequiredPanel
   ]);
 
+  const coverExportRatio = matchData.aspectRatio === '4:3' ? '4:3' : '16:9';
+  const coverExportSize = COVER_EXPORT_SIZE[coverExportRatio];
+
   return (
     <div
       style={{
@@ -483,20 +547,23 @@ function ConsoleWorkspace({
       `}</style>
 
       <div
-        ref={coverSceneRef}
+        aria-hidden="true"
         style={{
-          position: 'absolute',
+          position: 'fixed',
           top: 0,
-          left: 0,
-          width: '1920px',
-          height: '1080px',
+          left: '-99999px',
+          width: `${coverExportSize.width}px`,
+          height: `${coverExportSize.height}px`,
+          minWidth: `${coverExportSize.width}px`,
+          minHeight: `${coverExportSize.height}px`,
           pointerEvents: 'none',
-          opacity: 0.001,
-          zIndex: -100,
-          overflow: 'hidden'
+          opacity: 1,
+          visibility: 'visible',
+          zIndex: 0,
+          overflow: 'visible'
         }}
       >
-        <BroadcastCoverScene matchData={matchData} />
+        <BroadcastCoverScene ref={coverSceneRef} matchData={matchData} />
       </div>
 
       <div
