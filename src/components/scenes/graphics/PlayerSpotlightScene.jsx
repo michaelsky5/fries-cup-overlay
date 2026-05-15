@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Radar,
   RadarChart,
@@ -23,19 +23,274 @@ const UI = {
   yellowGlow: '0 0 0 1px rgba(244,195,32,0.16), 0 0 18px rgba(244,195,32,0.08)'
 };
 
-const safeText = v => String(v || '').trim();
+const HERO_SLUG_MAP = {
+  'd.va': ['dva'],
+  dva: ['dva'],
+  'd va': ['dva'],
+  'd-va': ['dva'],
+  'd_va': ['dva'],
+  doomfist: ['doomfist'],
+  '末日铁拳': ['doomfist'],
+  hazard: ['hazard'],
+  '骇灾': ['hazard'],
+  junkerqueen: ['junker_queen', 'junker-queen', 'junkerqueen'],
+  'junker queen': ['junker_queen', 'junker-queen', 'junkerqueen'],
+  junker_queen: ['junker_queen', 'junker-queen', 'junkerqueen'],
+  'junker-queen': ['junker_queen', 'junker-queen', 'junkerqueen'],
+  '渣客女王': ['junker_queen', 'junker-queen', 'junkerqueen'],
+  mauga: ['mauga'],
+  '毛加': ['mauga'],
+  orisa: ['orisa'],
+  '奥丽莎': ['orisa'],
+  '奥莉莎': ['orisa'],
+  ramattra: ['ramattra'],
+  '拉玛刹': ['ramattra'],
+  '拉玛特拉': ['ramattra'],
+  reinhardt: ['reinhardt'],
+  '莱因哈特': ['reinhardt'],
+  roadhog: ['roadhog'],
+  '路霸': ['roadhog'],
+  sigma: ['sigma'],
+  '西格玛': ['sigma'],
+  winston: ['winston'],
+  '温斯顿': ['winston'],
+  wreckingball: ['wrecking_ball', 'wrecking-ball', 'wreckingball'],
+  'wrecking ball': ['wrecking_ball', 'wrecking-ball', 'wreckingball'],
+  wrecking_ball: ['wrecking_ball', 'wrecking-ball', 'wreckingball'],
+  'wrecking-ball': ['wrecking_ball', 'wrecking-ball', 'wreckingball'],
+  '破坏球': ['wrecking_ball', 'wrecking-ball', 'wreckingball'],
+  zarya: ['zarya'],
+  '查莉娅': ['zarya'],
+  '查丽娅': ['zarya'],
 
-const formatHeroName = (name) => {
-  if (!name || name === '-') return 'unknown';
-  return name.toLowerCase().replace(/ /g, '_').replace(/:/g, '').replace(/-/g, '_').replace(/\./g, '');
+  ashe: ['ashe'],
+  '艾什': ['ashe'],
+  bastion: ['bastion'],
+  '堡垒': ['bastion'],
+  cassidy: ['cassidy'],
+  '卡西迪': ['cassidy'],
+  echo: ['echo'],
+  '回声': ['echo'],
+  genji: ['genji'],
+  '源氏': ['genji'],
+  hanzo: ['hanzo'],
+  '半藏': ['hanzo'],
+  junkrat: ['junkrat'],
+  '狂鼠': ['junkrat'],
+  mei: ['mei'],
+  '小美': ['mei'],
+  '美': ['mei'],
+  pharah: ['pharah'],
+  '法老之鹰': ['pharah'],
+  reaper: ['reaper'],
+  '死神': ['reaper'],
+  sojourn: ['sojourn'],
+  '索杰恩': ['sojourn'],
+  '索洁恩': ['sojourn'],
+  soldier76: ['soldier_76', 'soldier-76', 'soldier76'],
+  'soldier 76': ['soldier_76', 'soldier-76', 'soldier76'],
+  soldier_76: ['soldier_76', 'soldier-76', 'soldier76'],
+  'soldier-76': ['soldier_76', 'soldier-76', 'soldier76'],
+  '士兵76': ['soldier_76', 'soldier-76', 'soldier76'],
+  '士兵 76': ['soldier_76', 'soldier-76', 'soldier76'],
+  '士兵：76': ['soldier_76', 'soldier-76', 'soldier76'],
+  '士兵:76': ['soldier_76', 'soldier-76', 'soldier76'],
+  sombra: ['sombra'],
+  '黑影': ['sombra'],
+  symmetra: ['symmetra'],
+  '秩序之光': ['symmetra'],
+  torbjorn: ['torbjorn'],
+  '托比昂': ['torbjorn'],
+  tracer: ['tracer'],
+  '猎空': ['tracer'],
+  venture: ['venture'],
+  '探奇': ['venture'],
+  widowmaker: ['widowmaker'],
+  '黑百合': ['widowmaker'],
+
+  ana: ['ana'],
+  '安娜': ['ana'],
+  baptiste: ['baptiste'],
+  '巴蒂斯特': ['baptiste'],
+  brigitte: ['brigitte'],
+  '布丽吉塔': ['brigitte'],
+  '布里吉塔': ['brigitte'],
+  illari: ['illari'],
+  '伊拉锐': ['illari'],
+  '伊拉里': ['illari'],
+  juno: ['juno'],
+  '朱诺': ['juno'],
+  kiriko: ['kiriko'],
+  '雾子': ['kiriko'],
+  lifeweaver: ['lifeweaver'],
+  '生命之梭': ['lifeweaver'],
+  lucio: ['lucio'],
+  'lúcio': ['lucio'],
+  '卢西奥': ['lucio'],
+  '卢西欧': ['lucio'],
+  mercy: ['mercy'],
+  '天使': ['mercy'],
+  moira: ['moira'],
+  '莫伊拉': ['moira'],
+  zenyatta: ['zenyatta'],
+  '禅雅塔': ['zenyatta'],
+  jetpackcat: ['jetpack_cat', 'jetpack-cat', 'jetpackcat'],
+  'jetpack cat': ['jetpack_cat', 'jetpack-cat', 'jetpackcat'],
+  jetpack_cat: ['jetpack_cat', 'jetpack-cat', 'jetpackcat'],
+  'jetpack-cat': ['jetpack_cat', 'jetpack-cat', 'jetpackcat'],
+  '喷气猫': ['jetpack_cat', 'jetpack-cat', 'jetpackcat']
 };
 
-const getRoleFolder = (role) => {
-  const r = String(role || '').toUpperCase();
-  if (r === 'TANK') return 'tank';
-  if (r === 'SUP' || r === 'SUPPORT') return 'support';
-  return 'damage';
+const HERO_ROLE_MAP = {
+  dva: 'tank',
+  doomfist: 'tank',
+  hazard: 'tank',
+  junker_queen: 'tank',
+  mauga: 'tank',
+  orisa: 'tank',
+  ramattra: 'tank',
+  reinhardt: 'tank',
+  roadhog: 'tank',
+  sigma: 'tank',
+  winston: 'tank',
+  wrecking_ball: 'tank',
+  zarya: 'tank',
+
+  ashe: 'damage',
+  bastion: 'damage',
+  cassidy: 'damage',
+  echo: 'damage',
+  genji: 'damage',
+  hanzo: 'damage',
+  junkrat: 'damage',
+  mei: 'damage',
+  pharah: 'damage',
+  reaper: 'damage',
+  sojourn: 'damage',
+  soldier_76: 'damage',
+  sombra: 'damage',
+  symmetra: 'damage',
+  torbjorn: 'damage',
+  tracer: 'damage',
+  venture: 'damage',
+  widowmaker: 'damage',
+
+  ana: 'support',
+  baptiste: 'support',
+  brigitte: 'support',
+  illari: 'support',
+  juno: 'support',
+  kiriko: 'support',
+  lifeweaver: 'support',
+  lucio: 'support',
+  mercy: 'support',
+  moira: 'support',
+  zenyatta: 'support',
+  jetpack_cat: 'support'
 };
+
+const safeText = v => String(v ?? '').trim();
+const unique = arr => [...new Set(arr.filter(Boolean).map(String))];
+
+function normalizeHeroKey(value) {
+  return safeText(value)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[’']/g, '')
+    .replace(/[：:]/g, ' ')
+    .replace(/[_-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function slugifyHeroName(value) {
+  const raw = safeText(value);
+  if (!raw || raw === '-') return [];
+
+  const rawKey = raw.toLowerCase().trim();
+  const normalized = normalizeHeroKey(raw);
+  const compactNormalized = normalized.replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '');
+
+  if (Array.isArray(HERO_SLUG_MAP[raw])) return HERO_SLUG_MAP[raw];
+  if (Array.isArray(HERO_SLUG_MAP[rawKey])) return HERO_SLUG_MAP[rawKey];
+  if (Array.isArray(HERO_SLUG_MAP[normalized])) return HERO_SLUG_MAP[normalized];
+  if (Array.isArray(HERO_SLUG_MAP[compactNormalized])) return HERO_SLUG_MAP[compactNormalized];
+
+  const asciiBase = normalized.replace(/[^a-z0-9]+/g, ' ').trim();
+  const underscore = asciiBase.replace(/\s+/g, '_').replace(/^_+|_+$/g, '');
+  const hyphen = asciiBase.replace(/\s+/g, '-').replace(/^-+|-+$/g, '');
+  const compact = asciiBase.replace(/\s+/g, '');
+
+  return unique([underscore, hyphen, compact]);
+}
+
+function getPrimaryHeroRole(hero) {
+  const slugs = slugifyHeroName(hero);
+  return slugs.map(slug => HERO_ROLE_MAP[slug]).find(Boolean) || '';
+}
+
+function getRoleFolders(role, hero = '') {
+  const r = safeText(role).toUpperCase();
+  const text = safeText(role).toLowerCase();
+  const heroRole = getPrimaryHeroRole(hero);
+
+  let roleFolder = '';
+  if (r === 'TANK' || r === '重装' || text === 'tank') roleFolder = 'tank';
+  else if (r === 'SUP' || r === 'SUPPORT' || r === '辅助' || r === '支援' || text === 'support') roleFolder = 'support';
+  else if (r === 'DPS' || r === 'DAMAGE' || r === '输出' || text === 'damage' || text === 'dps') roleFolder = 'damage';
+
+  return unique([roleFolder, heroRole, 'tank', 'damage', 'support']);
+}
+
+function inferHeroImages(hero, role) {
+  const slugs = slugifyHeroName(hero);
+  const folders = getRoleFolders(role, hero);
+  return slugs.flatMap(slug => folders.map(folder => `/assets/heroes/${folder}/${slug}.png`));
+}
+
+function inferRosterImages(hero, role) {
+  const slugs = slugifyHeroName(hero);
+  const folders = getRoleFolders(role, hero);
+  return slugs.flatMap(slug => folders.map(folder => `/assets/roster/${folder}/${slug}.png`));
+}
+
+function getMainHeroSources(hero, role) {
+  return unique([
+    ...inferRosterImages(hero, role),
+    ...inferHeroImages(hero, role)
+  ]);
+}
+
+function getHeroPoolSources(hero, role) {
+  return unique([
+    ...inferHeroImages(hero, role),
+    ...inferRosterImages(hero, role)
+  ]);
+}
+
+function ImageWithFallback({ sources = [], alt = '', style = {}, fallback = null }) {
+  const sourceKey = Array.isArray(sources) ? sources.join('|') : String(sources ?? '');
+  const cleanSources = useMemo(() => unique(Array.isArray(sources) ? sources : [sources]), [sourceKey]);
+  const [idx, setIdx] = useState(0);
+  const src = cleanSources[idx];
+
+  useEffect(() => setIdx(0), [sourceKey]);
+
+  if (!src) return fallback;
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      style={style}
+      onError={() => {
+        if (idx < cleanSources.length - 1) setIdx(idx + 1);
+        else setIdx(cleanSources.length);
+      }}
+    />
+  );
+}
 
 export default function PlayerSpotlightScene({ matchData = {} }) {
   const data = matchData.playerSpotlightData || {};
@@ -52,15 +307,15 @@ export default function PlayerSpotlightScene({ matchData = {} }) {
     signatureHero = '',
     topHeroes = '',
     metrics = [],
-    radarData = [] // 🌟 直接从 Panel 接收算好的 6 轴绝对比例数据
+    radarData = []
   } = data;
 
   const heroList = useMemo(() => {
     return safeText(topHeroes).split('/').map(h => h.trim()).filter(h => h && h !== '-').slice(0, 3);
   }, [topHeroes]);
 
-  const roleFolder = getRoleFolder(dataRole);
   const mainHero = signatureHero || heroList[0];
+  const mainHeroSources = useMemo(() => getMainHeroSources(mainHero, dataRole), [mainHero, dataRole]);
 
   return (
     <div style={{ width: '1920px', height: '1080px', position: 'relative', overflow: 'hidden', backgroundColor: COLORS.black, fontFamily: '"HarmonyOS Sans SC", sans-serif' }}>
@@ -80,11 +335,10 @@ export default function PlayerSpotlightScene({ matchData = {} }) {
           <div style={{ flex: 1, border: `2px solid ${COLORS.yellow}`, background: COLORS.deepBlack, position: 'relative', boxShadow: UI.hardShadow, overflow: 'hidden' }}>
             
             {mainHero && (
-              <img 
-                src={`/assets/roster/${roleFolder}/${formatHeroName(mainHero)}.png`}
+              <ImageWithFallback
+                sources={mainHeroSources}
                 alt={mainHero}
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', opacity: 0.5, filter: 'contrast(1.2) grayscale(0.2)' }}
-                onError={(e) => { e.target.style.display = 'none'; }}
               />
             )}
 
@@ -125,26 +379,29 @@ export default function PlayerSpotlightScene({ matchData = {} }) {
             <div style={{ background: 'rgba(255,255,255,0.02)', border: UI.outerFrame, padding: '20px 30px', position: 'relative' }}>
               <div style={{ fontSize: '14px', color: COLORS.faintWhite, fontWeight: '900', letterSpacing: '2px', marginBottom: '15px' }}>HERO POOL</div>
               <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                {heroList.map((hero, idx) => (
-                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '80px', height: '80px', background: 'rgba(0,0,0,0.4)', border: `1px solid ${idx === 0 ? COLORS.yellow : COLORS.line}`, padding: '4px' }}>
-                      <img 
-                        src={`/assets/heroes/${roleFolder}/${formatHeroName(hero)}.png`} 
-                        alt={hero} 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.style.background = '#333'; }}
-                      />
+                {heroList.map((hero, idx) => {
+                  const heroSources = getHeroPoolSources(hero, dataRole);
+
+                  return (
+                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '80px', height: '80px', background: 'rgba(0,0,0,0.4)', border: `1px solid ${idx === 0 ? COLORS.yellow : COLORS.line}`, padding: '4px' }}>
+                        <ImageWithFallback
+                          sources={heroSources}
+                          alt={hero}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          fallback={<div style={{ width: '100%', height: '100%', background: '#333' }} />}
+                        />
+                      </div>
+                      <div style={{ fontSize: '11px', color: idx === 0 ? COLORS.yellow : COLORS.white, fontWeight: '900', textTransform: 'uppercase' }}>{hero}</div>
                     </div>
-                    <div style={{ fontSize: '11px', color: idx === 0 ? COLORS.yellow : COLORS.white, fontWeight: '900', textTransform: 'uppercase' }}>{hero}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
 
           <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', minHeight: 0 }}>
             
-            {/* 🌟 还原 6 轴雷达图 */}
             <div style={{ background: 'rgba(0,0,0,0.2)', border: UI.outerFrame, position: 'relative', padding: '20px' }}>
               <div style={{ position: 'absolute', top: '15px', left: '20px', fontSize: '12px', fontWeight: '900', color: COLORS.yellow, letterSpacing: '2px' }}>RADAR MODEL</div>
               <div style={{ position: 'absolute', top: '15px', right: '20px', fontSize: '11px', fontWeight: '900', color: COLORS.faintWhite, letterSpacing: '1px', display: 'flex', gap: '15px' }}>
@@ -153,13 +410,10 @@ export default function PlayerSpotlightScene({ matchData = {} }) {
               </div>
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart cx="50%" cy="55%" outerRadius="70%" data={radarData}>
-                  {/* 使用真实的六边形蜘蛛网格 */}
                   <PolarGrid stroke="rgba(255,255,255,0.15)" gridType="polygon" />
-                  {/* 优化文本的外边距，防止越界 */}
                   <PolarAngleAxis dataKey="subject" tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 900, dy: 4 }} />
                   <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                   
-                  {/* 真实平均值连线 */}
                   <Radar
                     name="Avg"
                     dataKey="avgScore"
@@ -169,7 +423,6 @@ export default function PlayerSpotlightScene({ matchData = {} }) {
                     strokeWidth={2}
                   />
                   
-                  {/* 选手真实的强弱切面 */}
                   <Radar
                     name="Player"
                     dataKey="score"
@@ -195,7 +448,6 @@ export default function PlayerSpotlightScene({ matchData = {} }) {
             </div>
           </div>
 
-          {/* 底部详细数据卡片，保持带排名进度条的设计不变 */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '15px' }}>
             {metrics.map((m, idx) => {
               const rank = parseInt(m.rank) || 1;

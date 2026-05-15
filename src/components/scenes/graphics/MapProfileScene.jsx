@@ -74,8 +74,9 @@ const MAP_DICTIONARY = {
   circuit_royal: 'Escort/Circuit_Royal',
   '皇家赛道': 'Escort/Circuit_Royal',
 
-  atlis: 'Flashpoint/Atlis',
-  '阿特里斯': 'Flashpoint/Atlis',
+  aatlis: 'Flashpoint/Aatlis',
+  atlis: 'Flashpoint/Aatlis',
+  '阿特里斯': 'Flashpoint/Aatlis',
   suravasa: 'Flashpoint/Suravasa',
   '苏拉瓦萨': 'Flashpoint/Suravasa',
   'new junk city': 'Flashpoint/New_Junk_City',
@@ -121,45 +122,91 @@ const MAP_DICTIONARY = {
   '阿努比斯王座': 'Clash/Throne_of_Anubis'
 };
 
-function formatMapPath(mapType, mapName) {
-  if (!mapName) return '';
+function normalizeMapKey(value) {
+  return safeText(value)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[’']/g, '')
+    .replace(/[：:]/g, ' ')
+    .replace(/[_-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
-  const lookupKey = String(mapName).toLowerCase().trim();
+function getMapFolder(mapType) {
+  const typeRaw = safeText(mapType).toLowerCase();
 
-  if (MAP_DICTIONARY[lookupKey]) {
-    return `/assets/maps/${MAP_DICTIONARY[lookupKey]}.jpg`;
-  }
+  if (typeRaw.includes('control') || typeRaw.includes('控制') || typeRaw.includes('占领')) return 'Control';
+  if (typeRaw.includes('escort') || typeRaw.includes('护送') || typeRaw.includes('运载')) return 'Escort';
+  if (typeRaw.includes('flashpoint') || typeRaw.includes('闪点') || typeRaw.includes('闪击')) return 'Flashpoint';
+  if (typeRaw.includes('hybrid') || typeRaw.includes('混合')) return 'Hybrid';
+  if (typeRaw.includes('push') || typeRaw.includes('推进')) return 'Push';
+  if (typeRaw.includes('clash') || typeRaw.includes('交锋')) return 'Clash';
 
-  let folder = 'Unknown';
-  const typeRaw = String(mapType || '').toLowerCase();
+  const safeType = safeText(mapType);
+  return safeType ? safeType.charAt(0).toUpperCase() + safeType.slice(1).toLowerCase() : 'Unknown';
+}
 
-  if (typeRaw.includes('control') || typeRaw.includes('控制') || typeRaw.includes('占领')) {
-    folder = 'Control';
-  } else if (typeRaw.includes('escort') || typeRaw.includes('护送') || typeRaw.includes('运载')) {
-    folder = 'Escort';
-  } else if (typeRaw.includes('flashpoint') || typeRaw.includes('闪点') || typeRaw.includes('闪击')) {
-    folder = 'Flashpoint';
-  } else if (typeRaw.includes('hybrid') || typeRaw.includes('混合')) {
-    folder = 'Hybrid';
-  } else if (typeRaw.includes('push') || typeRaw.includes('推进')) {
-    folder = 'Push';
-  } else if (typeRaw.includes('clash') || typeRaw.includes('交锋')) {
-    folder = 'Clash';
-  } else {
-    const safeType = String(mapType || '').trim();
-    folder = safeType
-      ? safeType.charAt(0).toUpperCase() + safeType.slice(1).toLowerCase()
-      : 'Unknown';
-  }
-
-  const file = String(mapName)
-    .normalize('NFD')
+function toMapFileSlug(mapName) {
+  return safeText(mapName)
+    .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[：:.']/g, '')
     .trim()
     .replace(/\s+/g, '_');
+}
 
-  return `/assets/maps/${folder}/${file}.jpg`;
+function toTitleCaseSlug(slug) {
+  return safeText(slug)
+    .toLowerCase()
+    .split('_')
+    .map(part => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join('_');
+}
+
+function formatDisplayMapName(mapName) {
+  const key = normalizeMapKey(mapName);
+  if (key === 'aatlis' || key === 'atlis') return 'Aatlis';
+  return safeText(mapName);
+}
+
+function formatMapPaths(mapType, mapName) {
+  const rawName = safeText(mapName);
+  if (!rawName) return [];
+
+  const lookupKey = normalizeMapKey(rawName);
+  const compactKey = lookupKey.replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '');
+  const directKey = rawName.toLowerCase().trim();
+  const dictPath = MAP_DICTIONARY[directKey] || MAP_DICTIONARY[lookupKey] || MAP_DICTIONARY[compactKey];
+
+  const paths = [];
+
+  if (dictPath) {
+    paths.push(`/assets/maps/${dictPath}.jpg`);
+  }
+
+  const folder = getMapFolder(mapType);
+  const file = toMapFileSlug(rawName);
+  const lowerFile = file.toLowerCase();
+  const titleFile = toTitleCaseSlug(file);
+
+  paths.push(
+    `/assets/maps/${folder}/${file}.jpg`,
+    `/assets/maps/${folder}/${titleFile}.jpg`,
+    `/assets/maps/${folder}/${lowerFile}.jpg`
+  );
+
+  if (lookupKey === 'aatlis' || lookupKey === 'atlis') {
+    paths.push(
+      '/assets/maps/Flashpoint/Aatlis.jpg',
+      '/assets/maps/Flashpoint/AATLIS.jpg',
+      '/assets/maps/Flashpoint/Atlis.jpg',
+      '/assets/maps/Flashpoint/ATLIS.jpg'
+    );
+  }
+
+  return unique(paths);
 }
 
 function normalizeMetricLabel(label) {
@@ -235,14 +282,33 @@ function getAdvantageVisualWidth(a, b) {
   return Math.min(92, Math.max(56, 56 + raw * 2.2));
 }
 
-function ImageWithFallback({ src, alt = '', style = {}, fallback = null }) {
-  const [failed, setFailed] = useState(false);
+function ImageWithFallback({ src, sources, alt = '', style = {}, fallback = null }) {
+  const sourceKey = JSON.stringify({ src, sources });
 
-  useEffect(() => setFailed(false), [src]);
+  const cleanSources = useMemo(() => {
+    const srcList = Array.isArray(src) ? src : [src];
+    const sourceList = Array.isArray(sources) ? sources : [sources];
+    return unique([...sourceList, ...srcList]);
+  }, [sourceKey]);
 
-  if (!src || failed) return fallback;
+  const [idx, setIdx] = useState(0);
+  const currentSrc = cleanSources[idx];
 
-  return <img src={src} alt={alt} onError={() => setFailed(true)} style={style} />;
+  useEffect(() => setIdx(0), [sourceKey]);
+
+  if (!currentSrc) return fallback;
+
+  return (
+    <img
+      src={currentSrc}
+      alt={alt}
+      onError={() => {
+        if (idx < cleanSources.length - 1) setIdx(idx + 1);
+        else setIdx(cleanSources.length);
+      }}
+      style={style}
+    />
+  );
 }
 
 function Background({ mapBgPath, mapName }) {
@@ -1090,7 +1156,8 @@ function MetricMatrix({ rows }) {
 export default function MapProfileScene({ matchData = {} }) {
   const data = matchData.mapProfileData || {};
 
-  const mapName = safeText(data.mapName) || 'UNKNOWN MAP';
+  const rawMapName = safeText(data.mapName) || 'UNKNOWN MAP';
+  const mapName = formatDisplayMapName(rawMapName);
   const mapType = safeText(data.mapType) || 'MODE';
   const globalPlays = safeText(data.globalPlays) || '0';
 
@@ -1104,7 +1171,7 @@ export default function MapProfileScene({ matchData = {} }) {
 
   const title = safeText(data.title) || '地图数据';
   const subtitle = safeText(data.subtitle) || 'MAP DATA SNAPSHOT';
-  const mapBgPath = formatMapPath(mapType, mapName);
+  const mapBgPath = formatMapPaths(mapType, mapName);
 
   return (
     <div

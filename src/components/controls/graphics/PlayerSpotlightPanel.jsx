@@ -40,7 +40,7 @@ const UI = {
     cursor: 'pointer',
     fontWeight: 900,
     fontSize: 11,
-    minHeight: 34,
+    minHeight: 32,
     padding: '0 10px'
   })
 };
@@ -121,10 +121,12 @@ function getMapKeyFromLog(log, idx) {
 
 function parseTopHeroes(value) {
   if (Array.isArray(value)) return value.filter(Boolean);
-  if (typeof value === 'string') return value.split('/').map(v => v.trim()).filter(Boolean);
+  if (typeof value === 'string') return value.split(/[\/,，、]/).map(v => v.trim()).filter(Boolean);
   return [];
 }
 
+// Fallback aggregator：保留给旧数据结构 / 缺失 player_totals 时使用。
+// 当前主流程不直接调用，但作为数据兼容兜底函数保留更稳。
 function buildFallbackPlayerTotals(players = []) {
   return safeArr(players).map((player, idx) => {
     const logs = safeArr(player?.match_logs).filter(log => toNum(log?.playtimeMinutes) > 0);
@@ -537,47 +539,67 @@ function buildSpotlightPreset(rosterPlayer, roleEntry, roleBenchMap, tr) {
 const compactCardStyle = {
   border: '1px solid rgba(255,255,255,0.08)',
   background: 'rgba(255,255,255,0.025)',
-  padding: '10px 12px',
+  padding: '9px 10px',
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
-  minHeight: 98
+  minHeight: 86
 };
 
 const editorBlockStyle = {
   border: '1px solid rgba(255,255,255,0.08)',
   background: 'rgba(255,255,255,0.025)',
-  padding: '12px',
+  padding: '9px 10px',
   display: 'flex',
   flexDirection: 'column',
-  gap: 10
+  gap: 8,
+  minWidth: 0
+};
+
+const fieldLabelStyle = {
+  ...labelStyle,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis'
 };
 
 const metaCellStyle = {
-  border: '1px solid rgba(255,255,255,0.08)',
-  background: 'rgba(255,255,255,0.03)',
-  padding: '8px 10px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 6,
-  minHeight: 66
+  minWidth: 0
 };
 
 const metricCardStyle = {
   border: '1px solid rgba(255,255,255,0.08)',
   background: 'rgba(255,255,255,0.03)',
-  padding: '10px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-  minHeight: 96
+  padding: 8,
+  display: 'grid',
+  gridTemplateRows: '18px 30px 36px',
+  gap: 6,
+  minWidth: 0
 };
+
+const sectionTitleStyle = {
+  color: 'rgba(255,255,255,0.42)',
+  fontSize: 10,
+  fontWeight: 900,
+  letterSpacing: 1.2,
+  textTransform: 'uppercase',
+  lineHeight: 1
+};
+
+function Field({ label, children }) {
+  return (
+    <div style={metaCellStyle}>
+      <div style={fieldLabelStyle}>{label}</div>
+      {children}
+    </div>
+  );
+}
 
 export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTokens, is1080Compact }) {
   const { t: tr } = useTranslation();
   const { matchData, updateWithHistory, setPreviewScene, takeScene } = useMatchContext();
   const t = densityTokens || { panelPadding: '12px' };
-  const rowH = is1080Compact ? '32px' : '36px';
+  const rowH = is1080Compact ? '30px' : '32px';
 
   const [teamScope, setTeamScope] = useState('PLAYOFF');
   const [teamId, setTeamId] = useState('');
@@ -826,23 +848,19 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '360px minmax(0,1fr)', gap: 10, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '310px minmax(0,1fr)', gap: 10, alignItems: 'start' }}>
       <ShellPanel title={tr('dataGraphicsPanels.common.autoFill', { defaultValue: '自动填充' })} accent density={density} bodyStyle={{ padding: t.panelPadding }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div>
-            <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.playerScope', { defaultValue: '选手范围' })}</div>
+            <div style={fieldLabelStyle}>{tr('dataGraphicsPanels.playerSpotlight.playerScope', { defaultValue: '选手范围' })}</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <button style={UI.chip(teamScope === 'PLAYOFF')} onClick={() => handleScopeChange('PLAYOFF')}>
-                八强
-              </button>
-              <button style={UI.chip(teamScope === 'ALL')} onClick={() => handleScopeChange('ALL')}>
-                全部
-              </button>
+              <button style={UI.chip(teamScope === 'PLAYOFF')} onClick={() => handleScopeChange('PLAYOFF')}>八强</button>
+              <button style={UI.chip(teamScope === 'ALL')} onClick={() => handleScopeChange('ALL')}>全部</button>
             </div>
           </div>
 
           <div>
-            <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.selectTeamFirst', { defaultValue: '先选队伍' })}</div>
+            <div style={fieldLabelStyle}>{tr('dataGraphicsPanels.playerSpotlight.selectTeamFirst', { defaultValue: '先选队伍' })}</div>
             <select
               style={{ ...UI.select, height: rowH, color: COLORS.yellow, padding: '0 10px', fontWeight: 900 }}
               value={teamId}
@@ -855,15 +873,13 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
             >
               <option value="">{tr('dataGraphicsPanels.playerSpotlight.selectTeam', { defaultValue: '-- 选择队伍 --' })}</option>
               {teamOptions.map(team => (
-                <option key={`TEAM_${team.id}`} value={team.id}>
-                  {team.short}
-                </option>
+                <option key={`TEAM_${team.id}`} value={team.id}>{team.short}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.selectPlayerThen', { defaultValue: '再选选手' })}</div>
+            <div style={fieldLabelStyle}>{tr('dataGraphicsPanels.playerSpotlight.selectPlayerThen', { defaultValue: '再选选手' })}</div>
             <select
               style={{ ...UI.select, height: rowH, color: COLORS.yellow, padding: '0 10px', fontWeight: 900 }}
               value={selectedPlayerId}
@@ -875,15 +891,13 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
             >
               <option value="">{dbStatus === 'LOADED' ? tr('dataGraphicsPanels.playerSpotlight.selectAutofillPlayer', { defaultValue: '-- 选择要自动填充的选手 --' }) : tr('dataGraphicsPanels.common.waitingDb', { defaultValue: '-- 等待数据库 --' })}</option>
               {filteredPlayers.map((p, idx) => (
-                <option key={getSafeId(p, idx)} value={getSafeId(p, idx)}>
-                  {formatPlayerOptionLabel(p)}
-                </option>
+                <option key={getSafeId(p, idx)} value={getSafeId(p, idx)}>{formatPlayerOptionLabel(p)}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.dataRole', { defaultValue: '数据职责' })}</div>
+            <div style={fieldLabelStyle}>{tr('dataGraphicsPanels.playerSpotlight.dataRole', { defaultValue: '数据职责' })}</div>
             <select
               style={{ ...UI.select, height: rowH, color: COLORS.yellow, padding: '0 10px', fontWeight: 900 }}
               value={selectedDataRole}
@@ -903,213 +917,235 @@ export default function PlayerSpotlightPanel({ db, dbStatus, density, densityTok
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <button
-              type="button"
-              style={UI.chip(false)}
-              onClick={() => applyQuickPreset('RESET')}
-            >
+            <button type="button" style={UI.chip(false)} onClick={() => applyQuickPreset('RESET')}>
               {tr('dataGraphicsPanels.common.resetPreset', { defaultValue: '重置预设' })}
             </button>
-
-            <button
-              type="button"
-              style={UI.chip(formData.cardTag === tr('dataGraphicsPanels.playerSpotlight.mvp', { defaultValue: '本场 MVP' }))}
-              onClick={() => applyQuickPreset('MVP')}
-            >
+            <button type="button" style={UI.chip(formData.cardTag === tr('dataGraphicsPanels.playerSpotlight.mvp', { defaultValue: '本场 MVP' }))} onClick={() => applyQuickPreset('MVP')}>
               {tr('dataGraphicsPanels.playerSpotlight.mvp', { defaultValue: '本场 MVP' })}
             </button>
-
-            <button
-              type="button"
-              style={UI.chip(formData.cardTag === tr('dataGraphicsPanels.playerSpotlight.focusPlayer', { defaultValue: '焦点选手' }))}
-              onClick={() => applyQuickPreset('FOCUS')}
-            >
+            <button type="button" style={UI.chip(formData.cardTag === tr('dataGraphicsPanels.playerSpotlight.focusPlayer', { defaultValue: '焦点选手' }))} onClick={() => applyQuickPreset('FOCUS')}>
               {tr('dataGraphicsPanels.playerSpotlight.focusPlayer', { defaultValue: '焦点选手' })}
             </button>
-
-            <button
-              type="button"
-              style={UI.chip(formData.cardTag === tr('dataGraphicsPanels.playerSpotlight.starPlayer', { defaultValue: '明星选手' }))}
-              onClick={() => applyQuickPreset('STAR')}
-            >
+            <button type="button" style={UI.chip(formData.cardTag === tr('dataGraphicsPanels.playerSpotlight.starPlayer', { defaultValue: '明星选手' }))} onClick={() => applyQuickPreset('STAR')}>
               {tr('dataGraphicsPanels.playerSpotlight.starPlayer', { defaultValue: '明星选手' })}
             </button>
           </div>
 
           <div style={compactCardStyle}>
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.46)', fontWeight: 800 }}>{tr('dataGraphicsPanels.common.currentSource', { defaultValue: '当前来源' })}</div>
-            <div style={{ fontSize: 18, color: COLORS.white, fontWeight: 900, lineHeight: 1.1, wordBreak: 'break-word' }}>
+            <div style={{ fontSize: 17, color: COLORS.white, fontWeight: 900, lineHeight: 1.1, wordBreak: 'break-word' }}>
               {getDisplayName(activeRosterPlayer) || tr('dataGraphicsPanels.common.pendingSelect', { defaultValue: '待选择' })}
             </div>
             <div style={{ fontSize: 11, color: COLORS.yellow, fontWeight: 800 }}>
-              {activeRosterPlayer ? (<>
-                {activeRosterPlayer.team_short_name || '-'} · {tr('dataGraphicsPanels.playerSpotlight.registered', { defaultValue: '报名' })} {normalizeRole(activeRosterPlayer.role) || '-'}
-              </>) : '-'}
+              {activeRosterPlayer ? (<>{activeRosterPlayer.team_short_name || '-'} · {tr('dataGraphicsPanels.playerSpotlight.registered', { defaultValue: '报名' })} {normalizeRole(activeRosterPlayer.role) || '-'}</>) : '-'}
             </div>
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.58)', fontWeight: 700 }}>
               {activeRoleEntry ? `${tr('dataGraphicsPanels.playerSpotlight.dataRole', { defaultValue: '数据职责' })} ${normalizeRole(activeRoleEntry.role)} · ${activeRoleEntry.maps_played || 0} ${tr('dataGraphicsPanels.common.mapsUnit', { defaultValue: '图' })}` : tr('dataGraphicsPanels.playerSpotlight.noDataRole', { defaultValue: '未选择数据职责' })}
             </div>
             {!!getBattleTag(activeRosterPlayer) && (
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.52)', fontWeight: 700 }}>
-                {getBattleTag(activeRosterPlayer)}
-              </div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.52)', fontWeight: 700 }}>{getBattleTag(activeRosterPlayer)}</div>
             )}
           </div>
         </div>
       </ShellPanel>
 
       <ShellPanel title={tr('dataGraphicsPanels.playerSpotlight.editTitle', { defaultValue: '资料卡编辑' })} accent density={density} bodyStyle={{ padding: t.panelPadding }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 9, minWidth: 0 }}>
           <div style={editorBlockStyle}>
-            <div style={{ display: 'grid', gridTemplateColumns: '140px minmax(0,1fr)', gap: 10, alignItems: 'stretch' }}>
-              <div style={metaCellStyle}>
-                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.cardTag', { defaultValue: '卡片标签' })}</div>
-                <input
-                  style={{ ...UI.input, height: 34, padding: '0 10px', textAlign: 'center', color: COLORS.yellow, fontWeight: 900 }}
-                  value={formData.cardTag}
-                  onChange={e => setFormData({ ...formData, cardTag: e.target.value })}
-                />
+            <div style={sectionTitleStyle}>{tr('dataGraphicsPanels.playerSpotlight.basicInfo', { defaultValue: '基础信息' })}</div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
+                gap: 10,
+                alignItems: 'end'
+              }}
+            >
+              <div style={{ gridColumn: 'span 2', minWidth: 0 }}>
+                <Field label={tr('dataGraphicsPanels.playerSpotlight.cardTag', { defaultValue: '卡片标签' })}>
+                  <input
+                    style={{ ...UI.input, height: rowH, padding: '0 10px', textAlign: 'center', color: COLORS.yellow, fontWeight: 900 }}
+                    value={formData.cardTag}
+                    onChange={e => setFormData({ ...formData, cardTag: e.target.value })}
+                  />
+                </Field>
               </div>
 
-              <div style={metaCellStyle}>
-                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.displayName', { defaultValue: '显示名称' })}</div>
-                <input
-                  style={{ ...UI.input, height: 34, padding: '0 12px', textAlign: 'left', fontSize: 18, fontWeight: 900 }}
-                  value={formData.displayName}
-                  onChange={e => setFormData({ ...formData, displayName: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) 90px 90px 90px 84px 104px', gap: 10 }}>
-              <div style={metaCellStyle}>
-                <div style={labelStyle}>{tr('dataGraphicsPanels.common.battleTag', { defaultValue: '战网名' })}</div>
-                <input
-                  style={{ ...UI.input, height: 34, padding: '0 10px', textAlign: 'left' }}
-                  value={formData.battletag}
-                  onChange={e => setFormData({ ...formData, battletag: e.target.value })}
-                />
+              <div style={{ gridColumn: 'span 6', minWidth: 0 }}>
+                <Field label={tr('dataGraphicsPanels.playerSpotlight.displayName', { defaultValue: '显示名称' })}>
+                  <input
+                    style={{ ...UI.input, height: rowH, padding: '0 12px', textAlign: 'left', fontSize: 18, fontWeight: 900 }}
+                    value={formData.displayName}
+                    onChange={e => setFormData({ ...formData, displayName: e.target.value })}
+                  />
+                </Field>
               </div>
 
-              <div style={metaCellStyle}>
-                <div style={labelStyle}>{tr('dataGraphicsPanels.common.team', { defaultValue: '队伍' })}</div>
-                <input
-                  style={{ ...UI.input, height: 34, padding: '0 8px', textAlign: 'center', color: COLORS.yellow }}
-                  value={formData.teamShort}
-                  onChange={e => setFormData({ ...formData, teamShort: e.target.value })}
-                />
+              <div style={{ gridColumn: 'span 4', minWidth: 0 }}>
+                <Field label={tr('dataGraphicsPanels.common.battleTag', { defaultValue: '战网名' })}>
+                  <input
+                    style={{ ...UI.input, height: rowH, padding: '0 10px', textAlign: 'left' }}
+                    value={formData.battletag}
+                    onChange={e => setFormData({ ...formData, battletag: e.target.value })}
+                  />
+                </Field>
               </div>
 
-              <div style={metaCellStyle}>
-                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.registeredRole', { defaultValue: '报名职责' })}</div>
-                <input
-                  style={{ ...UI.input, height: 34, padding: '0 8px', textAlign: 'center' }}
-                  value={formData.registeredRole}
-                  onChange={e => setFormData({ ...formData, registeredRole: e.target.value })}
-                />
+              <div style={{ gridColumn: 'span 2', minWidth: 0 }}>
+                <Field label={tr('dataGraphicsPanels.common.team', { defaultValue: '队伍' })}>
+                  <input
+                    style={{ ...UI.input, height: rowH, padding: '0 8px', textAlign: 'center', color: COLORS.yellow, fontWeight: 900 }}
+                    value={formData.teamShort}
+                    onChange={e => setFormData({ ...formData, teamShort: e.target.value })}
+                  />
+                </Field>
               </div>
 
-              <div style={metaCellStyle}>
-                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.dataRole', { defaultValue: '数据职责' })}</div>
-                <input
-                  style={{ ...UI.input, height: 34, padding: '0 8px', textAlign: 'center', color: COLORS.yellow }}
-                  value={formData.dataRole}
-                  onChange={e => setFormData({ ...formData, dataRole: e.target.value })}
-                />
+              <div style={{ gridColumn: 'span 2', minWidth: 0 }}>
+                <Field label={tr('dataGraphicsPanels.playerSpotlight.registeredRole', { defaultValue: '报名职责' })}>
+                  <input
+                    style={{ ...UI.input, height: rowH, padding: '0 8px', textAlign: 'center', fontWeight: 900 }}
+                    value={formData.registeredRole}
+                    onChange={e => setFormData({ ...formData, registeredRole: e.target.value })}
+                  />
+                </Field>
               </div>
 
-              <div style={metaCellStyle}>
-                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.mapsPlayed', { defaultValue: '地图数' })}</div>
-                <input
-                  style={{ ...UI.input, height: 34, padding: '0 8px', textAlign: 'center' }}
-                  value={formData.mapsPlayed}
-                  onChange={e => setFormData({ ...formData, mapsPlayed: e.target.value })}
-                />
+              <div style={{ gridColumn: 'span 2', minWidth: 0 }}>
+                <Field label={tr('dataGraphicsPanels.playerSpotlight.dataRole', { defaultValue: '数据职责' })}>
+                  <input
+                    style={{ ...UI.input, height: rowH, padding: '0 8px', textAlign: 'center', color: COLORS.yellow, fontWeight: 900 }}
+                    value={formData.dataRole}
+                    onChange={e => setFormData({ ...formData, dataRole: e.target.value })}
+                  />
+                </Field>
               </div>
 
-              <div style={metaCellStyle}>
-                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.playTime', { defaultValue: '上场时间' })}</div>
-                <input
-                  style={{ ...UI.input, height: 34, padding: '0 8px', textAlign: 'center', color: COLORS.yellow }}
-                  value={formData.playTime}
-                  onChange={e => setFormData({ ...formData, playTime: e.target.value })}
-                />
+              <div style={{ gridColumn: 'span 2', minWidth: 0 }}>
+                <Field label={tr('dataGraphicsPanels.playerSpotlight.mapsPlayed', { defaultValue: '地图数' })}>
+                  <input
+                    style={{ ...UI.input, height: rowH, padding: '0 8px', textAlign: 'center', fontWeight: 900 }}
+                    value={formData.mapsPlayed}
+                    onChange={e => setFormData({ ...formData, mapsPlayed: e.target.value })}
+                  />
+                </Field>
+              </div>
+
+              <div style={{ gridColumn: 'span 2', minWidth: 0 }}>
+                <Field label={tr('dataGraphicsPanels.playerSpotlight.playTime', { defaultValue: '上场时间' })}>
+                  <input
+                    style={{ ...UI.input, height: rowH, padding: '0 8px', textAlign: 'center', color: COLORS.yellow, fontWeight: 900 }}
+                    value={formData.playTime}
+                    onChange={e => setFormData({ ...formData, playTime: e.target.value })}
+                  />
+                </Field>
+              </div>
+
+              <div style={{ gridColumn: 'span 2', minWidth: 0 }}>
+                <Field label={tr('dataGraphicsPanels.common.status', { defaultValue: '状态' })}>
+                  <div
+                    style={{
+                      height: rowH,
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: selectedPlayerId ? 'rgba(255,255,255,0.58)' : 'rgba(255,255,255,0.28)',
+                      fontSize: 10,
+                      fontWeight: 900,
+                      letterSpacing: 1.1,
+                      boxSizing: 'border-box',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {selectedPlayerId ? tr('dataGraphicsPanels.common.ready', { defaultValue: 'READY' }) : tr('dataGraphicsPanels.common.pending', { defaultValue: 'PENDING' })}
+                  </div>
+                </Field>
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 360px', gap: 10 }}>
-            <div style={editorBlockStyle}>
-              <div style={{ display: 'grid', gridTemplateColumns: '180px minmax(0,1fr)', gap: 8 }}>
-                <div>
-                  <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.styleTag', { defaultValue: '风格标签' })}</div>
-                  <input
-                    style={{ ...UI.input, height: rowH, padding: '0 10px', textAlign: 'center', color: COLORS.yellow, fontWeight: 900 }}
-                    value={formData.styleTag}
-                    onChange={e => setFormData({ ...formData, styleTag: e.target.value })}
-                  />
-                </div>
+          <div style={editorBlockStyle}>
+            <div style={sectionTitleStyle}>{tr('dataGraphicsPanels.playerSpotlight.styleAndHero', { defaultValue: '风格与英雄池' })}</div>
 
-                <div>
-                  <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.styleDesc', { defaultValue: '风格描述' })}</div>
-                  <input
-                    style={{ ...UI.input, height: rowH, padding: '0 10px', textAlign: 'left' }}
-                    value={formData.styleDesc}
-                    onChange={e => setFormData({ ...formData, styleDesc: e.target.value })}
-                  />
-                </div>
-              </div>
-            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(0,1fr)', gap: 10 }}>
+              <Field label={tr('dataGraphicsPanels.playerSpotlight.styleTag', { defaultValue: '风格标签' })}>
+                <input
+                  style={{ ...UI.input, height: rowH, padding: '0 10px', textAlign: 'center', color: COLORS.yellow, fontWeight: 900 }}
+                  value={formData.styleTag}
+                  onChange={e => setFormData({ ...formData, styleTag: e.target.value })}
+                />
+              </Field>
 
-            <div style={editorBlockStyle}>
-              <div>
-                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.heroPool', { defaultValue: '英雄池概览' })}</div>
+              <Field label={tr('dataGraphicsPanels.playerSpotlight.heroPool', { defaultValue: '英雄池概览' })}>
                 <input
                   style={{ ...UI.input, height: rowH, padding: '0 10px', textAlign: 'left' }}
                   value={formData.heroPool}
                   onChange={e => setFormData({ ...formData, heroPool: e.target.value, topHeroes: e.target.value })}
                 />
-              </div>
+              </Field>
             </div>
+
+            <Field label={tr('dataGraphicsPanels.playerSpotlight.styleDesc', { defaultValue: '风格描述' })}>
+              <input
+                style={{ ...UI.input, height: rowH, padding: '0 10px', textAlign: 'left' }}
+                value={formData.styleDesc}
+                onChange={e => setFormData({ ...formData, styleDesc: e.target.value })}
+              />
+            </Field>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
-            {formData.metrics.map((row, idx) => (
-              <div key={`metric_${idx}`} style={metricCardStyle}>
-                <div style={labelStyle}>{tr('dataGraphicsPanels.playerSpotlight.metricSlot', { defaultValue: '数据槽 {{num}}', num: idx + 1 })}</div>
-                <input
-                  style={{
-                    ...UI.input,
-                    height: 32,
-                    padding: '0 8px',
-                    textAlign: 'center',
-                    fontSize: 11,
-                    backgroundColor: 'rgba(255,255,255,0.05)'
-                  }}
-                  value={row.label}
-                  onChange={e => updateMetric(idx, 'label', e.target.value)}
-                />
-                <input
-                  style={{
-                    ...UI.input,
-                    height: 40,
-                    padding: '0 8px',
-                    textAlign: 'center',
-                    color: COLORS.yellow,
-                    fontSize: 20,
-                    fontWeight: 900
-                  }}
-                  value={row.value}
-                  onChange={e => updateMetric(idx, 'value', e.target.value)}
-                />
+          <div style={editorBlockStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={sectionTitleStyle}>{tr('dataGraphicsPanels.playerSpotlight.metricEditor', { defaultValue: '核心数据' })}</div>
+              <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>
+                {formData.metrics.length} SLOTS
               </div>
-            ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
+              {formData.metrics.map((row, idx) => (
+                <div key={`metric_${idx}`} style={metricCardStyle}>
+                  <div style={{ ...fieldLabelStyle, color: 'rgba(255,255,255,0.38)' }}>
+                    {tr('dataGraphicsPanels.playerSpotlight.metricSlot', { defaultValue: '数据槽 {{num}}', num: idx + 1 })}
+                  </div>
+                  <input
+                    style={{
+                      ...UI.input,
+                      height: 30,
+                      padding: '0 7px',
+                      textAlign: 'center',
+                      fontSize: 11,
+                      fontWeight: 900,
+                      backgroundColor: 'rgba(255,255,255,0.045)'
+                    }}
+                    value={row.label}
+                    onChange={e => updateMetric(idx, 'label', e.target.value)}
+                  />
+                  <input
+                    style={{
+                      ...UI.input,
+                      height: 36,
+                      padding: '0 8px',
+                      textAlign: 'center',
+                      color: COLORS.yellow,
+                      fontSize: 20,
+                      fontWeight: 900
+                    }}
+                    value={row.value}
+                    onChange={e => updateMetric(idx, 'value', e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           <button
             style={{
               ...UI.btn,
-              height: 44,
+              height: 40,
               backgroundColor: COLORS.yellow,
               color: COLORS.black,
               fontWeight: 900,
